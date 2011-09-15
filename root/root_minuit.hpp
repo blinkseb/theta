@@ -19,6 +19,9 @@
  *  printlevel = 1; // optional. Default is 0
  *  method = "simplex"; //optional. Default is "migrad"
  *  tolerance = 0.001; //optional. Default as in ROOT::Minuit2
+ *  max_iterations = 10000; // optional. Default as in ROOT::Minuit2
+ *  max_function_calls = 100000; //optional. Default as in ROOT::Minuit2
+ *  n_retries = 10; // optional; the default is 2
  * }
  * \endcode
  *
@@ -30,6 +33,12 @@
  *
  * \c tolerance is the Tolerance as should be documented in ROOT::Minuit2::Minuit2Minimizer::SetTolerance.
  *  Default is the one used by ROOT::Minuit2::Minuit2Minimizer.
+ *
+ * \c max_iterationc and \c max_function_calls are the according settings of ROOT::Minuit2::Minuit2Minimizer.
+ *
+ * \c n_retries is the maximum number of retries in case the first minimization attempt fails. In some cases,
+ *    the success rate for the minimization can be increased by re-running the minimization starting at the parameter values
+ *    of the current (failed) attempt.
  *
  * Please note that this plugin relies on the Minuit2 implementation of ROOT which is poorly documented. Minuit2
  * is a C++ proxy to the fortran MINUIT for which you can find more documentation.
@@ -58,6 +67,7 @@ private:
     std::auto_ptr<ROOT::Minuit2::Minuit2Minimizer> min;
     double tolerance;
     int printlevel;
+    int max_iterations, max_function_calls, n_retries;
 };
 
 #endif

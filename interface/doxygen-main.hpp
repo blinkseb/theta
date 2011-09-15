@@ -21,7 +21,7 @@
  * For getting started with %theta quickly, make sure to install sqlite3, boost, root and cmake on your machine
  * and run
  * \code
- *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/trunk theta
+ *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/stable theta
  *  cd theta
  *  # Option 1: you have cmake
  *  mkdir build
@@ -51,6 +51,8 @@
  *   <li>\subpage cmd_interface "Command line interface" described the command line tools of %theta, namely the \c theta
  *     program and the \c merge program.</li>
  *   <li>\subpage extend "Extending theta" describes how to extend %theta using the plugin system</li>
+ *   <li>\subpage theta_auto_intro "Introduction to theta-auto" gives an introduction to python scripts which can be used to automatically
+ *     generate %theta configuration files and analyze %theta output.</li>
  * </ol>
  *
  * Bug tracking and feature requests are managed in the <a href="https://ekptrac.physik.uni-karlsruhe.de/trac/theta">theta trac</a>.
@@ -155,9 +157,9 @@
  *
  * \section obtaining Obtaining theta
  *
- * %theta is available as source-code distribution via subversion only. The latest version can be obtained by running
+ * %theta is available as source-code distribution via subversion only. The latest stable version can be obtained by running
  * <pre>
- * svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/april-2010 theta
+ * svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/stable theta
  * </pre>
  * You can use CMSSW software to provide the necessary dependencies. If you want to do that, make sure
  * to issue \c cmsenv before you build %theta.
@@ -233,7 +235,7 @@
  *  cd CMSSW_3_8_4/src
  *  cmsenv
  *  cd ../..
- *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/trunk theta
+ *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/stable theta
  *  cd theta
  *  make
  *  bin/theta examples/gaussoverflat.cfg

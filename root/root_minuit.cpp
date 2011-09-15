@@ -54,6 +54,9 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     //Using a "new" one every time seems very wastefull, but it seems to work ...
     min.reset(new ROOT::Minuit2::Minuit2Minimizer(type));
     min->SetPrintLevel(printlevel);
+    //theta::cout << "maxfunctioncalls: " << min->MaxFunctionCalls() << "; maxiterations: " << min->MaxIterations() << endl;
+    if(max_function_calls > 0) min->SetMaxFunctionCalls(max_function_calls);
+    if(max_iterations > 0) min->SetMaxIterations(max_iterations);
     MinimizationResult result;
 
     //1. setup parameters, limits and initial step sizes
@@ -106,10 +109,12 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     min->SetErrorDef(0.5);
     
     //4. minimize. In case of failure, try harder
-    bool success;
-    for(int i=1; i<=3; i++){
-        success = min->Minimize();
-        if(success) break;
+    bool success = min->Minimize();
+    if(!success){
+        for(int i=1; i<=n_retries; i++){
+            success = min->Minimize();
+            if(success) break;
+        }
     }
 
     //5. do error handling
@@ -167,9 +172,18 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     return result;
 }
 
-root_minuit::root_minuit(const Configuration & cfg): Minimizer(cfg), tolerance(NAN), printlevel(0){
+root_minuit::root_minuit(const Configuration & cfg): Minimizer(cfg), tolerance(NAN), printlevel(0), max_iterations(0), max_function_calls(0), n_retries(2) {
        if(cfg.setting.exists("printlevel")){
            printlevel = cfg.setting["printlevel"];
+       }
+       if(cfg.setting.exists("max_iterations")){
+          max_iterations = cfg.setting["max_iterations"];
+       }
+       if(cfg.setting.exists("max_function_calls")){
+          max_iterations = cfg.setting["max_function_calls"];
+       }
+       if(cfg.setting.exists("n_retries")){
+          n_retries = cfg.setting["n_retries"];
        }
        string method = "migrad";
        if(cfg.setting.exists("method")){
