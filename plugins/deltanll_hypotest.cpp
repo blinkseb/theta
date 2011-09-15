@@ -29,9 +29,9 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
     minres = minimizer->minimize(*nll, b_only_mode, b_only_width, b_only_support);
     double nll_b = minres.fval;
     
-    products_sink->set_product(*c_nll_sb, nll_sb);
-    products_sink->set_product(*c_nll_b, nll_b);
-    products_sink->set_product(*c_nll_diff, nll_b - nll_sb);
+    products_sink->set_product(c_nll_sb, nll_sb);
+    products_sink->set_product(c_nll_b, nll_b);
+    products_sink->set_product(c_nll_diff, nll_b - nll_sb);
 }
 
 

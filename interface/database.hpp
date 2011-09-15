@@ -10,6 +10,7 @@
 #include "interface/decls.hpp"
 #include "interface/plugin.hpp"
 #include "interface/data_type.hpp"
+#include "interface/histogram.hpp"
 #include "interface/producer.hpp"
 
 namespace theta {
@@ -76,15 +77,14 @@ public:
      */
     virtual std::auto_ptr<ResultIterator> query(const std::string & table_name, const std::vector<std::string> & column_names) = 0;
     virtual ~DatabaseInput(){}
-
 };
 
 
 /** \brief Abstract database class for data output
  *
  * A database in theta is a collection of tables. Tables are identified by a unique name
- * within the database and can contain an arbitrary number of columns (identified by name) of type double, int, string and
- * Histogram.
+ * within the database and can contain an arbitrary number of columns (identified by a name string)
+ * of type double, int, string and Histogram.
  *
  * This is an abstract class. Concrete instances can be retrieved via the plugin system using
  * this class a template argument to PluginManager.
@@ -103,7 +103,6 @@ public:
      * closing the network connection for network-based, etc.).
      */
     virtual ~Database(){}
-    
     
     /** \brief Create a new table instance within this database
      *
@@ -127,22 +126,90 @@ protected:
 };
 
 
+/** \brief Class representing a single Column within a Table
+ * 
+ * This is a minimal class which only implements an "identity" and an operator< in order to be used in maps and alike.
+ * All creation and access is done via an instance of Table.
+ */
+class Column{
+public:
+    bool operator<(const Column & rhs) const{
+        return id < rhs.id;
+    }
+    explicit Column(int id_ = -1): id(id_){}
+    
+    int get_id() const{
+        return id;
+    }
+private:
+    int id;
+};
+
+
+class Row{
+public:
+    void set_column(const Column & col, double d){
+        doubles[col] = d;
+    }
+    void set_column(const Column & col, int i){
+        ints[col] = i;
+    }
+    void set_column(const Column & col, const std::string & s){
+        strings[col] = s;
+    }
+    void set_column(const Column & col, const Histogram & h){
+        histos[col] = h;
+    }
+    
+    double get_column_double(const Column & col) const{
+        std::map<Column, double>::const_iterator it = doubles.find(col);
+        if(it==doubles.end()) throw DatabaseException("Row: column not set");
+        return it->second;
+    }
+    int get_column_int(const Column & col) const{
+        std::map<Column, int>::const_iterator it = ints.find(col);
+        if(it==ints.end()) throw DatabaseException("Row: column not set");
+        return it->second;
+    }
+    const std::string & get_column_string(const Column & col) const{
+        std::map<Column, std::string>::const_iterator it = strings.find(col);
+        if(it==strings.end()) throw DatabaseException("Row: column not set");
+        return it->second;
+    }
+    const Histogram & get_column_histogram(const Column & col) const{
+        std::map<Column, Histogram>::const_iterator it = histos.find(col);
+        if(it==histos.end()) throw DatabaseException("Row: column not set");
+        return it->second;
+    }
+private:
+    std::map<Column, double> doubles;
+    std::map<Column, int> ints;
+    std::map<Column, std::string> strings;
+    std::map<Column, Histogram> histos;
+};
+
 
 /** \brief Abstract class for a table in a Database
  *
  * Tables are always constrcuted via a Datase instance. Once created, it can be used by:
  * <ol>
- *   <li>calling add_column one or more times at initialization and saving the result
- *       in some data member of the derived class</li>
- *   <li>To write out a row, call the set_column methods on all defined columns,
- *       followed by a call to add_row</li>
+ *   <li>calling get_column one or more times and save the returned Column handles</li>
+ *   <li>To write out a row, create a Row instance and call Row::set_column, using the Column handles from the previous step. After the Row instance
+ *       is fully populated (=has values for all Columns in this Table), call Table::add_row.</li>
  * </ol>
  *
- * After the first call of set_column or add_row, to more calls to add_column are allowed.
- *
- * To meet this specification, derived classes will usually defer the actual table creation in the underlying
- * implementation until the first call of set_column or add_row. Note that even if no rows are added via add_row,
- * the table must still be created.
+ * If the Table is modified (via a call to get_column) between a call to Table::get_row_template and Table::add_row, add_row
+ * will throw a DatabaseException.
+ */
+/* Implementation notes: there used to be an old interface for Table consisting of
+ * set_column(Column &, const T & value)    [T=double, int, string, Histogram]
+ * and
+ * add_row()
+ * methods; a user of this class would first call set_column for all columns; a subsequent call to add_row would
+ * add a row with the latest set values.
+ * Instead, the new interface encapsulates the data state for a new row into a Row instance. This is done
+ * for easier implementation of concurrency: different threads can populate their own Row instance and add it via a single call
+ * to add_row, which is much easier to synchronise than a block of set_column calls, followed by a add_row.
  */
 class Table: private boost::noncopyable {
 public:
@@ -152,51 +219,18 @@ public:
     
     /** \brief Add a column to the table
      *
-     * The column will have name \c name and a data type scpecified by \c type.
+     * Retrievies a handle for the column with the given name and type, effectively creating such a column.
      *
-     * The result can be used as first argument to the set_column() methods. Other than saving it
-     * and using it in \c set_column, you should not do anything with it.
+     * The result can be used as first argument to the Row::set_column() methods.
      *
      * This method should only be called at the beginning, after the construction of the object and
-     * before using it to actually write any data. If this method is called after a call
-     * to either set_column or add_row, an IllegalStateException will be thrown.
+     * before using it to actually write any data.
      */
-    virtual std::auto_ptr<Column> add_column(const std::string & name, const data_type & type) = 0;
-    
-    /** \brief Set an autoincrement column to this table
-     *
-     * Can be called at most once per table, i.e., a table can have at most one
-     * autoinc column. If called more than once, an InvalidArgumentException is thrown.
-     *
-     * It is only valid to call this method if it is valid to call add_column.
-     */
-    virtual void set_autoinc_column(const std::string & name) = 0;
-    
-    //@{
-    /** \brief Set column contents
-     *
-     * The first argument must be a column as returned by add_column.
-     *
-     * After setting all columns, add_row() has to be called to actually write
-     * a row to the result table.
-     */
-    virtual void set_column(const Column & c, double d) = 0;
-    virtual void set_column(const Column & c, int i) = 0;
-    virtual void set_column(const Column & c, const std::string & s) = 0;
-    virtual void set_column(const Column & c, const theta::Histogram & histo) = 0;
-    //@}
-    
+    virtual Column add_column(const std::string & name, const data_type & type) = 0;
     
     /** \brief Add a row to the table
-     *
-     * This uses the column values previously set with the set_column methods.
-     * If set_column was not called for all columns in the table, the contents of these columns
-     * will have a NULL-like value which depends on the particular implementation.
-     *
-     * If the table has an autoinc_column, i.e., if set_autoinc_column has been called,
-     * the added id is returned. Otherwise, the result will always be 0.
      */
-    virtual int add_row() = 0;
+    virtual void add_row(const Row & row) = 0;
 protected:
     //the tables always hold a shared ptr to the database to prevent
     // the database being destroyed earlier than all its tables (!)
@@ -204,13 +238,6 @@ protected:
     Table(const boost::shared_ptr<Database> & db_): db(db_){}
 private:
     Table(); //not implemented
-};
-
-/** \brief Base class for columns managed by Tables
- */
-class Column{
-public:
-    virtual ~Column() = 0;
 };
 
 
@@ -238,19 +265,19 @@ public:
         /** \brief Forwards to Table::set_column
          */
         virtual void set_product(const Column & c, double d){
-            table->set_column(c, d);
+            current_row.set_column(c, d);
         }
         
         virtual void set_product(const Column & c, int i){
-            table->set_column(c, i);
+            current_row.set_column(c, i);
         }
         
         virtual void set_product(const Column & c, const std::string & s){
-            table->set_column(c, s);
+            current_row.set_column(c, s);
         }
         
         virtual void set_product(const Column & c, const theta::Histogram & histo){
-            table->set_column(c, histo);
+            current_row.set_column(c, histo);
         }
         
         //@}
@@ -265,7 +292,7 @@ public:
          *   tw.getName() + "__" + column_name
          * \endcode
          */
-        virtual std::auto_ptr<Column> declare_product(const theta::ProductsSource & source, const std::string & product_name, const data_type & type);
+        virtual Column declare_product(const theta::ProductsSource & source, const std::string & product_name, const data_type & type);
         
         /** \brief Construct a new ProductsTable based on the given table
          *
@@ -281,7 +308,8 @@ public:
         
 private:
     std::auto_ptr<Table> table;
-    std::auto_ptr<Column> c_runid, c_eventid;
+    Row current_row;
+    Column c_runid, c_eventid;
 };
 
 
@@ -375,7 +403,7 @@ private:
     void really_append(int runid, int eventid, e_severity s, const std::string & message);
     e_severity level;
     int n_messages[4];
-    std::auto_ptr<Column> c_runid, c_eventid, c_severity, c_message, c_time;
+    Column c_runid, c_eventid, c_severity, c_message, c_time;
     std::auto_ptr<Table> table;
 };
 
@@ -407,7 +435,7 @@ public:
      */
     void append(int runid, const std::string & name, int seed);
 private:
-    std::auto_ptr<Column> c_runid, c_name, c_seed;
+    Column c_runid, c_name, c_seed;
     std::auto_ptr<Table> table;
 };
 

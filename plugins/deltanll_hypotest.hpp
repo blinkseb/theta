@@ -79,7 +79,7 @@ private:
     
     std::auto_ptr<theta::Minimizer> minimizer;
     
-    std::auto_ptr<theta::Column> c_nll_b, c_nll_sb, c_nll_diff;
+    theta::Column c_nll_b, c_nll_sb, c_nll_diff;
 };
 
 #endif

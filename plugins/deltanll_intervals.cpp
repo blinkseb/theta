@@ -24,7 +24,7 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
     }
     MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);
     const double value_at_minimum = minres.values.get(pid);
-    products_sink->set_product(*c_maxl, value_at_minimum);
+    products_sink->set_product(c_maxl, value_at_minimum);
     ReducedNLL nll_r(*nll, pid, minres.values, re_minimize ? minimizer.get() : 0, start, step, ranges);
     const pair<double, double> & range = ranges[pid];
     for(size_t i=0; i < deltanll_levels.size(); ++i){

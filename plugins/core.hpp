@@ -457,10 +457,10 @@ private:
     theta::ParValues parameters_for_nll;
     
     bool save_nll;
-    std::auto_ptr<theta::Column> c_nll;
+    theta::Column c_nll;
     
     theta::ParIds par_ids;
-    boost::ptr_vector<theta::Column> parameter_columns;
+    std::vector<theta::Column> parameter_columns;
     
     std::auto_ptr<theta::Model> model;
     std::auto_ptr<theta::Distribution> override_parameter_distribution;

@@ -112,8 +112,6 @@ private:
         class rootfile_column_int;
         
         boost::shared_ptr<rootfile_database> db;
-        //this pointer is owned by user of the table via the auto_ptr returned by add_column(!)
-        std::auto_ptr<rootfile_column_int> autoinc_column;
         
         std::set<std::string> save_columns;
         bool save_all_columns;
@@ -121,61 +119,25 @@ private:
         bool products_table;
         
         TTree * tree;
+        int next_id;
         
         rootfile_table(const std::string & tablename, const boost::shared_ptr<rootfile_database> & db);
         virtual ~rootfile_table();
         
-        std::auto_ptr<theta::Column> add_column(const std::string & name, const theta::data_type & type);
-        virtual void set_autoinc_column(const std::string & name);
-        virtual void set_column(const theta::Column & c, double d);
-        virtual void set_column(const theta::Column & c, int i);
-        virtual void set_column(const theta::Column & c, const std::string & s);
-        virtual void set_column(const theta::Column & c, const theta::Histogram & h);
-        virtual int add_row();
-    
-        class rootfile_column: public theta::Column{
-        public:
+        theta::Column add_column(const std::string & name, const theta::data_type & type);
+        virtual void add_row(const theta::Row & row);
+        
+        struct column_data{
             std::string name;
-            rootfile_column(const std::string & name_): name(name_){}
-            virtual ~rootfile_column(){}
+            theta::data_type type;
+            union u_data{
+                int i;
+                double d;
+                TString * s;
+                TH1D * h;
+            } data;
         };
-        
-        class rootfile_column_int: public rootfile_column{
-        public:
-            mutable int i;
-            rootfile_column_int(const std::string & name_): rootfile_column(name_){}
-            virtual ~rootfile_column_int(){}
-        };
-        
-        class rootfile_column_double: public rootfile_column{
-        public:
-            mutable double d;
-            rootfile_column_double(const std::string & name_): rootfile_column(name_){}
-            virtual ~rootfile_column_double(){}
-        };
-        
-        class rootfile_column_string: public rootfile_column{
-        public:
-            mutable TString * s;
-            rootfile_column_string(const std::string & name_): rootfile_column(name_){
-                s = new TString();
-            }
-            virtual ~rootfile_column_string(){
-                delete s;
-            }
-        };
-        
-        class rootfile_column_histo: public rootfile_column{
-        public:
-            mutable TH1D * h;
-            rootfile_column_histo(const std::string & name_): rootfile_column(name_){
-              h = new TH1D(name.c_str(), name.c_str(), 1, 0, 1);
-            }
-            virtual ~rootfile_column_histo(){
-               delete h;
-            }
-        };
-        
+        std::map<theta::Column, column_data> column_datas;
     };
 };
 

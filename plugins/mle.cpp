@@ -33,7 +33,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
         start_step_ranges_init = true;
     }
     MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);
-    products_sink->set_product(*c_nll, minres.fval);
+    products_sink->set_product(c_nll, minres.fval);
     for(size_t i=0; i<save_ids.size(); ++i){
         products_sink->set_product(parameter_columns[i], minres.values.get(save_ids[i]));
         products_sink->set_product(error_columns[i], 0.5 * (minres.errors_plus.get(save_ids[i]) + minres.errors_minus.get(save_ids[i])) );
@@ -49,7 +49,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
                h.set(i*N + j + 1, minres.covariance(index_i,index_j));
            }
        }
-       products_sink->set_product(*c_covariance, h);
+       products_sink->set_product(c_covariance, h);
     }
     if(write_ks_ts){
         ObsIds obs = data.getObservables();
@@ -67,7 +67,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
                 ks_ts = max(ks_ts, fabs(sum_d - sum_p));
             }
         }
-        products_sink->set_product(*c_ks_ts, ks_ts);
+        products_sink->set_product(c_ks_ts, ks_ts);
     }
     if(write_bh_ts){
         ObsIds obs = data.getObservables();
@@ -84,7 +84,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
                 bh_ts = max(bh_ts, bump);
             }
         }
-        products_sink->set_product(*c_bh_ts, bh_ts);
+        products_sink->set_product(c_bh_ts, bh_ts);
     }
 }
 

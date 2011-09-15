@@ -5,13 +5,6 @@
 file(GLOB plugin_sources *.cpp)
 set(plugin_link_libraries "")
 
-if(psql)
-  list(APPEND plugin_sources postgresql_database.cxx)
-#  target_link_libraries(plugin pq)
-  set(plugin_link_libraries pq)
-  include_directories("/usr/include/postgresql/")
-endif()
-
 add_library(plugin MODULE ${plugin_sources})
 target_link_libraries(plugin libtheta sqlite3 ${plugin_link_libraries} ${Boost_LIBRARIES})
 

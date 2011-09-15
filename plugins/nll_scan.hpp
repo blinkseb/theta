@@ -70,7 +70,7 @@ private:
     
 
     //table columns:
-    std::auto_ptr<theta::Column> c_nll, c_maxl;
+    theta::Column c_nll, c_maxl;
 };
 
 #endif

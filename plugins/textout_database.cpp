@@ -49,46 +49,15 @@ std::auto_ptr<Table> textout_database::create_table(const string & table_name){
 }
 
 
-textout_database::textout_table::textout_table(const string & name_, const boost::shared_ptr<textout_database> & db_) : Table(db_), irow(0),
-    name(name_), have_autoinc(false), next_autoinc_value(1), db(db_), save_all_columns(true) {
+textout_database::textout_table::textout_table(const string & name_, const boost::shared_ptr<textout_database> & db_) : Table(db_), next_colid(0), irow(0),
+    name(name_), db(db_), save_all_columns(true) {
 }
 
-std::auto_ptr<Column> textout_database::textout_table::add_column(const std::string & name, const data_type & type){
-    if(!save_all_columns && save_columns.find(name) == save_columns.end()) return std::auto_ptr<Column>(new textout_column(-1));
-    column_names.push_back(name);
-    current_col_values.resize(current_col_values.size()+1);
-    return std::auto_ptr<Column>(new textout_column(current_col_values.size() - 1));
-}
-
-
-void textout_database::textout_table::set_autoinc_column(const std::string & name){
-    if(have_autoinc)
-         throw InvalidArgumentException("textout_database::textout_table::set_autoinc_column: already have an autoinc column");
-    have_autoinc = true;
-}
-
-void textout_database::textout_table::set_column(const Column & c, double d){
-    int index = static_cast<const textout_column&>(c).index;
-    if(index >= 0)
-        current_col_values[index] = d;
-}
-
-void textout_database::textout_table::set_column(const Column & c, int i){
-    int index = static_cast<const textout_column&>(c).index;
-    if(index >= 0)
-        current_col_values[index] = i;
-}
-
-void textout_database::textout_table::set_column(const Column & c, const std::string & s){
-    int index = static_cast<const textout_column&>(c).index;
-    if(index >= 0)
-        current_col_values[index] = s;
-}
-
-void textout_database::textout_table::set_column(const Column & c, const theta::Histogram & h){
-    int index = static_cast<const textout_column&>(c).index;
-    if(index >= 0)
-        current_col_values[index] = h;
+Column textout_database::textout_table::add_column(const std::string & name, const data_type & type){
+    if(!save_all_columns && save_columns.find(name) == save_columns.end()) return Column(-1);
+    Column result(next_colid++);
+    column_infos[result] = column_info(name, type);
+    return result;
 }
 
 ostream & operator<<(ostream & out, const theta::Histogram & h){
@@ -99,32 +68,28 @@ ostream & operator<<(ostream & out, const theta::Histogram & h){
     return out << h.get(h.get_nbins()+1) << "])";
 }
 
-class printer: public boost::static_visitor<>{
-private:
-    ostream & out;
-public:
-    printer(ostream & out_): out(out_){}
-    
-    template <typename T>
-    void operator()(const T& t){
-        out << t;
-    }
-};
-
-int textout_database::textout_table::add_row(){
+void textout_database::textout_table::add_row(const Row & row){
     theta::cout << endl << "Table '" << name << "', row " << ++irow << ":" << endl;
-    printer p(theta::cout);
-    for(size_t i=0; i<column_names.size(); ++i){
-        theta::cout << column_names[i] << "=";
-        apply_visitor(p, current_col_values[i]);
+    for(int i=0; i<next_colid; ++i){
+        Column c(i);
+        theta::cout << column_infos[c].name << "=";
+        data_type type = column_infos[c].type;
+        switch(type){
+            case typeInt:
+                theta::cout << row.get_column_int(c);
+                break;
+            case typeDouble:
+                theta::cout << row.get_column_double(c);
+                break;
+            case typeString:
+                theta::cout << row.get_column_string(c);
+                break;
+            case typeHisto:
+                theta::cout << row.get_column_histogram(c);
+                break;
+        }
         theta::cout << endl;
         //<< current_col_values[i] << endl;
-    }
-    if(have_autoinc){
-        return next_autoinc_value++;
-    }
-    else{
-        return 0;
     }
 }
 

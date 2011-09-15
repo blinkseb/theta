@@ -77,8 +77,8 @@ void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model 
     if(std::isnan(nl_posterior_sb) || std::isnan(nl_posterior_b)){
         throw Exception("average posterior was NAN");
     }
-    products_sink->set_product(*c_nl_posterior_sb, nl_posterior_sb);
-    products_sink->set_product(*c_nl_posterior_b, nl_posterior_b);
+    products_sink->set_product(c_nl_posterior_sb, nl_posterior_sb);
+    products_sink->set_product(c_nl_posterior_b, nl_posterior_b);
 }
 
 mcmc_posterior_ratio::mcmc_posterior_ratio(const theta::plugin::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()), init(false){

@@ -142,13 +142,13 @@ std::auto_ptr<Table> sqlite_database::create_table(const string & table_name){
 
 
 sqlite_database::sqlite_table::sqlite_table(const string & name_, const boost::shared_ptr<sqlite_database> & db_) : Table(db_),
-    name(name_), have_autoinc(false), table_created(false), next_insert_index(1), insert_statement(0), db(db_),
+    name(name_), table_created(false), next_insert_index(1), insert_statement(0), db(db_),
     save_all_columns(true) {
 }
 
-std::auto_ptr<Column> sqlite_database::sqlite_table::add_column(const std::string & name, const data_type & type){
+Column sqlite_database::sqlite_table::add_column(const std::string & name, const data_type & type){
     if(table_created) throw FatalException("sqlite_table::add_column called after table already created (via call to set_column / add_row).");
-    if(!save_all_columns && save_columns.find(name) == save_columns.end()) return std::auto_ptr<Column>(new sqlite_column(-1));
+    if(!save_all_columns && save_columns.find(name) == save_columns.end()) return Column(-1);
     if(column_definitions.str().size() > 0)
         column_definitions << ", ";
     column_definitions << "'" << name << "' ";
@@ -165,19 +165,9 @@ std::auto_ptr<Column> sqlite_database::sqlite_table::add_column(const std::strin
     if(ss_insert_statement.str().size() > 0)
         ss_insert_statement << ", ";
     ss_insert_statement << "'" << name << "'";
-    return std::auto_ptr<Column>(new sqlite_column(next_insert_index++));
-}
-
-
-void sqlite_database::sqlite_table::set_autoinc_column(const std::string & name){
-    if(table_created) throw FatalException("sqlite_table::add_column called after table already created (via call to set_column / add_row).");
-    if(have_autoinc)
-         throw InvalidArgumentException("sqlite_database::add_column: tried to add more than one Column of type typeAutoIncrement");
-    if(column_definitions.str().size() > 0)
-        column_definitions << ", ";
-    column_definitions << "'" << name << "' ";
-    have_autoinc = true;
-    column_definitions << "INTEGER PRIMARY KEY AUTOINCREMENT";
+    Column result(next_insert_index++);
+    column_infos[result] = column_info(name, type);
+    return result;
 }
 
 
@@ -204,47 +194,35 @@ sqlite_database::sqlite_table::~sqlite_table(){
     if(not table_created) create_table();
 }
 
-void sqlite_database::sqlite_table::set_column(const Column & c, double d){
-    if(not table_created) create_table();
-    int index = static_cast<const sqlite_column&>(c).insert_index;
-    if(index >= 0)
-        sqlite3_bind_double(insert_statement, index, d);
-}
-
-void sqlite_database::sqlite_table::set_column(const Column & c, int i){
-    if(not table_created) create_table();
-    int index = static_cast<const sqlite_column&>(c).insert_index;
-    if(index >= 0)
-        sqlite3_bind_int(insert_statement, index, i);
-}
-
-void sqlite_database::sqlite_table::set_column(const Column & c, const std::string & s){
-    if(not table_created) create_table();
-    int index = static_cast<const sqlite_column&>(c).insert_index;
-    if(index >= 0)
-        sqlite3_bind_text(insert_statement, index, s.c_str(), s.size(), SQLITE_TRANSIENT);
-}
-
-void sqlite_database::sqlite_table::set_column(const Column & c, const theta::Histogram & h){
-    if(not table_created) create_table();
-    int index = static_cast<const sqlite_column&>(c).insert_index;
-    if(index < 0) return;
-    //including overflow and underflow, we have nbins+2 bins. Encoding the range with the first
-    // two, we have nbins+4 double to save.
-    boost::scoped_array<double> blob_data(new double[h.get_nbins()+4]);
-    blob_data[0] = h.get_xmin();
-    blob_data[1] = h.get_xmax();
-    std::copy(h.getData(), h.getData() + h.get_nbins()+2, &blob_data[2]);
-    size_t nbytes = sizeof(double) * (h.get_nbins() + 4);
-    sqlite3_bind_blob(insert_statement, index, &blob_data[0], nbytes, SQLITE_TRANSIENT);
-}
-
 //NOTE: If coding for multiple threads accessing a single sqlite database,
 // we would have to do explicit locking between the insert statement execution
 // and this function call to ensure that we get the correct id here.
 
-int sqlite_database::sqlite_table::add_row(){
+void sqlite_database::sqlite_table::add_row(const Row & row){
     if(not table_created) create_table();
+    for(map<Column, column_info>::const_iterator it=column_infos.begin(); it!=column_infos.end(); ++it){
+        int index = it->first.get_id();
+        if(index <= 0) continue;
+        if(it->second.type == typeDouble){
+            sqlite3_bind_double(insert_statement, index, row.get_column_double(it->first));
+        }
+        else if(it->second.type == typeInt){
+            sqlite3_bind_int(insert_statement, index, row.get_column_int(it->first));
+        }
+        else if(it->second.type == typeString){
+            const string & s = row.get_column_string(it->first);
+            sqlite3_bind_text(insert_statement, index, s.c_str(), s.size(), SQLITE_TRANSIENT);
+        }
+        else if(it->second.type == typeHisto){
+            const Histogram & h = row.get_column_histogram(it->first);
+            boost::scoped_array<double> blob_data(new double[h.get_nbins()+4]);
+            blob_data[0] = h.get_xmin();
+            blob_data[1] = h.get_xmax();
+            std::copy(h.getData(), h.getData() + h.get_nbins()+2, &blob_data[2]);
+            size_t nbytes = sizeof(double) * (h.get_nbins() + 4);
+            sqlite3_bind_blob(insert_statement, index, &blob_data[0], nbytes, SQLITE_TRANSIENT);
+        }
+    }
     int res = sqlite3_step(insert_statement);
     sqlite3_reset(insert_statement);
     //reset all to NULL
@@ -252,14 +230,6 @@ int sqlite_database::sqlite_table::add_row(){
     if (res != 101) {
         db->error(__FUNCTION__);
     }
-    if(have_autoinc){
-        return sqlite3_last_insert_rowid(db->db);
-    }
-    else{
-        return 0;
-    }
 }
 
-
 REGISTER_PLUGIN(sqlite_database)
-

@@ -86,7 +86,7 @@ private:
     std::vector<size_t> ipars; //parameters of the requested index, as in NLLikelihood::operator()(const double*) index convention
     
     //result columns: one per requested parameter:
-    boost::ptr_vector<theta::Column> columns;
+    std::vector<theta::Column> columns;
     std::vector<double> lower, upper;
     std::vector<size_t> nbins;
     

@@ -38,23 +38,21 @@ void Database::check_name(const string & column_name) {
 // in the module defining the first non-inline function ...
 Table::~Table(){}
 
-Column::~Column(){}
-
 /* ProductsTable */
 ProductsTable::ProductsTable(std::auto_ptr<Table> & table_): table(table_){
     c_runid = table->add_column("runid", typeInt);
     c_eventid = table->add_column("eventid", typeInt);
 }
 
-std::auto_ptr<Column> ProductsTable::declare_product(const ProductsSource & source, const std::string & column_name, const data_type & type){
+Column ProductsTable::declare_product(const ProductsSource & source, const std::string & column_name, const data_type & type){
     std::string new_name = source.getName() + "__" + column_name;
     return table->add_column(new_name, type);
 }
 
 void ProductsTable::add_row(int runid, int eventid){
-    table->set_column(*c_runid, runid);
-    table->set_column(*c_eventid, eventid);
-    table->add_row();
+    current_row.set_column(c_runid, runid);
+    current_row.set_column(c_eventid, eventid);
+    table->add_row(current_row);
 }
 
 /* LogTable */
@@ -84,17 +82,18 @@ LogTable::e_severity LogTable::get_loglevel() const{
 
 void LogTable::really_append(int runid, int eventid, e_severity s, const string & message) {
     n_messages[s]++;
-    table->set_column(*c_runid, runid);
-    table->set_column(*c_eventid, eventid);
-    table->set_column(*c_severity, s);
-    table->set_column(*c_message, message);
+    Row row;
+    row.set_column(c_runid, runid);
+    row.set_column(c_eventid, eventid);
+    row.set_column(c_severity, s);
+    row.set_column(c_message, message);
     using namespace boost::posix_time;
     using namespace boost::gregorian;
     ptime t(microsec_clock::universal_time());
     time_duration td = t - ptime(date(1970, 1, 1));
     double time = td.total_microseconds() / 1000000.0;
-    table->set_column(*c_time, time);
-    table->add_row();
+    row.set_column(c_time, time);
+    table->add_row(row);
 }
 
 //RndInfoTable
@@ -105,9 +104,10 @@ RndInfoTable::RndInfoTable(std::auto_ptr<Table> & table_): table(table_){
 }
 
 void RndInfoTable::append(int runid, const string & name, int seed){
-    table->set_column(*c_runid, runid);
-    table->set_column(*c_name, name);
-    table->set_column(*c_seed, seed);
-    table->add_row();
+    Row row;
+    row.set_column(c_runid, runid);
+    row.set_column(c_name, name);
+    row.set_column(c_seed, seed);
+    table->add_row(row);
 }
 

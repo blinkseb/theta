@@ -592,7 +592,7 @@ void model_source::fill(Data & dat){
     if(save_nll){
        std::auto_ptr<NLLikelihood> nll = model->getNLLikelihood(dat);
        values.set(parameters_for_nll);
-       products_sink->set_product(*c_nll, (*nll)(values));
+       products_sink->set_product(c_nll, (*nll)(values));
     }
     
 

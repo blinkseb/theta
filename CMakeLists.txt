@@ -8,7 +8,6 @@ option(optiontest "build tests" OFF)
 option(release "build release version" ON)
 option(crlibm "use the log function from crlibm" ON)
 option(generic "use generic implementation of funtions; not optimized, platform-specific ones" OFF)
-option(psql "use postgresql" OFF)
 
 if(coverage)
    message(STATUS "building for coverage test")

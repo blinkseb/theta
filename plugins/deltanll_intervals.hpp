@@ -92,9 +92,9 @@ private:
     std::map<theta::ParId, std::pair<double, double> > ranges;
 
     //table columns:
-    boost::ptr_vector<theta::Column> lower_columns;
-    boost::ptr_vector<theta::Column> upper_columns;
-    std::auto_ptr<theta::Column> c_maxl;
+    std::vector<theta::Column> lower_columns;
+    std::vector<theta::Column> upper_columns;
+    theta::Column c_maxl;
 };
 
 #endif

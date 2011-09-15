@@ -62,9 +62,9 @@ private:
     
     //result columns: one "mean" and one "width" column per observable.
     theta::ObsIds observables;
-    boost::ptr_vector<theta::Column> c_mean;
-    boost::ptr_vector<theta::Column> c_width;
-    boost::ptr_vector<theta::Column> c_best;
+    std::vector<theta::Column> c_mean;
+    std::vector<theta::Column> c_width;
+    std::vector<theta::Column> c_best;
     
     //MCMC parameters:
     unsigned int iterations;

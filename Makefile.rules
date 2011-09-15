@@ -92,14 +92,6 @@ ifeq ($(OPTIONS_GENERIC_ARCH),yes)
    DEFINES += -DGENERIC_ARCH
 endif
 
-UNAME:=$(shell uname)
-ifeq ($(findstring BSD,$(UNAME)),BSD)
-  LDL:=-lc
-else
-  LDL:=-ldl
-endif
-
-
 INCLUDES := -I.. $(BOOST_INCLUDE) $(SQLITE_INCLUDE)
 EXTRA_COMPILE :=
 EXTRA_LINK_EXE :=
@@ -111,7 +103,7 @@ WFLAGSC := -Wall
 #lazy evaluation of compile and link command to allow subdirectory-Makefiles to override the value of EXTRA_* ...
 COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -g -c -fPIC -O3 $(INCLUDES) $(EXTRA_COMPILE)
 LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LDL) -ltheta -lconfig $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
-LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO)
+LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO) $(BOOST_LIBS)
 
 .bin/%.o: %.cpp
 	@$(COMPILE) $(WFLAGSCPP) -o $@ $<

@@ -20,7 +20,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
         start_step_ranges_init = true;
     }
     MinimizationResult minres = minimizer->minimize(*nll, m_start, m_step, m_ranges);
-    products_sink->set_product(*c_maxl, minres.values.get(pid));
+    products_sink->set_product(c_maxl, minres.values.get(pid));
     ReducedNLL nll_r(*nll, pid, minres.values, re_minimize ? minimizer.get() : 0, m_start, m_step, m_ranges);
     nll_r.set_offset_nll(minres.fval);
     
@@ -29,7 +29,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
         double x = start + i * step;
         result.set(i, nll_r(x));
     }
-    products_sink->set_product(*c_nll, result);
+    products_sink->set_product(c_nll, result);
 }
 
 nll_scan::nll_scan(const theta::plugin::Configuration & cfg): Producer(cfg), pid(cfg.vm->getParId(cfg.setting["parameter"])),

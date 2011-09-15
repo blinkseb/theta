@@ -20,7 +20,7 @@ namespace theta {
  */
 class ProductsSink: private boost::noncopyable{
 public:
-    virtual std::auto_ptr<Column> declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type) = 0;
+    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type) = 0;
     virtual void set_product(const Column & c, double d) = 0;
     virtual void set_product(const Column & c, int i) = 0;
     virtual void set_product(const Column & c, const std::string & s) = 0;

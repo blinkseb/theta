@@ -72,13 +72,10 @@ private:
     std::auto_ptr<theta::ObsId> bh_ts_obsid;
     
     //the two columns with parameter and error:
-    boost::ptr_vector<theta::Column> parameter_columns;
-    boost::ptr_vector<theta::Column> error_columns;
-    std::auto_ptr<theta::Column> c_nll;
-    std::auto_ptr<theta::Column> c_covariance;
-    std::auto_ptr<theta::Column> c_ks_ts;
-    std::auto_ptr<theta::Column> c_bh_ts;
+    std::vector<theta::Column> parameter_columns;
+    std::vector<theta::Column> error_columns;
+    theta::Column c_nll, c_covariance, c_ks_ts, c_bh_ts;
 };
 
 #endif
-                                             
+

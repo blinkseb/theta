@@ -24,19 +24,20 @@ using namespace theta::plugin;
 
 class SaveDoubleProducts: public ProductsSink{
 private:
-    class MemSaveProductsColumn: public theta::Column{
-        public:
-            MemSaveProductsColumn(const string & name_): name(name_){}
-            string name;
-    };
     map<string, double> double_data;
+    map<Column, string> column_names;
+    int next_icol;
 public:
-    virtual std::auto_ptr<Column> declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
-        return std::auto_ptr<Column>(new MemSaveProductsColumn(product_name));
+    SaveDoubleProducts(): next_icol(0){}
+    
+    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
+        Column result(next_icol++);
+        column_names[result] = product_name;
+        return result;
     }
     
     virtual void set_product(const Column & c, double d){
-        double_data[static_cast<const MemSaveProductsColumn &>(c).name] = d;
+        double_data[column_names[c]] = d;
     }
     virtual void set_product(const Column & c, int i){
     }
@@ -668,8 +669,8 @@ void neyman_belt::run(){
     cout << "intervals" << endl;
     //find intervals:
     std::auto_ptr<Table> belt_table = output_database->create_table("belt");
-    std::auto_ptr<Column> c_truth = belt_table->add_column("truth", typeDouble);
-    boost::ptr_vector<Column> c_lower, c_upper, c_coverage;
+    Column c_truth = belt_table->add_column("truth", typeDouble);
+    std::vector<Column> c_lower, c_upper, c_coverage;
     for(size_t i=0; i<cls.size(); ++i){
         stringstream suffix;
         suffix << setw(5) << setfill('0') << static_cast<int>(cls[i] * 10000 + 0.5);
@@ -698,11 +699,12 @@ void neyman_belt::run(){
             else if(ordering_rule=="upper"){
                 interval.interval.first = -inf;
             }
-            belt_table->set_column(*c_truth, truth);
-            belt_table->set_column(c_lower[i], interval.interval.first);
-            belt_table->set_column(c_upper[i], interval.interval.second);
-            belt_table->set_column(c_coverage[i], interval.coverage);
-            belt_table->add_row();
+            Row row;
+            row.set_column(c_truth, truth);
+            row.set_column(c_lower[i], interval.interval.first);
+            row.set_column(c_upper[i], interval.interval.second);
+            row.set_column(c_coverage[i], interval.coverage);
+            belt_table->add_row(row);
             if(force_increasing_belt){
                previous_interval.first = max(interval.interval.first, previous_interval.first);
                previous_interval.second = max(interval.interval.second, previous_interval.second);

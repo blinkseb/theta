@@ -30,20 +30,21 @@ BOOST_AUTO_TEST_CASE(largefile){
    Configuration cfg = cc.get();
    std::auto_ptr<Database> db = PluginManager<Database>::instance().build(cfg);
    std::auto_ptr<Table> table = db->create_table("test_table");
-   std::auto_ptr<Column> c = table->add_column("col1", theta::typeHisto);
+   Column c = table->add_column("col1", theta::typeHisto);
    Histogram h(1000, 0.0, 1.0);
    for(size_t i=0; i<=1001; ++i){
-     h.set(i, i+1);
+       h.set(i, i+1);
    }
    //about 8kbytes per row. For 1 mio rows => 8 GB.
    const size_t N = 1000 * 1000;
    BOOST_TEST_CHECKPOINT("about to fill table");
+   Row row;
    for(size_t i=0; i<N; ++i){
       if(i % 10000 == 0){
 	 BOOST_TEST_MESSAGE("at row " << i << " of " << N);
       }
-      table->set_column(*c, h);
-      table->add_row();
+      row.set_column(c, h);
+      table->add_row(row);
    }
    BOOST_TEST_CHECKPOINT("deleting database object");
    db.reset();

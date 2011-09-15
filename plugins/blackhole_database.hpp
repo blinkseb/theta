@@ -39,21 +39,10 @@ private:
     class blackhole_table: public theta::Table {
         friend class blackhole_database;
         blackhole_table(const boost::shared_ptr<Database> & db): Table(db){}
-        
         virtual ~blackhole_table();
-        
-        std::auto_ptr<theta::Column> add_column(const std::string & name, const theta::data_type & type);
-        virtual void set_autoinc_column(const std::string & name);
-        virtual void set_column(const theta::Column & c, double d);
-        virtual void set_column(const theta::Column & c, int i);
-        virtual void set_column(const theta::Column & c, const std::string & s);
-        virtual void set_column(const theta::Column & c, const theta::Histogram & h);
-        virtual int add_row();
-    
-        class blackhole_column: public theta::Column{
-        public:
-            virtual ~blackhole_column(){}
-        };
+        theta::Column add_column(const std::string & name, const theta::data_type & type);
+        virtual void add_row(const theta::Row & row);
+
     };
 };
 

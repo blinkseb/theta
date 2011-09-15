@@ -4,7 +4,6 @@
 #include "interface/decls.hpp"
 #include "interface/database.hpp"
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/variant.hpp>
 
 #include <sqlite3.h>
 #include <memory>
@@ -52,41 +51,33 @@ private:
     
     class textout_table: public theta::Table {
     friend class textout_database;
-        typedef boost::variant<double, int, std::string, theta::Histogram> column_type;
         
         virtual ~textout_table(){}
         
-        virtual std::auto_ptr<theta::Column> add_column(const std::string & name, const theta::data_type & type);
-        virtual void set_autoinc_column(const std::string & name);
-        virtual void set_column(const theta::Column & c, double d);
-        virtual void set_column(const theta::Column & c, int i);
-        virtual void set_column(const theta::Column & c, const std::string & s);
-        virtual void set_column(const theta::Column & c, const theta::Histogram & h);
-        virtual int add_row();
+        virtual theta::Column add_column(const std::string & name, const theta::data_type & type);
+        virtual void add_row(const theta::Row & row);
 
     private:
         
         textout_table(const std::string & name_, const boost::shared_ptr<textout_database> & db_);
         
+        int next_colid;
         size_t irow;
-        std::vector<std::string> column_names;
-        std::vector<column_type> current_col_values;
         
         std::string name;
-        bool have_autoinc;
-        int next_autoinc_value;
         
         boost::shared_ptr<textout_database> db;
 
         bool save_all_columns;
         std::set<std::string> save_columns;
         
-        class textout_column: public theta::Column{
-        public:
-            int index;
-            textout_column(int i): index(i){}
-            virtual ~textout_column(){}
+        struct column_info{
+            std::string name;
+            theta::data_type type;
+            column_info(){}
+            column_info(const std::string & name_, const theta::data_type & type_): name(name_), type(type_){}
         };
+        std::map<theta::Column, column_info> column_infos;
     };
 };
 
