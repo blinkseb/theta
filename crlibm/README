@@ -1,0 +1,8 @@
+This is a small part of the CRlibm, the correctly rounded mathematical library,
+http://lipforge.ens-lyon.fr/www/crlibm/
+as their logarithm function performs about as twice as fast as the standard gcc math library's.
+
+To use it, switch on crmlib by using
+mkdir build; cd build
+cmake .. -Dcrlibm:bool=ON
+

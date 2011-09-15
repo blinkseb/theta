@@ -1,0 +1,195 @@
+#include "root/root_minuit.hpp"
+#include "interface/redirect_stdio.hpp"
+
+using namespace theta;
+using namespace theta::plugin;
+using namespace std;
+
+// function adapter to be used by root minuit and
+// "redirects" function calls to theta::Function
+class RootMinuitFunctionAdapter: public ROOT::Math::IMultiGenFunction{
+public:
+    
+    virtual ROOT::Math::IBaseFunctionMultiDim*	Clone() const{
+        throw Exception("RootMinuitFunctionAdapter::Clone not implemented");
+    }
+
+    virtual unsigned int NDim() const{
+        return ndim;
+    }
+
+    RootMinuitFunctionAdapter(const Function & f_): f(f_), ndim(f.getnpar()){
+    }
+
+    virtual double DoEval(const double * x) const{
+        for(size_t i=0; i<ndim; ++i){
+            if(isnan(x[i])){
+               throw MinimizationException("minuit called likelihood function with NAN argument!");
+            }
+        }
+        double result = f(x);
+        if(isinf(result)){
+           theta::cerr << "Error in function to minimize: result is infinity. Parameter values: " << endl;
+           for(size_t i=0; i<ndim; ++i){
+               theta::cerr << x[i] << " ";
+           }
+           theta::cerr << endl;
+           throw MinimizationException("function to minimize was infinity during minimization");
+        }
+        return result;
+    }
+
+private:
+    const theta::Function & f;
+    const size_t ndim;
+};
+
+
+
+MinimizationResult root_minuit::minimize(const theta::Function & f, const theta::ParValues & start,
+        const theta::ParValues & steps, const std::map<theta::ParId, std::pair<double, double> > & ranges){
+    //I would like to re-use min. However, it horribly fails after very few uses with
+    // unsigned int ROOT::Minuit2::MnUserTransformation::IntOfExt(unsigned int) const: Assertion `!fParameters[ext].IsFixed()' failed.
+    // when calling SetFixedVariable(...).
+    //Using a "new" one every time seems very wastefull, but it seems to work ...
+    min.reset(new ROOT::Minuit2::Minuit2Minimizer(type));
+    min->SetPrintLevel(printlevel);
+    MinimizationResult result;
+
+    //1. setup parameters, limits and initial step sizes
+    ParIds parameters = f.getParameters();
+    int ivar=0;
+    for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it, ++ivar){
+        std::map<theta::ParId, std::pair<double, double> >::const_iterator r_it = ranges.find(*it);
+        if(r_it==ranges.end()) throw InvalidArgumentException("root_minuit::minimize: range not set for a parameter");
+        pair<double, double> range = r_it->second;
+        double def = start.get(*it);
+        double step = steps.get(*it);
+        string name = vm->getName(*it);
+        //use not the ranges directly, but a somewhat more narrow range (one permille of the respective border)
+        // in order to avoid that the numerical evaluation of the numerical derivative at the boundaries pass these
+        // boundaries ...
+        if(step == 0.0){
+            min->SetFixedVariable(ivar, name, def);
+        }
+        else if(isinf(range.first)){
+            if(isinf(range.second)){
+                min->SetVariable(ivar, name, def, step);
+            }
+            else{
+                min->SetUpperLimitedVariable(ivar, name, def, step, range.second - fabs(range.second) * 0.001);
+            }
+        }
+        else{
+            if(isinf(range.second)){
+                min->SetLowerLimitedVariable(ivar, name, def, step, range.first + fabs(range.first) * 0.001);
+            }
+            else{ // both ends are finite
+                if(range.first==range.second){
+                    min->SetFixedVariable(ivar, name, range.first);
+                }
+                else{
+                    min->SetLimitedVariable(ivar, name, def, step, range.first + fabs(range.first) * 0.001, range.second - fabs(range.second) * 0.001);
+                }
+            }
+        }
+    }
+
+    //2. setup the function
+    RootMinuitFunctionAdapter minuit_f(f);
+    min->SetFunction(minuit_f);
+
+    //3. setup tolerance
+    if(!isnan(tolerance))  min->SetTolerance(tolerance);
+    //3.a. error definition. Unfortunately, SetErrorDef in ROOT is not documented, so I had to guess.
+    // 0.5 seems to work somehow.
+    min->SetErrorDef(0.5);
+    
+    //4. minimize. In case of failure, try harder
+    bool success;
+    for(int i=1; i<=3; i++){
+        success = min->Minimize();
+        if(success) break;
+    }
+
+    //5. do error handling
+    if(not success){
+        int status = min->Status();
+        int status_1 = status % 10;
+        //int status_2 = status / 10;
+        stringstream s;
+        s << "MINUIT returned status " << status;
+        switch(status_1){
+            case 1: s << " (Covariance was made pos defined)"; break;
+            case 2: s << " (Hesse is invalid)"; break;
+            case 3: s << " (Edm is above max)"; break;
+            case 4: s << " (Reached call limit)"; break;
+            case 5: s << " (Some other failure)"; break;
+            default:
+                s << " [unexpected status code]";
+        }
+        throw MinimizationException(s.str());
+    }
+
+    //6. convert result
+    result.fval = min->MinValue();
+    ivar = 0;
+    const double * x = min->X();
+    const double * errors = 0;
+    bool have_errors = min->ProvidesError();
+    if(have_errors) errors = min->Errors();
+    for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it, ++ivar){
+        result.values.set(*it, x[ivar]);
+        if(have_errors){
+            result.errors_plus.set(*it, errors[ivar]);
+            result.errors_minus.set(*it, errors[ivar]);
+        }
+        else{
+            result.errors_plus.set(*it, -1);
+            result.errors_minus.set(*it, -1);
+        }
+    }
+    result.covariance.reset(parameters.size(), parameters.size());
+    //I would use min->CovMatrixStatus here to check the validity of the covariance matrix,
+    // if only it was documented ...
+    if(min->ProvidesError()){
+        for(size_t i=0; i<parameters.size(); ++i){
+            for(size_t j=0; j<parameters.size(); ++j){
+                result.covariance(i,j) = min->CovMatrix(i,j);
+            }
+        }
+    }
+    else{
+        for(size_t i=0; i<parameters.size(); ++i){
+            result.covariance(i,i) = -1;
+        }
+    }
+    return result;
+}
+
+root_minuit::root_minuit(const Configuration & cfg): Minimizer(cfg), tolerance(NAN), printlevel(0){
+       if(cfg.setting.exists("printlevel")){
+           printlevel = cfg.setting["printlevel"];
+       }
+       string method = "migrad";
+       if(cfg.setting.exists("method")){
+           method = (string)cfg.setting["method"];
+       }
+       if(method=="migrad"){
+            type = ROOT::Minuit2::kMigrad;
+       }
+       else if(method == "simplex"){
+           type = ROOT::Minuit2::kSimplex;
+       }
+       else{
+           stringstream s;
+           s << "invalid method '" << method << "' (allowed are only 'migrad' and 'simplex')";
+           throw InvalidArgumentException(s.str());
+       }       
+       if(cfg.setting.exists("tolerance")){
+           tolerance = cfg.setting["tolerance"];
+       }
+   }
+
+REGISTER_PLUGIN(root_minuit)
+

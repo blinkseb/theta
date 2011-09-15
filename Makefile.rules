@@ -1,0 +1,141 @@
+# this file is included by the Makefiles of the subdirectory. These Makefiles must set $(deps) before including this
+
+# make sure first target depends on "all" which is defined in each of the subdirs
+a: all
+
+# create .bin subdirectory, if it does not exist:
+DUMMY_MKBINDIR := $(shell [ -d .bin ] || mkdir .bin)
+
+# include dependencies, make on demand. $(deps) is set by the sub-Makefiles. However, do not
+# build deps for "make clean"...
+ifeq (0, $(words $(findstring $(MAKECMDGOALS), clean clean-subdir)))
+  -include $(deps)
+endif
+
+# Find out build architecture (not host architecture), i.e., the architecture for which to compile.
+# This could be 32 bit for a 64 bit system (e.g., if running 32-bit CMS software on a 64-bit machine).
+# The variable BUILD_ARCH will be 'x86_64' for 64 bit systems, 'x86_32' for 32-bit systems and
+# empty for non-recognized systems.
+BUILD_ARCH:=
+ifneq ($(shell :|$(CXX) -dM -E - | grep __amd64__),)
+   BUILD_ARCH:=x86_64
+else
+   ifneq ($(shell :|$(CXX) -dM -E - | grep __i386__),)
+      BUILD_ARCH:=x86_32
+   endif
+endif
+
+ifneq ($(shell echo -n $$CMSSW_BASE),)
+   HAVE_SCRAM:=yes
+endif
+
+ifneq ($(OPTIONS_BOOSTDIR),)
+   BOOST_INCLUDE := -I$(OPTIONS_BOOSTDIR)/include
+   BOOST_LIBS := -L$(OPTIONS_BOOSTDIR)/lib -lboost_system -lboost_filesystem -lboost_regex -lboost_program_options -lboost_iostreams
+# if available, use dependencies from CMSSW:
+else
+   ifeq ($(HAVE_SCRAM),yes)
+      scram = $(shell cd $$CMSSW_BASE; scram tool tag $(1) $(2))
+      BOOST_INCLUDE := -I$(call scram,boost,INCLUDE)
+      BOOST_LIBLIST := $(call scram,boost,LIB) $(call scram,boost_filesystem,LIB) $(call scram,boost_program_options,LIB) $(call scram,boost_regex,LIB)
+      BOOST_LIBS := -L$(call scram,boost,LIBDIR) $(patsubst %,-l%,$(BOOST_LIBLIST)) -lboost_iostreams
+   # otherwise: assume dependencies are installed system-wide and no paths have to be set explicitely:
+   else
+      BOOST_INCLUDE:=
+      #on some systems, boost libraries have a "-mt" suffix. This is a dirty hack. If you know better, tell me:
+      BS:=
+      ifeq ($(shell test -e /usr/lib/libboost_system-mt.so && echo -n A),A)
+         BS:=-mt
+      endif
+      BOOST_LIBS := -lboost_filesystem$(BS) -lboost_regex$(BS) -lboost_program_options$(BS) -lboost_thread$(BS) -lboost_system$(BS) -lboost_iostreams$(BS)
+   endif
+endif
+
+ifneq ($(OPTIONS_SQLITEDIR),)
+   SQLITE_LIBS := -lsqlite3 -L$(OPTIONS_SQLITEDIR)/lib
+   SQLITE_INCLUDE := -I$(OPTIONS_SQLITEDIR)/include
+else
+   ifeq ($(HAVE_SCRAM),yes)
+      SQLITE_LIBLIST := $(call scram,sqlite,LIB)
+      SQLITE_LIBS := $(patsubst %,-l%,$(SQLITE_LIBLIST)) -L$(call scram,sqlite,LIBDIR)
+      SQLITE_INCLUDE := -I$(call scram,sqlite,INCLUDE)
+   else
+      SQLITE_INCLUDE:=
+      SQLITE_LIBS := -lsqlite3
+   endif
+endif
+
+
+#check options for consistentcy:
+ifneq ($(BUILD_ARCH),x86_64)
+   ifneq ($(OPTIONS_GENERIC_ARCH),yes)
+       DUMMY := $(warning build platform is not x86_64, setting OPTIONS_GENERIC_ARCH to yes)
+       OPTIONS_GENERIC_ARCH:=yes
+   endif
+endif
+
+ifeq ($(BUILD_ARCH),)
+   ifeq ($(OPTIONS_USE_CRLIBM),yes)
+      DUMMY := $(warning build platform unknown, setting OPTIONS_USE_CRLIBM to no)
+      OPTIONS_USE_CRLIBM:=no
+    endif
+endif
+
+
+DEFINES :=
+
+ifeq ($(OPTIONS_USE_CRLIBM),yes)
+   DEFINES += -DUSE_CRLIBM
+endif
+
+ifeq ($(OPTIONS_GENERIC_ARCH),yes)
+   DEFINES += -DGENERIC_ARCH
+endif
+
+UNAME:=$(shell uname)
+ifeq ($(findstring BSD,$(UNAME)),BSD)
+  LDL:=-lc
+else
+  LDL:=-ldl
+endif
+
+
+INCLUDES := -I.. $(BOOST_INCLUDE) $(SQLITE_INCLUDE)
+EXTRA_COMPILE :=
+EXTRA_LINK_EXE :=
+EXTRA_LINK_SO :=
+
+WFLAGSCPP := -Wall -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
+WFLAGSC := -Wall
+
+#lazy evaluation of compile and link command to allow subdirectory-Makefiles to override the value of EXTRA_* ...
+COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -g -c -fPIC -O3 $(INCLUDES) $(EXTRA_COMPILE)
+LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LDL) -ltheta -lconfig $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
+LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO)
+
+.bin/%.o: %.cpp
+	@$(COMPILE) $(WFLAGSCPP) -o $@ $<
+
+.bin/%.o: %.cxx
+	@$(COMPILE) $(WFLAGSCPP) -o $@ $<
+
+.bin/%.o: %.c
+	@$(COMPILE) $(WFLAGSC) -x c -o $@ $<
+
+
+.bin/%.d: %.cpp
+	@$(COMPILE) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+
+.bin/%.d: %.cxx
+	@$(COMPILE) -MM -MT '$(patsubst %.cxx,.bin/%.o,$<)' $< > $@
+
+.bin/%.d: %.c
+	@$(COMPILE) -x c -MM -MT '$(patsubst %.c,.bin/%.o,$<)' $< > $@
+
+
+#make clean rule depend on subdir-specific:
+clean: clean-subdir
+	@rm -rf .bin
+
+.PHONY: clean clean-subdir
+

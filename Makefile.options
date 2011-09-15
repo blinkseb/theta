@@ -1,0 +1,26 @@
+# You can edit this file to specify suitable options for your build.
+#
+# boolean-like switches should be either either "yes" or "no"
+#
+# after modifying this file, make sure to "make clean"!
+
+# whether or not to build the tests in the test/ directory
+OPTIONS_BUILD_TESTS := yes
+
+# whether or not to use the log function from crlibm (which is faster than the standard log)
+OPTIONS_USE_CRLIBM := yes
+
+# if you installed boost or sqlite not system-wide but in a special location, set the installation
+# directory here. It is assumed that "include" and "lib" subdirectories exist there:
+#OPTIONS_SQLITEDIR:=/wlcg/sw/cms/experimental/slc5_ia32_gcc434/external/sqlite/3.6.10
+#OPTIONS_BOOSTDIR:=/wlcg/sw/boost/current
+
+OPTIONS_CFLAGS := -I/usr/local/include
+OPTIONS_LDFLAGS := -L/usr/local/lib
+
+# Usually, theta assumes building for 64-bit x86 cpus (and an assembler compatible with the one gcc uses).
+# Setting this flag to 'yes' disables some optimizations and replaces functions with generic ones.
+# Note that some platform-specific optimizations are controlled by compiler-defined defines such as __SSE2__ and ignore
+# the value given here.
+OPTIONS_GENERIC_ARCH := no
+

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# in the gridpack, this script replaces the theta executable. It
+# can do some setup for LD_LIBRARY_PATH ...
+
+dir=`dirname $0`
+if [ -z "$dir" ]; then
+   dir="."
+fi
+dir=`readlink -e $dir`
+
+libdir=`readlink -e $dir/../lib`
+extlibdir=`readlink -e $dir/../extlib`
+
+export LD_LIBRARY_PATH=$libdir:$extlibdir:$LD_LIBRARY_PATH
+export ROOTSYS=`readlink -e $dir/..`
+exec $dir/../extlib/ld-linux.so $dir/theta.exe $*
+

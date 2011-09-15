@@ -1,0 +1,55 @@
+<doxygenlayout version="1.0">
+  <navindex>
+   <tab type="mainpage" visible="yes" title="" />
+   <tab type="classes" visible="yes" title="">
+     <tab type="classes" visible="yes" title=""/>
+     <tab type="hierarchy" visible="yes" title=""/>
+   </tab>
+   <tab type="namespaces" visible="yes" title="">
+       <tab type="namespaces" visible="yes" title=""/>
+       <tab type="namespacemembers" visible="yes" title=""/>
+    </tab>
+   <tab type="pages" visible="yes" title=""/>
+  </navindex>
+  <class>
+   <detaileddescription title="" />
+   <inheritancegraph visible="$CLASS_GRAPH" />
+   <memberdecl>
+      <membergroups visible="yes"/>
+      <publictypes title=""/>
+      <publicmethods title=""/>
+      <publicstaticmethods title=""/>
+      <protectedtypes title=""/>
+      <protectedmethods title=""/>
+      <protectedstaticmethods title=""/>
+   </memberdecl>
+   <memberdef>
+       <typedefs title=""/>
+       <enums title=""/>
+       <constructors title=""/>
+       <functions title=""/>
+       <variables title=""/>
+     </memberdef>
+  </class>
+
+  <namespace>
+     <briefdescription visible="no"/>
+     <detaileddescription title=""/>
+     <memberdecl>
+       <nestednamespaces visible="yes" title=""/>
+       <classes visible="yes" title=""/>
+       <membergroups visible="yes"/>
+       <typedefs title=""/>
+       <enums title=""/>
+       <functions title=""/>
+       <variables title=""/>
+     </memberdecl>
+     <memberdef>
+       <typedefs title=""/>
+       <enums title=""/>
+       <functions title=""/>
+       <variables title=""/>
+     </memberdef>
+   </namespace>
+</doxygenlayout>
+
