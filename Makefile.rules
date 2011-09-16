@@ -102,7 +102,7 @@ WFLAGSC := -Wall
 
 #lazy evaluation of compile and link command to allow subdirectory-Makefiles to override the value of EXTRA_* ...
 COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -g -c -fPIC -O3 $(INCLUDES) $(EXTRA_COMPILE)
-LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LDL) -ltheta -lconfig $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
+LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib -ldl -ltheta -lconfig $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
 LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO) $(BOOST_LIBS)
 
 .bin/%.o: %.cpp
