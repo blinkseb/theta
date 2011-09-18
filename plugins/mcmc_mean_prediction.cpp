@@ -38,10 +38,10 @@ class MCMCMeanPredictionResult{
             //add the prediction to sum, squaresum. Note
             // That if this is the first time, use "=" instead of "+=".
             for(ObsIds::const_iterator it=obs_ids.begin(); it!=obs_ids.end(); ++it){
-               Histogram & h_pred = pred[*it];
+               Histogram1D & h_pred = pred[*it];
                h_pred *= n_;
-               Histogram & h_sum = sum[*it];
-               Histogram & h_squaresum = squaresum[*it];
+               Histogram1D & h_sum = sum[*it];
+               Histogram1D & h_squaresum = squaresum[*it];
                if(h_sum.get_nbins()==0){
                    h_sum = h_pred;
                    h_pred *= h_pred;
@@ -57,13 +57,14 @@ class MCMCMeanPredictionResult{
             }
         }
 
-        void get_mean_width(Histogram & mean, Histogram & width, const ObsId & oid) const{
-           const Histogram & h_sum = sum[oid];
-           const Histogram & h_squaresum = squaresum[oid];
+        void get_mean_width(Histogram1D & mean, Histogram1D & width, const ObsId & oid) const{
+           const Histogram1D & h_sum = sum[oid];
+           const Histogram1D & h_squaresum = squaresum[oid];
            mean = h_sum;
            mean *= 1.0 / n;
-           width.reset(h_sum.get_nbins(), h_sum.get_xmin(), h_sum.get_xmax());
-           for(size_t i=0; i<=h_sum.get_nbins()+1; ++i){
+           width.reset_n(h_sum.get_nbins());
+           width.reset_range(h_sum.get_xmin(), h_sum.get_xmax());
+           for(size_t i=0; i<h_sum.get_nbins(); ++i){
               double ssum = h_squaresum.get(i);
               double sum = h_sum.get(i);
               double v = 1.0 / (n-1) * (ssum - 1.0 / n * sum * sum);
@@ -71,7 +72,7 @@ class MCMCMeanPredictionResult{
            }
         }
         
-        const Histogram & get_best(const ObsId & oid) const {
+        const Histogram1D & get_best(const ObsId & oid) const {
             return best[oid];
         }
         
@@ -94,7 +95,7 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
     if(!init){
         try{
             //get the covariance for average data:
-            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, vm);
+            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution);
             init = true;
         }
         catch(Exception & ex){
@@ -109,7 +110,7 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
     
     size_t i=0;
     for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it, ++i){
-        Histogram mean, width;
+        Histogram1D mean, width;
         result.get_mean_width(mean, width, *it);
         products_sink->set_product(c_mean[i], mean);
         products_sink->set_product(c_width[i], width);
@@ -117,9 +118,28 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
     }
 }
 
+std::auto_ptr<theta::Producer> mcmc_mean_prediction::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::Producer>(new mcmc_mean_prediction(*this, pm));
+}
+
+mcmc_mean_prediction::mcmc_mean_prediction(const mcmc_mean_prediction & rhs, const PropertyMap & pm): Producer(rhs, pm),
+         RandomConsumer(rhs, pm, getName()), observables(rhs.observables), iterations(rhs.iterations), burn_in(rhs.burn_in),
+         sqrt_cov(rhs.sqrt_cov), startvalues(rhs.startvalues), init(rhs.init){
+    boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
+    declare_products(vm);
+}
+
+void mcmc_mean_prediction::declare_products(const boost::shared_ptr<VarIdManager> & vm){
+    for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){
+        c_mean.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_mean", theta::typeHisto));
+        c_width.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_width", theta::typeHisto));
+        c_best.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_best", theta::typeHisto));
+    }
+}
+
 mcmc_mean_prediction::mcmc_mean_prediction(const theta::plugin::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
         init(false){
-    vm = cfg.vm;
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     SettingWrapper s = cfg.setting;
     
     size_t n = s["observables"].size();
@@ -136,12 +156,7 @@ mcmc_mean_prediction::mcmc_mean_prediction(const theta::plugin::Configuration & 
     else{
         burn_in = iterations / 10;
     }
-    
-    for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){
-        c_mean.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_mean", theta::typeHisto));
-        c_width.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_width", theta::typeHisto));
-        c_best.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_best", theta::typeHisto));
-    }
+    declare_products(vm);
 }
 
 REGISTER_PLUGIN(mcmc_mean_prediction)

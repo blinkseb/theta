@@ -104,6 +104,10 @@ public:
     
     virtual void fill(theta::Data & data_out);
     
+    virtual std::auto_ptr<theta::DataSource> clone(const PropertyMap & pm) const{
+        throw theta::InvalidArgumentException("clone not implemented for root_ntuple_source");;
+    }
+    
 private:
    std::vector<theta::ObsId> observables;
    std::vector<size_t> observable_nbins;

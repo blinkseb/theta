@@ -6,13 +6,14 @@ using namespace theta::plugin;
 
 multiply::multiply(const Configuration & cfg): literal_factor(1.0){
     size_t n = cfg.setting["factors"].size();
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<n; ++i){
         Setting::Type t = cfg.setting["factors"][i].getType();
         if(t==Setting::TypeFloat){
             literal_factor *= static_cast<double>(cfg.setting["factors"][i]);
         }
         else if(t==Setting::TypeString){
-           ParId pid = cfg.vm->getParId(cfg.setting["factors"][i]);
+           ParId pid = vm->getParId(cfg.setting["factors"][i]);
            v_pids.push_back(pid);
            par_ids.insert(pid);
         }
@@ -41,6 +42,17 @@ double multiply::operator()(const ParValues & v) const{
     return result;
 }
 
+std::auto_ptr<theta::Function> multiply::clone() const{
+    return std::auto_ptr<theta::Function>(new multiply(*this));
+}
+
+
+multiply::multiply(const multiply & rhs): Function(rhs), v_pids(rhs.v_pids), literal_factor(rhs.literal_factor){
+    functions.reserve(rhs.functions.size());
+    for(size_t i=0; i<rhs.functions.size(); ++i){
+        functions.push_back(rhs.functions[i].clone());
+    }
+}
 
 REGISTER_PLUGIN(multiply)
 

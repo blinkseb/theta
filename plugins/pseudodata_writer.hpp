@@ -44,9 +44,12 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     pseudodata_writer(const theta::plugin::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
+    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
     
 private:
-    boost::shared_ptr<theta::VarIdManager> vm;
+    pseudodata_writer(const pseudodata_writer & rhs, const PropertyMap & pm);
+    void declare_products(const boost::shared_ptr<theta::VarIdManager> & vm);
+    
     std::vector<theta::ObsId> observables;
     std::vector<theta::Column> n_events_columns;
     std::vector<theta::Column> data_columns;

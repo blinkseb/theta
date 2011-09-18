@@ -84,8 +84,7 @@ bool jump_rates_converged(const vector<double> & jump_rates){
 
 
 Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & startvalues,
-                    const boost::shared_ptr<theta::Distribution> & override_parameter_distribution,
-                    const boost::shared_ptr<VarIdManager> & vm){
+                    const boost::shared_ptr<theta::Distribution> & override_parameter_distribution){
     const size_t max_passes = 50;
     const size_t iterations = 8000;
     const size_t n = model.getParameters().size();
@@ -122,9 +121,8 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
     NLLikelihood & nll = *p_nll;
     vector<double> jump_rates;
     jump_rates.reserve(max_passes);
-    Result res(n);
     for (size_t i = 0; i < max_passes; i++) {
-        res.reset();
+        Result res(n);
         metropolisHastings(nll, res, rnd, startvalues, sqrt_cov, iterations, iterations/10);
         startvalues = res.getMeans();
         cov = res.getCov();

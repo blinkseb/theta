@@ -28,6 +28,9 @@ public:
     virtual double gradient(const ParValues & v, const ParId & pid) const{
         return 0.0;
     }
+    virtual std::auto_ptr<Function> clone() const{
+        throw InvalidArgumentException("clone not supported");
+    }
 };
 
 BOOST_AUTO_TEST_CASE(minuit){

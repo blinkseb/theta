@@ -53,7 +53,7 @@ private:
        double get_double(size_t icol);
        int get_int(size_t icol);
        std::string get_string(size_t icol);
-       theta::Histogram get_histogram(size_t icol);
+       theta::Histogram1D get_histogram(size_t icol);
    };
 
    sqlite3 * db;

@@ -49,25 +49,27 @@ public:
     /** Returns the interpolated Histogram as documented in the class documentation.
      * throws a NotFoundException if a parameter is missing.
      */
-    virtual const theta::Histogram & operator()(const theta::ParValues & values) const;
+    virtual const theta::Histogram1D & operator()(const theta::ParValues & values) const;
 
-    /// Return a Histogram of the same dimenions as the one returned by operator()
-    virtual theta::Histogram get_histogram_dimensions() const{
+    /// Return a Histogram of the same dimensions as the one returned by operator()
+    virtual theta::Histogram1D get_histogram_dimensions() const{
         return h;
     }
+    
+    virtual std::auto_ptr<theta::HistogramFunction> clone() const;
 
 private:
     /** \brief Build a (constant) Histogram from a Setting block.
     *
     * Will throw an InvalidArgumentException if the Histogram is not constant.
     */
-    static theta::Histogram getConstantHistogram(const theta::plugin::Configuration & ctx, theta::SettingWrapper s);
+    static theta::Histogram1D getConstantHistogram(const theta::plugin::Configuration & ctx, theta::SettingWrapper s);
     
-    theta::Histogram h0;
+    theta::Histogram1D h0;
     double h0exp;
     
-    std::vector<theta::Histogram> kappa_plus;
-    std::vector<theta::Histogram> kappa_minus;
+    std::vector<theta::Histogram1D> kappa_plus;
+    std::vector<theta::Histogram1D> kappa_minus;
     std::vector<double> plus_relexp;
     std::vector<double> minus_relexp;
     
@@ -75,7 +77,7 @@ private:
     std::vector<theta::ParId> parameters;
     
     //the Histogram returned by operator(). Defined as mutable to allow operator() to be const.
-    mutable theta::Histogram h;
+    mutable theta::Histogram1D h;
 };
 
 #endif

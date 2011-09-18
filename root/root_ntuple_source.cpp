@@ -71,6 +71,7 @@ root_ntuple_source::root_ntuple_source(const Configuration & cfg): DataSource(cf
     string filename = cfg.replace_theta_dir(cfg.setting["filename"]);
     string treename;
     string relweight_branchname;
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     double cfg_factor = 1.0;
     if(cfg.setting.exists("relweight_branchname")){
        relweight_branchname = static_cast<string>(cfg.setting["relweight_branchname"]);
@@ -91,7 +92,7 @@ root_ntuple_source::root_ntuple_source(const Configuration & cfg): DataSource(cf
     vector<string> observable_branchnames;
     for(size_t i=0; i < n_obs; ++i){
         string obs_name = so[i].getName();
-        ObsId oid = cfg.vm->getObsId(obs_name);
+        ObsId oid = vm->getObsId(obs_name);
         observables.push_back(oid);
         // set the histogram in data:
         int nbins = so[i]["nbins"];
@@ -114,7 +115,8 @@ void root_ntuple_source::fill(Data & data_out){
     data_out.reset();
     size_t n_obs = observables.size();
     for(size_t i=0; i<n_obs; ++i){
-        data_out[observables[i]].reset(observable_nbins[i], observable_ranges[i].first, observable_ranges[i].second);
+        data_out[observables[i]].reset_n(observable_nbins[i]);
+        data_out[observables[i]].reset_range(observable_ranges[i].first, observable_ranges[i].second);
     }
     //loop over all nominal events:
     size_t n_events = nominal_data.probabilities.size();
@@ -123,13 +125,6 @@ void root_ntuple_source::fill(Data & data_out){
         for(size_t j=0; j<n_obs; ++j){
             data_out[observables[j]].fill(nominal_data.observable_values[n_obs * i + j], 1.0);
         }
-    }
-    
-    //reset overflow and underflow:
-    for(size_t i=0; i<n_obs; ++i){
-        Histogram & h = data_out[observables[i]];
-        h.set(h.get_nbins() + 1, 0.0);
-        h.set(0, 0.0);
     }
 }
 

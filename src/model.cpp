@@ -8,9 +8,8 @@ using namespace theta::plugin;
 
 REGISTER_PLUGIN_BASETYPE(Model);
 
-/* MODEL */
-Model::Model(const boost::shared_ptr<VarIdManager> & vm_):
-                   vm(vm_){
+Model::Model(const Model & model, const boost::shared_ptr<VarIdManager> & vm_):
+                   vm(vm_), parameters(model.parameters), observables(model.observables){
 }
 
 ParIds Model::getParameters() const{
@@ -37,7 +36,7 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
         ParIds pids = (*it).getParameters();
         parameters.insert(pids.begin(), pids.end());
     }
-    Histogram h;
+    Histogram1D h;
     for(boost::ptr_vector<HistogramFunction>::const_iterator it=histos[obs_id].begin(); it!=histos[obs_id].end(); ++it){
         if(h.get_nbins()==0){
             h = it->get_histogram_dimensions();
@@ -71,7 +70,8 @@ void default_model::get_prediction(Data & result, const ParValues & parameters) 
         //return empty prediction as correct zero template:
         if(not result_init){
             const pair<double, double> & o_range = vm->get_range(*obsit);
-            result[*obsit].reset(vm->get_nbins(*obsit), o_range.first, o_range.second);
+            result[*obsit].reset_n(vm->get_nbins(*obsit));
+            result[*obsit].reset_range(o_range.first, o_range.second);
         }
     }
 }
@@ -96,7 +96,8 @@ void default_model::get_prediction_randomized(Random & rnd, Data & result, const
         }
         if(not result_init){
             const pair<double, double> & o_range = vm->get_range(*obsit);
-            result[*obsit].reset(vm->get_nbins(*obsit), o_range.first, o_range.second);
+            result[*obsit].reset_n(vm->get_nbins(*obsit));
+            result[*obsit].reset_range(o_range.first, o_range.second);
         }
     }
 }
@@ -108,12 +109,12 @@ std::auto_ptr<NLLikelihood> default_model::getNLLikelihood(const Data & data) co
     return std::auto_ptr<NLLikelihood>(new default_model_nll(*this, data, observables));
 }
 
-default_model::default_model(const Configuration & ctx): Model(ctx.vm){
+default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarIdManager>()){
     SettingWrapper s = ctx.setting;
-    ObsIds observables = ctx.vm->getAllObsIds();
+    ObsIds observables = vm->getAllObsIds();
     //go through observables to find the template definition for each of them:
     for (ObsIds::const_iterator obsit = observables.begin(); obsit != observables.end(); obsit++) {
-        string obs_name = ctx.vm->getName(*obsit);
+        string obs_name = vm->getName(*obsit);
         if(not s.exists(obs_name)) continue;
         SettingWrapper obs_setting = s[obs_name];
         boost::ptr_vector<HistogramFunction> histos;
@@ -140,12 +141,32 @@ default_model::default_model(const Configuration & ctx): Model(ctx.vm){
         for(ParIds::const_iterator p_it=all_pars.begin(); p_it!=all_pars.end(); ++p_it){
             if(m_pars.contains(*p_it) && dist_pars.contains(*p_it)) continue;
             if(m_pars.contains(*p_it)){
-               ss << ", the model depends on '"<< ctx.vm->getName(*p_it) << "' which the parameter distribution does not include";
+               ss << ", the model depends on '"<< vm->getName(*p_it) << "' which the parameter distribution does not include";
             }
-            else ss << ", the parameter distribution depends on '" << ctx.vm->getName(*p_it) << "' which the model does not depend on";
+            else ss << ", the parameter distribution depends on '" << vm->getName(*p_it) << "' which the model does not depend on";
         }
         throw ConfigurationException(ss.str());
     }
+}
+
+default_model::default_model(const default_model & model, const PropertyMap & pm): Model(model, pm.get<VarIdManager>()){
+    for(histos_type::const_iterator it=model.histos.begin(); it!=model.histos.end(); ++it){
+        boost::ptr_vector<HistogramFunction> & vec = histos[it->first];
+        for(size_t i=0; i<it->second->size(); ++i){
+            vec.push_back(it->second->at(i).clone());
+        }
+    }
+    for(coeffs_type::const_iterator it=model.coeffs.begin(); it!=model.coeffs.end(); ++it){
+        boost::ptr_vector<Function> & vec = coeffs[it->first];
+        for(size_t i=0; i<it->second->size(); ++i){
+            vec.push_back(it->second->at(i).clone());
+        }
+    }
+    parameter_distribution = model.parameter_distribution->clone();
+}
+
+std::auto_ptr<Model> default_model::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<Model>(new default_model(*this, pm));
 }
 
 
@@ -186,13 +207,13 @@ double default_model_nll::operator()(const ParValues & values) const{
     else{
         result += model.get_parameter_distribution().evalNL(values);
     }
-    //2. get the prediciton of the model:
+    //2. get the prediction of the model:
     model.get_prediction(predictions, values);
-    //3. the template likelihood
+    //3. the template likelihood    
     for(ObsIds::const_iterator obsit=obs_ids.begin(); obsit!=obs_ids.end(); obsit++){
         const double * pred_data = predictions[*obsit].getData();
         const double * data_data = data[*obsit].getData();
-        result += template_nllikelihood(data_data + 1, pred_data + 1, data[*obsit].get_nbins());
+        result += template_nllikelihood(data_data, pred_data, data[*obsit].get_nbins());
     }
     //3. The additional likelihood terms, if set:
     if(additional_term){

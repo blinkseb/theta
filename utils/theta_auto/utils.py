@@ -5,6 +5,19 @@ import theta_interface, plotutil
 
 import Model
 
+# returns a default minimizer specification which should be pretty robust
+def minimizer(need_error = True):
+    #return {'type': 'root_minuit'}
+    minimizers = []
+    #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex.
+    minimizers.append({'type': 'root_minuit'})
+    minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': 1000, 'after_minimizer': {'type': 'root_minuit'}})
+    minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
+    minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 1000, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+    result = {'type': 'minimizer_chain', 'minimizers': minimizers}
+    if need_error: result['last_minimizer': {'type': 'root_minuit'}]
+    return result
+
 # returns a Distribution object, given the model, signal process and nuisance_prior specification ('shape:X;rate:Y'...)
 def nuisance_prior_distribution(model, spec):
     if spec.__class__ == Model.Distribution: result = Model.Distribution.merge(spec, spec)  # note: merging copies ...

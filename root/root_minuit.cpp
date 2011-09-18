@@ -18,7 +18,7 @@ public:
         return ndim;
     }
 
-    RootMinuitFunctionAdapter(const Function & f_): f(f_), ndim(f.getnpar()){
+    RootMinuitFunctionAdapter(const Function & f_): f(f_), ndim(f.getParameters().size()){
     }
 
     virtual double DoEval(const double * x) const{
@@ -44,6 +44,10 @@ private:
     const size_t ndim;
 };
 
+std::auto_ptr<theta::Minimizer> root_minuit::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::Minimizer>(new root_minuit(*this));
+}
+
 
 
 MinimizationResult root_minuit::minimize(const theta::Function & f, const theta::ParValues & start,
@@ -52,7 +56,7 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     // unsigned int ROOT::Minuit2::MnUserTransformation::IntOfExt(unsigned int) const: Assertion `!fParameters[ext].IsFixed()' failed.
     // when calling SetFixedVariable(...).
     //Using a "new" one every time seems very wastefull, but it seems to work ...
-    min.reset(new ROOT::Minuit2::Minuit2Minimizer(type));
+    std::auto_ptr<ROOT::Minuit2::Minuit2Minimizer> min(new ROOT::Minuit2::Minuit2Minimizer(type));
     min->SetPrintLevel(printlevel);
     //theta::cout << "maxfunctioncalls: " << min->MaxFunctionCalls() << "; maxiterations: " << min->MaxIterations() << endl;
     if(max_function_calls > 0) min->SetMaxFunctionCalls(max_function_calls);
@@ -68,7 +72,9 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
         pair<double, double> range = r_it->second;
         double def = start.get(*it);
         double step = steps.get(*it);
-        string name = vm->getName(*it);
+        stringstream ss;
+        ss << "par" << ivar;
+        string name = ss.str();
         //use not the ranges directly, but a somewhat more narrow range (one permille of the respective border)
         // in order to avoid that the numerical evaluation of the numerical derivative at the boundaries pass these
         // boundaries ...
@@ -172,7 +178,8 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     return result;
 }
 
-root_minuit::root_minuit(const Configuration & cfg): Minimizer(cfg), tolerance(NAN), printlevel(0), max_iterations(0), max_function_calls(0), n_retries(2) {
+root_minuit::root_minuit(const Configuration & cfg): tolerance(NAN), printlevel(0),
+        max_iterations(0), max_function_calls(0), n_retries(2) {
        if(cfg.setting.exists("printlevel")){
            printlevel = cfg.setting["printlevel"];
        }

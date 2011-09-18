@@ -2,6 +2,7 @@
 #include "interface/database.hpp"
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
+#include "interface/redirect_stdio.hpp"
 
 #include <string>
 #include <sstream>
@@ -43,7 +44,7 @@ public:
     }
     virtual void set_product(const Column & c, const std::string & s){
     }
-    virtual void set_product(const Column & c, const Histogram & h){
+    virtual void set_product(const Column & c, const Histogram1D & h){
     }
     
     double get_product(const std::string & name){
@@ -563,10 +564,10 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
     new_ensemble.reserve(ttos.size());
     for(set<double>::const_iterator truth_it=truth_values.begin(); truth_it!=truth_values.end(); ++truth_it){
         const double truth = *truth_it;
-        cout << "starting interpolation for truth " << truth << endl;
-        cout << "getting range for interpolation" << endl;
+        theta::cout << "starting interpolation for truth " << truth << endl;
+        theta::cout << "getting range for interpolation" << endl;
         tto_ensemble::tto_range r_interpolation = ensemble_for_interpolation.get_ttos(truth, tto_ensemble::sorted_by_ts);
-        cout << "getting range" << endl;
+        theta::cout << "getting range" << endl;
         tto_ensemble::tto_range tto_range = ttos.get_ttos(truth, tto_ensemble::sorted_by_ts);
         assert(distance(tto_range.first, tto_range.second) >= 2);
         tto_ensemble::const_tto_iterator it1 = r_interpolation.first;
@@ -594,6 +595,7 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
 
 
 neyman_belt::neyman_belt(const plugin::Configuration & cfg): force_increasing_belt(false){
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     progress_done = 0;
     size_t n = cfg.setting["cls"].size();
     if(n==0) throw ConfigurationException("'cls' must be a non-empty list");
@@ -618,7 +620,7 @@ neyman_belt::neyman_belt(const plugin::Configuration & cfg): force_increasing_be
         save_double_products.reset(new SaveDoubleProducts());
         cfg.pm->set<ProductsSink>("default", save_double_products);
         model = plugin::PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["model"]));
-        poi.reset(new ParId(cfg.vm->getParId(cfg.setting["fclike_options"]["truth"])));
+        poi.reset(new ParId(vm->getParId(cfg.setting["fclike_options"]["truth"])));
         ts_producer = plugin::PluginManager<Producer>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["ts_producer"]));
         //ts_name is the "module only" part of ts_column:
         size_t p = ts_column.find("__");
@@ -649,7 +651,7 @@ void neyman_belt::run(){
     truth_range.first = *truth_values.begin();
     truth_range.second = *truth_values.rbegin();
     progress_total = truth_values.size() * cls.size();
-    cout << "ordering" << endl;
+    theta::cout << "ordering" << endl;
     if(ordering_rule=="lower" || ordering_rule=="upper"){
         add_ordering_lu(ttos, ordering_rule);
     }
@@ -666,7 +668,7 @@ void neyman_belt::run(){
        truth_values = ttos.get_truth_values();
     }
     
-    cout << "intervals" << endl;
+    theta::cout << "intervals" << endl;
     //find intervals:
     std::auto_ptr<Table> belt_table = output_database->create_table("belt");
     Column c_truth = belt_table->add_column("truth", typeDouble);

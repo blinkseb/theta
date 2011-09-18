@@ -32,7 +32,7 @@
  * \c name is a name chosen by the user used to construct unique column names in the result table (this name and two underscores are
  *   prepended to the column names explained below).
  *
- * \c obserbales is a list of observables for which to calculate the mean and width histograms
+ * \c observables is a list of observables for which to calculate the mean and width histograms
  *
  * \c iterations is the number of MCMC iterations. See additional comments about runtime and suggested robustness tests
  *     in the documentation of \link mcmc_posterior_ratio mcmc_posterior_ratio \endlink.
@@ -57,8 +57,10 @@ public:
     mcmc_mean_prediction(const theta::plugin::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
+    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
 private:
-    boost::shared_ptr<theta::VarIdManager> vm;
+    mcmc_mean_prediction(const mcmc_mean_prediction & rhs, const PropertyMap & pm);
+    void declare_products(const boost::shared_ptr<theta::VarIdManager> & vm);
     
     //result columns: one "mean" and one "width" column per observable.
     theta::ObsIds observables;

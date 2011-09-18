@@ -214,11 +214,15 @@ void sqlite_database::sqlite_table::add_row(const Row & row){
             sqlite3_bind_text(insert_statement, index, s.c_str(), s.size(), SQLITE_TRANSIENT);
         }
         else if(it->second.type == typeHisto){
-            const Histogram & h = row.get_column_histogram(it->first);
+            const Histogram1D & h = row.get_column_histogram(it->first);
             boost::scoped_array<double> blob_data(new double[h.get_nbins()+4]);
             blob_data[0] = h.get_xmin();
             blob_data[1] = h.get_xmax();
-            std::copy(h.getData(), h.getData() + h.get_nbins()+2, &blob_data[2]);
+            //set underflow to 0.0:
+            blob_data[2] = 0.0;
+            std::copy(h.getData(), h.getData() + h.size(), &blob_data[3]);
+            //set overflow to 0.0:
+            blob_data[h.get_nbins()+3] = 0.0;
             size_t nbytes = sizeof(double) * (h.get_nbins() + 4);
             sqlite3_bind_blob(insert_statement, index, &blob_data[0], nbytes, SQLITE_TRANSIENT);
         }

@@ -34,6 +34,22 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
     products_sink->set_product(c_nll_diff, nll_b - nll_sb);
 }
 
+std::auto_ptr<theta::Producer> deltanll_hypotest::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<Producer>(new deltanll_hypotest(*this, pm));
+}
+
+deltanll_hypotest::deltanll_hypotest(const deltanll_hypotest & rhs, const PropertyMap & pm): Producer(rhs, pm), init(rhs.init),
+  s_plus_b_mode(rhs.s_plus_b_mode), b_only_mode(rhs.b_only_mode), s_plus_b_width(rhs.s_plus_b_width), b_only_width(rhs.b_only_width),
+  s_plus_b_support(rhs.s_plus_b_support), b_only_support(rhs.b_only_support){
+    s_plus_b = rhs.s_plus_b->clone();
+    b_only = rhs.b_only->clone();
+    minimizer = rhs.minimizer->clone(pm);
+    
+    c_nll_b = products_sink->declare_product(*this, "nll_b", theta::typeDouble);
+    c_nll_sb = products_sink->declare_product(*this, "nll_sb", theta::typeDouble);
+    c_nll_diff = products_sink->declare_product(*this, "nll_diff", theta::typeDouble);
+}
+
 
 deltanll_hypotest::deltanll_hypotest(const theta::plugin::Configuration & cfg):
         Producer(cfg), init(false){

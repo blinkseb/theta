@@ -60,12 +60,12 @@ Column textout_database::textout_table::add_column(const std::string & name, con
     return result;
 }
 
-ostream & operator<<(ostream & out, const theta::Histogram & h){
+ostream & operator<<(ostream & out, const theta::Histogram1D & h){
     out << "histogram(nbins=" << h.get_nbins() << ",xmin=" << h.get_xmin() << ",xmax=" << h.get_xmax() << ",data=[";
-    for(size_t i=0; i<=h.get_nbins(); ++i){
+    for(size_t i=0; i+1<h.get_nbins(); ++i){
         out << h.get(i) << ",";
     }
-    return out << h.get(h.get_nbins()+1) << "])";
+    return out << h.get(h.get_nbins()-1) << "])";
 }
 
 void textout_database::textout_table::add_row(const Row & row){

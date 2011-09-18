@@ -4,7 +4,7 @@ using namespace std;
 using namespace theta;
 using namespace theta::plugin;
 
-const Histogram & cubiclinear_histomorph::operator()(const ParValues & values) const {
+const Histogram1D & cubiclinear_histomorph::operator()(const ParValues & values) const {
     h = h0;
     const size_t n_sys = hplus_diff.size();
     for (size_t isys = 0; isys < n_sys; isys++) {
@@ -12,7 +12,7 @@ const Histogram & cubiclinear_histomorph::operator()(const ParValues & values) c
         if(delta==0.0) continue;
         //linear extrpolation beyond 1 sigma:
         if(fabs(delta) > 1){
-            const Histogram & t_sys = delta > 0 ? hplus_diff[isys] : hminus_diff[isys];
+            const Histogram1D & t_sys = delta > 0 ? hplus_diff[isys] : hminus_diff[isys];
             h.add_with_coeff(fabs(delta), t_sys);
         }
         else{
@@ -23,22 +23,21 @@ const Histogram & cubiclinear_histomorph::operator()(const ParValues & values) c
             h += diff_total;
         }
     }
-    for(size_t i=1; i<=h.get_nbins(); ++i){
+    for(size_t i=0; i<h.get_nbins(); ++i){
        h.set(i, max(h.get(i), 0.0));
     }
-    h.set(0,0);
-    h.set(h.get_nbins() + 1,0);
     return h;
 }
 
 cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx){
     SettingWrapper psetting = ctx.setting["parameters"];
+    boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     //build nominal histogram:
     h0 = getConstantHistogram(ctx, ctx.setting["nominal-histogram"]);
     size_t n = psetting.size();
     for(size_t i=0; i<n; i++){
         string par_name = psetting[i];
-        ParId pid = ctx.vm->getParId(par_name);
+        ParId pid = vm->getParId(par_name);
         par_ids.insert(pid);
         vid.push_back(pid);
         string setting_name;
@@ -64,7 +63,11 @@ cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx){
     h = h0;
 }
 
-Histogram cubiclinear_histomorph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
+std::auto_ptr<theta::HistogramFunction> cubiclinear_histomorph::clone() const{
+    return auto_ptr<HistogramFunction>(new cubiclinear_histomorph(*this));
+}
+
+Histogram1D cubiclinear_histomorph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
     std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, s));
     if(hf->getParameters().size()!=0){
         stringstream ss;

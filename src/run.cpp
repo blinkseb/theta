@@ -76,7 +76,6 @@ Run::Run(const plugin::Configuration & cfg){
     SettingWrapper s = cfg.setting;
     
     //0. set default values for members:
-    vm = cfg.vm;
     log_report = true;
     runid = 1;
     n_event = s["n-events"];

@@ -12,6 +12,7 @@ private:
     theta::ParId pid;
 
 public:
+    virtual std::auto_ptr<theta::Function> clone() const;
     /// constructor for the plugin system
     nl_one_over_sqrt(const theta::plugin::Configuration & cfg);
     /// overloaded evaluation operator of theta::Function

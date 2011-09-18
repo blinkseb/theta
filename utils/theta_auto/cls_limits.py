@@ -31,7 +31,7 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    minimizer = {'type': 'root_minuit', 'n_retries': 100, 'method':'simplex'}
+    minimizer = minimizer(need_error = False)
     main = {'model': '@model', 'n-events': 1, 'producers': ('@ts_producer',), 'output_database': sqlite_database(), 'log-report': False}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)    
@@ -64,7 +64,7 @@ def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuis
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    minimizer = {'type': 'root_minuit'}
+    minimizer = minimizer(need_error = False)
     main = {'model': '@model', 'n-events': n, 'producers': ('@ts_producer',), 'output_database': sqlite_database(), 'log-report': False}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)    
@@ -187,7 +187,7 @@ def cls_limits(model, forwhat = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'fl
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    minimizer = {'type': 'root_minuit'}
+    minimizer = minimizer()
     main = {'type': 'cls_limits', 'model': '@model', 'producers': ('@ts_producer',),
         'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer, 'debuglog': 'debug.txt'}
     if forwhat in ('expected', 'all'):

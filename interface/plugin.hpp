@@ -31,10 +31,8 @@ namespace theta {
         private:
            const std::string theta_dir;
         public:
-            /// Information about all currently known parameters and observables
-            boost::shared_ptr<VarIdManager> vm;
             
-            /// A property map giving access to a RndInfoTable and a ProductsTable. Might be empty.
+            /// A property map giving access to various shared objects
             boost::shared_ptr<PropertyMap> pm;
             
             /// The setting in the configuration file from which to build the instance
@@ -47,14 +45,14 @@ namespace theta {
             
             /** \brief Construct Configuration by specifying all data members
              */
-            Configuration(const boost::shared_ptr<VarIdManager> & vm_, const SettingWrapper & setting_, const std::string & theta_dir_ = "."):
-                theta_dir(theta_dir_), vm(vm_), pm(new PropertyMap()), setting(setting_){}
+            Configuration(const SettingWrapper & setting_, const std::string & theta_dir_ = "."):
+                theta_dir(theta_dir_), pm(new PropertyMap()), setting(setting_){}
 
             /** \brief Copy elements from another Configuration, but replace Configuration::setting
              *
              * Copy all from \c cfg but \c cfg.setting which is replaced by \c setting_.
              */
-            Configuration(const Configuration & cfg, const SettingWrapper & setting_): theta_dir(cfg.theta_dir), vm(cfg.vm), pm(cfg.pm),
+            Configuration(const Configuration & cfg, const SettingWrapper & setting_): theta_dir(cfg.theta_dir), pm(cfg.pm),
                 setting(setting_){}
 
         };        

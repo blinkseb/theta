@@ -89,7 +89,7 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     log_normal(const theta::plugin::Configuration & cfg);
     
-    //@{
+    ///@{
     /** \brief Implementation of the pure methods of theta::Distribution
      *
      * See documentation of theta::Distribution.
@@ -99,8 +99,12 @@ public:
     virtual double evalNL(const theta::ParValues & values) const;
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
-    //@}
+    ///@}
+    
+    virtual std::auto_ptr<theta::Distribution> clone() const;
+    
 private:
+    
     double mu, sigma;
     std::pair<double, double> support_;
 };
@@ -132,18 +136,13 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     delta_distribution(const theta::plugin::Configuration & cfg);
     
-    //@{
-    /** \brief Implementation of the pure methods of theta::Distribution
-     *
-     * See documentation of theta::Distribution. Note that evalNL and evalNL_withDerivatives will
-     * always throw an IllegatStateException.
-     */
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
     virtual double evalNL(const theta::ParValues & values) const;
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
-    //@}
+    
+    virtual std::auto_ptr<theta::Distribution> clone() const;
 private:
     theta::ParValues values;
     std::map<theta::ParId, std::pair<double, double> > supports;
@@ -188,7 +187,7 @@ class flat_distribution: public theta::Distribution{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     flat_distribution(const theta::plugin::Configuration & cfg);
-    //@{
+    ///@{
     /** \brief Implementation of the pure methods of theta::Distribution
      *
      * See class documentation and documentation of theta::Distribution for details.
@@ -200,7 +199,9 @@ public:
     virtual double evalNL(const theta::ParValues & values) const;
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
-    //@}
+    ///@}
+    
+    std::auto_ptr<theta::Distribution> clone() const;
     
 private:
     theta::ParValues fix_sample_values;
@@ -254,18 +255,16 @@ class gauss: public theta::Distribution{
         /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
         gauss(const theta::plugin::Configuration & cfg);
 
-        //@{
-        /** \brief Implementation of the pure methods of theta::Distribution
-         *
-         * See documentation of theta::Distribution.
-         */
         virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
         virtual void mode(theta::ParValues & result) const;
         virtual double evalNL(const theta::ParValues & values) const;
         virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
         virtual const std::pair<double, double> & support(const theta::ParId&) const;
-        //@}
+        
+        virtual std::auto_ptr<theta::Distribution> clone() const;
+
     private:
+        
         std::vector<theta::ParId> v_par_ids;
         std::vector<double> mu;
         theta::Matrix sqrt_cov; //required for sampling
@@ -300,48 +299,17 @@ class gauss1d: public theta::Distribution{
         /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
         gauss1d(const theta::plugin::Configuration & cfg);
 
-        //@{
-        /** \brief Implementation of the pure methods of theta::Distribution
-         *
-         * See documentation of theta::Distribution.
-         */
         virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
         virtual void mode(theta::ParValues & result) const;
         virtual double evalNL(const theta::ParValues & values) const;
         virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
         virtual const std::pair<double, double> & support(const theta::ParId&) const;
-        //@}
+        
+        virtual std::auto_ptr<theta::Distribution> clone() const;
     private:
         double mu;
         double sigma;
         std::pair<double, double> range;
-};
-
-/** \brief A function which multiplies a number of parameters
- *
- * Example configuration:
- * \code
- * {
- *   type = "mult";
- *   parameters = ("p1", "p2");
- * }
- * \endcode
- * This will make a Function object which returns p1 * p2.
- */
-class mult: public theta::Function{
-public:
-    /** \brief Construct a MultFunction from a Configuration instance
-     */
-    mult(const theta::plugin::Configuration & cfg);
-
-    /** \brief Definitions of the pure virtual methods of Function
-     *
-     * See documentation of Function for their meaning.
-     */
-    virtual double operator()(const theta::ParValues & v) const;
-    
-private:
-    std::vector<theta::ParId> v_pids;
 };
 
 /** \brief A Distribution product of other distributions
@@ -368,16 +336,16 @@ public:
     /// Constructor from a Configuration for the plugin system
     product_distribution(const theta::plugin::Configuration & cfg);
 
-    //@{
-    /// See Distribution for details
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
     virtual double evalNL(const theta::ParValues & values) const;
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId & p) const;
-    //@}
+    
+    virtual std::auto_ptr<theta::Distribution> clone() const;
 
 private:
+    product_distribution(const product_distribution & rhs);
     void add_distributions(const theta::plugin::Configuration & cfg, const theta::SettingWrapper & s, int depth);
     
     boost::ptr_vector<theta::Distribution> distributions;
@@ -453,7 +421,10 @@ public:
      */
     virtual void fill(theta::Data & dat);
     
+    virtual std::auto_ptr<theta::DataSource> clone(const PropertyMap & pm) const;
+    
 private:
+    model_source(const model_source & rhs, const PropertyMap & pm);
     theta::ParValues parameters_for_nll;
     
     bool save_nll;

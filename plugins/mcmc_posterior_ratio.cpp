@@ -50,11 +50,25 @@ class MCMCPosteriorRatioResult{
         size_t n_total;
 };
 
+mcmc_posterior_ratio::mcmc_posterior_ratio(const mcmc_posterior_ratio & rhs, const PropertyMap & pm): Producer(rhs, pm), RandomConsumer(rhs, pm, getName()),
+  init(rhs.init), iterations(rhs.iterations), burn_in(rhs.burn_in), sqrt_cov_sb(rhs.sqrt_cov_sb), startvalues_sb(rhs.startvalues_sb),
+  sqrt_cov_b(rhs.sqrt_cov_b), startvalues_b(rhs.startvalues_b){
+    s_plus_b = rhs.s_plus_b->clone();
+    b_only = rhs.b_only->clone();
+    c_nl_posterior_sb = products_sink->declare_product(*this, "nl_posterior_sb", theta::typeDouble);
+    c_nl_posterior_b =  products_sink->declare_product(*this, "nl_posterior_b",  theta::typeDouble);
+    
+}
+
+std::auto_ptr<theta::Producer> mcmc_posterior_ratio::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::Producer>(new mcmc_posterior_ratio(*this, pm));
+}
+
 void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model & model) {
     if(!init){
         try{
-            sqrt_cov_sb = get_sqrt_cov2(*rnd_gen, model, startvalues_sb, s_plus_b, vm);
-            sqrt_cov_b = get_sqrt_cov2(*rnd_gen, model, startvalues_b, b_only, vm);
+            sqrt_cov_sb = get_sqrt_cov2(*rnd_gen, model, startvalues_sb, s_plus_b);
+            sqrt_cov_b = get_sqrt_cov2(*rnd_gen, model, startvalues_b, b_only);
             init = true;
         }catch(Exception & ex){
             ex.message = "initialization failed: " + ex.message;
@@ -83,8 +97,6 @@ void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model 
 
 mcmc_posterior_ratio::mcmc_posterior_ratio(const theta::plugin::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()), init(false){
     SettingWrapper s = cfg.setting;
-    vm = cfg.vm;
-    
     s_plus_b = theta::plugin::PluginManager<Distribution>::instance().build(theta::plugin::Configuration(cfg, s["signal-plus-background-distribution"]));
     b_only = theta::plugin::PluginManager<Distribution>::instance().build(theta::plugin::Configuration(cfg, s["background-only-distribution"]));    
     

@@ -71,7 +71,8 @@ BOOST_AUTO_TEST_CASE(distribution_lognormal){
         double lognormal_x_d = d->evalNL(values);
         BOOST_CHECK(utils::close_to(-utils::log(lognormal_x / lognormal_mu), lognormal_x_d - lognormal_mu_d, 10));
     }
-    Random rnd(new RandomSourceTaus());
+    std::auto_ptr<RandomSource> rnd_src(new RandomSourceTaus());
+    Random rnd(rnd_src);
     ParValues v_sampled(*vm);
     d->sample(v_sampled, rnd);
     BOOST_REQUIRE(v_sampled.contains(var0));

@@ -24,7 +24,7 @@ public:
     virtual void set_product(const Column & c, double d) = 0;
     virtual void set_product(const Column & c, int i) = 0;
     virtual void set_product(const Column & c, const std::string & s) = 0;
-    virtual void set_product(const Column & c, const Histogram & h) = 0;
+    virtual void set_product(const Column & c, const Histogram1D & h) = 0;
     virtual ~ProductsSink(){}
 };
 
@@ -40,13 +40,16 @@ public:
 class ProductsSource{
 public:
     /// Get the name as configured via the configuration file
-    const std::string & getName()const{
-        return name;
-    }
+    const std::string & getName() const;
+    
 protected:
     /// To be used by derived classes, to fill name and products_sink
     ProductsSource(const plugin::Configuration & cfg);
-    ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink): name(name_), products_sink(sink){}
+    ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink);
+    
+    // pseudo copy-constructor for clone method of derived classes
+    ProductsSource(const ProductsSource & rhs, const PropertyMap & pm);
+    
     std::string name;
     boost::shared_ptr<ProductsSink> products_sink;
 };
@@ -83,6 +86,8 @@ public:
      * or \link theta::FatalException \endlink.
      */
     virtual void produce(const Data & data, const Model & model) = 0;
+    
+    virtual std::auto_ptr<Producer> clone(const PropertyMap & pm) const = 0;
         
 protected:
     /** \brief Construct from a Configuration instance
@@ -97,6 +102,9 @@ protected:
      * directly from a Model instance to ensure consistent treatment of the additional likelihood terms.
      */
     std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data, const Model & model);
+    
+    // for derived classes to implement clone:
+    Producer(const Producer & rhs, const PropertyMap & pm);
 
     boost::shared_ptr<theta::Distribution> override_parameter_distribution;
     boost::shared_ptr<theta::Function> additional_nll_term;

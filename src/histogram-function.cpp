@@ -6,9 +6,9 @@ REGISTER_PLUGIN_BASETYPE(theta::HistogramFunction);
 
 using namespace theta;
 
-const Histogram &  ConstantHistogramFunctionError::getRandomFluctuation(Random & rnd, const ParValues & values) const{
+const Histogram1D &  ConstantHistogramFunctionError::getRandomFluctuation(Random & rnd, const ParValues & values) const{
     const size_t nbins = h.get_nbins();
-    for(size_t i=1; i<=nbins; ++i){
+    for(size_t i=0; i<nbins; ++i){
         double c = h.get(i);
         double err_i = err.get(i);
         if(err_i==0.0){
@@ -25,18 +25,3 @@ const Histogram &  ConstantHistogramFunctionError::getRandomFluctuation(Random &
     }
     return fluc;
 }
-
-double HistogramFunctionUtils::read_normalize_to(const SettingWrapper & s){
-    size_t size = s["normalize_to"].size();
-      double norm = 1.0;
-      if(size > 0){
-          for(size_t i=0; i<size; ++i){
-              norm *= static_cast<double>(s["normalize_to"][i]);
-          }
-      }
-      else{
-          norm = s["normalize_to"];
-      }
-      return norm;
-}
-

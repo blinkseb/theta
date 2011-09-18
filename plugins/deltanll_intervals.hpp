@@ -35,7 +35,8 @@
  *
  * \c parameter is the name of the parameter for which the interval shall be calculated.
  *
- * \c minimizer is the configuration path to a \link theta::Minimizer Minimizer\endlink definition.
+ * \c minimizer is the configuration path to a \link theta::Minimizer Minimizer\endlink definition. It does
+ *   not need to provide error estimates although error estimates can help to speed up calculation in some cases.
  *
  * \c re-minimize specifies whether or not to search for a minimum of the negative log-likelihood when scanning
  *    through the parameter of interest or to use the parameter values found at the global minimum. See below for details.
@@ -77,8 +78,13 @@ public:
     deltanll_intervals(const theta::plugin::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
+    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+    
 private:
-    //boost::shared_ptr<theta::VarIdManager> vm;
+    deltanll_intervals(const deltanll_intervals & rhs, const PropertyMap & pm);
+    
+    void declare_products();
+    
     theta::ParId pid;
     std::vector<double> clevels;
     bool re_minimize;

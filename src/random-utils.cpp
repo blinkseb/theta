@@ -7,7 +7,7 @@
 
 using namespace theta;
 
-RandomConsumer::RandomConsumer(const theta::plugin::Configuration & cfg, const std::string & name): seed(-1){
+RandomConsumer::RandomConsumer(const theta::plugin::Configuration & cfg, const std::string & name): seed(-1) {
    std::auto_ptr<RandomSource> rnd_source;
    std::string source_type = "taus";
    if(cfg.setting.exists("rnd_gen")){
@@ -54,18 +54,31 @@ RandomConsumer::RandomConsumer(const theta::plugin::Configuration & cfg, const s
        }
        
    }
-   rnd_gen.reset(new Random(rnd_source.release()));
+   rnd_gen.reset(new Random(rnd_source));
    rnd_gen->set_seed(seed);
    int runid = *(cfg.pm->get<int>("runid"));
    cfg.pm->get<RndInfoTable>()->append(runid, name, seed);
 }
 
-void theta::randomize_poisson(Histogram & h, Random & rnd){
-    const size_t nbins = h.get_nbins();
-    for(size_t bin=0; bin<=nbins+1; ++bin){
-        double mu = h.get(bin);
+RandomConsumer::RandomConsumer(const RandomConsumer & rhs, const PropertyMap & pm, const std::string & name): seed(rhs.seed){
+    std::auto_ptr<RandomSource> rnd_src = rhs.rnd_gen->get_source().clone();
+    rnd_gen.reset(new Random(rnd_src));
+    int seed_offset = 0;
+    if(pm.exists<int>("seed_offset")){
+        seed_offset = *(pm.get<int>("seed_offset"));
+    }
+    rnd_gen->set_seed(seed + seed_offset);
+    int runid = *(pm.get<int>("runid"));
+    pm.get<RndInfoTable>()->append(runid, name, seed);
+}
+
+void theta::randomize_poisson(DoubleVector & d, Random & rnd){
+    const size_t n = d.size();
+    double * data = d.getData();
+    for(size_t i=0; i<n; ++i){
+        double mu = data[i];
         if(mu > 0.){
-            h.set(bin, rnd.poisson(mu));
+            data[i] = rnd.poisson(mu);
         }
     }
 }

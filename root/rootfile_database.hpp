@@ -98,7 +98,7 @@ private:
     
     //histogram infos:
     struct hist_info{
-        theta::Histogram h;
+        theta::Histogram1D h;
         std::string name;
         std::string column_name;
     };

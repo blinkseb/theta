@@ -22,11 +22,11 @@ flat-unit-histo = {
 counting = {
    o = {
       signal = {
-          coefficient-function = { type = "mult"; parameters = ("Theta");};
+          coefficient-function = { type = "multiply"; factors = ("Theta");};
           histogram = "@flat-unit-histo";
       };
       background = {
-          coefficient-function = { type = "mult"; parameters = ("mu");};
+          coefficient-function = { type = "multiply"; factors = ("mu");};
           histogram = "@flat-unit-histo";
       };
    };

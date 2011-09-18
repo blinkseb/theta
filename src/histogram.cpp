@@ -14,27 +14,28 @@ namespace{
    int n_allocs = 0;
    int n_frees = 0;
 
-   double * allocate_histodata(size_t nbins){
+   double * allocate_doubles(size_t n){
       ++n_allocs;
       double * result = 0;
-      const size_t nbins_orig = nbins;
+      const size_t n_orig = n;
       //always allocate an even number of bins:
-      if(nbins_orig % 2) ++nbins;
+      if(n_orig % 2) ++n;
       //for the add_fast routine, which might use SSE optimizations, we need this alignment. And
       // while we at it, we should make sure double is as expected:
       BOOST_STATIC_ASSERT(sizeof(double)==8);
-      int err = posix_memalign(reinterpret_cast<void**>(&result), 16, sizeof(double) * (nbins + 2));
+      int err = posix_memalign(reinterpret_cast<void**>(&result), 16, sizeof(double) * n);
       if(err!=0){
         throw std::bad_alloc();
       }
       //set the extra allocated double to zero to make sure no time-consuming garbage is there ...
-      if(nbins_orig % 2) result[nbins + 1] = 0.0;
+      if(n_orig % 2) result[n-1] = 0.0;
       return result;
    }
    
-   void free_histodata(double * histodata){
+   // note: data can be NULL
+   void free_doubles(double * data){
       ++n_frees;
-      free(histodata);
+      free(data);
    }
 }
 
@@ -43,95 +44,107 @@ void get_allocs_frees(int & n_alls, int & n_frs){
     n_frs = n_frees;
 }
 
-
-Histogram::Histogram(size_t b, double x_min, double x_max) : histodata(0), nbins(b), xmin(x_min), xmax(x_max) {
-    if(xmin >= xmax) throw InvalidArgumentException("Histogram: xmin >= xmax not allowed");
-    histodata = allocate_histodata(nbins);
-    reset();
+DoubleVector::DoubleVector(size_t n): data(0), n_data(n){
+    if(n_data > 0)
+       data = allocate_doubles(n_data);
 }
 
-Histogram::Histogram(const Histogram& rhs) {
-    initFromHisto(rhs);
+DoubleVector::~DoubleVector(){
+    free_doubles(data);
 }
 
-void Histogram::operator=(const Histogram & rhs) {
-    if (&rhs == this) return;
-    if (nbins != rhs.nbins || xmin != rhs.xmin || xmax != rhs.xmax) {
-        free_histodata(histodata);
-        initFromHisto(rhs);
-    } else {
-        memcpy(histodata, rhs.histodata, sizeof (double) *(nbins + 2));
-    }
-}
-
-Histogram::~Histogram() {
-    free_histodata(histodata);
-}
-
-void Histogram::reset(size_t b, double x_min, double x_max) {
-    //only re-allocate if there where changes.
-    if (b > 0 && (b != nbins || x_min != xmin || x_max != xmax)) {
-        nbins = b;
-        xmin = x_min;
-        xmax = x_max;
-        if(xmin >= xmax) throw InvalidArgumentException("Histogram: xmin >= xmax not allowed");
-        free_histodata(histodata);
-        histodata = allocate_histodata(nbins);
-    }
-    memset(histodata, 0, sizeof (double) *(nbins + 2));
-}
-
-void Histogram::reset_to_1(){
-   for(size_t i=0; i<=nbins+1; i++){
-      histodata[i] = 1.0;
+DoubleVector::DoubleVector(const DoubleVector & rhs): data(0), n_data(rhs.n_data){
+   if(n_data > 0){
+       data = allocate_doubles(n_data);
+       memcpy(data, rhs.data, sizeof(double) * n_data);
    }
 }
 
-void Histogram::multiply_with_ratio_exponented(const Histogram & nominator, const Histogram & denominator, double exponent){
+void DoubleVector::operator=(const DoubleVector & rhs){
+    if(&rhs == this) return;
+    if(n_data != rhs.n_data){
+        free_doubles(data);
+        if(rhs.n_data > 0)
+            data = allocate_doubles(rhs.n_data);
+        else
+            data = 0;
+        n_data = rhs.n_data;
+    }
+    if(n_data > 0)
+       memcpy(data, rhs.data, sizeof(double) * n_data);
+}
+
+void DoubleVector::reset_n(size_t new_n){
+    if(n_data!=new_n){
+        free_doubles(data);
+        if(new_n > 0)
+            data = allocate_doubles(new_n);
+        else
+            data = 0;
+        n_data = new_n;
+    }
+    set_all_values(0.0);
+}
+
+Histogram1D::Histogram1D(size_t b, double x_min, double x_max) : DoubleVector(b), xmin(x_min), xmax(x_max) {
+    if(xmin >= xmax) throw InvalidArgumentException("Histogram: xmin >= xmax not allowed");
+    set_all_values(0.0);
+}
+
+Histogram1D::Histogram1D(const Histogram1D& rhs): DoubleVector(rhs), xmin(rhs.xmin), xmax(rhs.xmax){
+}
+
+void Histogram1D::operator=(const Histogram1D & rhs) {
+    DoubleVector::operator=(rhs);
+    xmin = rhs.xmin;
+    xmax = rhs.xmax;
+}
+
+Histogram1D::~Histogram1D() {
+}
+
+void Histogram1D::reset_range(double x_min, double x_max){
+    if(size() > 0 && x_min >= x_max) throw InvalidArgumentException("Histogram: xmin >= xmax not allowed");
+    xmin = x_min;
+    xmax = x_max;
+}
+
+void Histogram1D::multiply_with_ratio_exponented(const Histogram1D & nominator, const Histogram1D & denominator, double exponent){
    check_compatibility(nominator);
    check_compatibility(denominator);
-   const double * n_data = nominator.histodata;
-   const double * d_data = denominator.histodata;
-   double s = 0.0;
-   for(size_t i=0; i<=nbins+1; i++){
+   const double * n_data = nominator.getData();
+   const double * d_data = denominator.getData();
+   double * data = getData();
+   const size_t n = size();
+   for(size_t i=0; i<n; i++){
       if(d_data[i]>0.0)
-         histodata[i] *= pow(n_data[i] / d_data[i], exponent);
-      s += histodata[i];
+         data[i] *= pow(n_data[i] / d_data[i], exponent);
    }
 }
 
-void Histogram::initFromHisto(const Histogram & h) {
-    nbins = h.nbins;
-    xmin = h.xmin;
-    xmax = h.xmax;
-    histodata = allocate_histodata(nbins);
-    memcpy(histodata, h.histodata, sizeof (double) *(nbins + 2));
+void Histogram1D::fill(double xvalue, double weight) {
+    int bin = static_cast<int> ((xvalue - xmin) * get_nbins() / (xmax - xmin));
+    if (bin < 0 || (bin==0 && xvalue < xmin)) return;
+    if (static_cast<size_t> (bin) >= size()) return;
+    getData()[bin] += weight;
 }
 
-void Histogram::fill(double xvalue, double weight) {
-    int bin = static_cast<int> ((xvalue - xmin) * nbins / (xmax - xmin) + 1);
-    if (bin < 0)
-        bin = 0;
-    if (static_cast<size_t> (bin) > nbins + 1)
-        bin = nbins + 1;
-    histodata[bin] += weight;
-}
-
-void Histogram::fail_check_compatibility(const Histogram & h) const {
-    if (nbins != h.nbins || xmin!=h.xmin || xmax != h.xmax){
+void Histogram1D::fail_check_compatibility(const Histogram1D & h) const {
+    if (get_nbins() != h.get_nbins() || xmin!=h.xmin || xmax != h.xmax){
         std::stringstream s;
         s <<  "Histogram::check_compatibility: Histograms are not compatible (nbins, xmin, xmax) are: "
-              " (" << nbins << ", " << xmin << ", " << xmax << ") and "
-              " (" << h.nbins << ", " << h.xmin << ", " << h.xmax << ")";
+              " (" << get_nbins() << ", " << xmin << ", " << xmax << ") and "
+              " (" << h.get_nbins() << ", " << h.xmin << ", " << h.xmax << ")";
         throw InvalidArgumentException(s.str());
     }
 }
 
-void Histogram::operator*=(const Histogram & h) {
+void Histogram1D::operator*=(const Histogram1D & h) {
     check_compatibility(h);
-    const double * hdata = h.histodata;
-    for (size_t i = 0; i <= nbins + 1; ++i) {
-        histodata[i] *= hdata[i];
+    const double * hdata = h.getData();
+    double * data = getData();
+    const size_t n = size();
+    for (size_t i = 0; i < n; ++i) {
+        data[i] *= hdata[i];
     }
 }
-

@@ -33,7 +33,8 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
         double x_low = value_at_minimum;
         double f_x_low = -deltanll_levels[i];
         double initial_step = minres.errors_plus.get(pid);
-        if(initial_step <= 1e-6 * fabs(x_low)) initial_step = 1e-6 * fabs(x_low);
+        if(initial_step <= 0) initial_step = step.get(pid);
+        else if(initial_step <= 1e-6 * fabs(x_low)) initial_step = 1e-6 * fabs(x_low);
         if(initial_step < 1e-6) initial_step = 1e-6;
         double step = initial_step;
         const double x_acurracy = step / 100;
@@ -96,10 +97,9 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
 }
 
 deltanll_intervals::deltanll_intervals(const theta::plugin::Configuration & cfg): Producer(cfg),
-   pid(cfg.vm->getParId(cfg.setting["parameter"])), re_minimize(true), start_step_ranges_init(false){
+   pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])), re_minimize(true), start_step_ranges_init(false){
     SettingWrapper s = cfg.setting;
     minimizer = theta::plugin::PluginManager<Minimizer>::instance().build(theta::plugin::Configuration(cfg, s["minimizer"]));
-    string par_name = s["parameter"];
     size_t ic = s["clevels"].size();
     if (ic == 0) {
         throw ConfigurationException("deltanll_intervals: empty clevels.");
@@ -117,6 +117,10 @@ deltanll_intervals::deltanll_intervals(const theta::plugin::Configuration & cfg)
         deltanll_levels[i] = utils::phi_inverse((1+clevels[i])/2);
         deltanll_levels[i] *= deltanll_levels[i]*0.5;
     }
+    declare_products();
+}
+
+void deltanll_intervals::declare_products(){
     c_maxl = products_sink->declare_product(*this, "maxl", theta::typeDouble);
     for(size_t i=0; i<clevels.size(); ++i){
         stringstream ss;
@@ -126,7 +130,18 @@ deltanll_intervals::deltanll_intervals(const theta::plugin::Configuration & cfg)
         ss << "upper" << setw(5) << setfill('0') << static_cast<int>(clevels[i] * 10000 + 0.5);
         upper_columns.push_back(products_sink->declare_product(*this, ss.str(), theta::typeDouble));
     }
+    
+}
+
+std::auto_ptr<theta::Producer> deltanll_intervals::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::Producer>(new deltanll_intervals(*this, pm));
+}
+
+deltanll_intervals::deltanll_intervals(const deltanll_intervals & rhs, const PropertyMap & pm): Producer(rhs, pm), pid(rhs.pid),
+  clevels(rhs.clevels), re_minimize(rhs.re_minimize), deltanll_levels(rhs.deltanll_levels), start_step_ranges_init(rhs.start_step_ranges_init),
+  start(rhs.start), step(rhs.step), ranges(rhs.ranges){
+    minimizer = rhs.minimizer->clone(pm);
+    declare_products();
 }
 
 REGISTER_PLUGIN(deltanll_intervals)
-

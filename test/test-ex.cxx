@@ -17,6 +17,9 @@ public:
     virtual double operator()(const ParValues & v) const{
        throw Exception("test-exception message 42");
     }
+    virtual std::auto_ptr<Function> clone() const{
+        throw InvalidArgumentException("clone not supported");
+    }
 };
 
 REGISTER_PLUGIN(test_exception)

@@ -55,8 +55,12 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     mle(const theta::plugin::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
+    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
     
 private:
+    mle(const mle & rhs, const PropertyMap & pm);
+    void declare_products();
+    
     std::auto_ptr<theta::Minimizer> minimizer;
     std::vector<theta::ParId> save_ids;
     std::vector<std::string> parameter_names;
@@ -71,7 +75,7 @@ private:
 
     std::auto_ptr<theta::ObsId> bh_ts_obsid;
     
-    //the two columns with parameter and error:
+    //the two columns per parameter with value and error:
     std::vector<theta::Column> parameter_columns;
     std::vector<theta::Column> error_columns;
     theta::Column c_nll, c_covariance, c_ks_ts, c_bh_ts;

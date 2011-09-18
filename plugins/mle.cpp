@@ -40,13 +40,13 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     }
     if(write_covariance){
        const size_t N = save_ids.size();
-       Histogram h(N*N, 0, N*N);
+       Histogram1D h(N*N, 0, N*N);
        ParIds pars = nll->getParameters();
        for(size_t i=0; i<N; ++i){
            int index_i = get_index(save_ids[i], pars);
            for(size_t j=0; j<N; ++j){
                int index_j = get_index(save_ids[j], pars);
-               h.set(i*N + j + 1, minres.covariance(index_i,index_j));
+               h.set(i*N + j, minres.covariance(index_i,index_j));
            }
        }
        products_sink->set_product(c_covariance, h);
@@ -57,11 +57,11 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
         model.get_prediction(pred, minres.values);
         double ks_ts = 0.0;
         for(ObsIds::const_iterator it=obs.begin(); it!=obs.end(); ++it){
-            const Histogram & data_o = data[*it];
-            const Histogram & pred_o = pred[*it];
+            const Histogram1D & data_o = data[*it];
+            const Histogram1D & pred_o = pred[*it];
             data_o.check_compatibility(pred_o);
             double sum_d=0, sum_p=0;
-            for(size_t i=1; i<=data_o.get_nbins(); ++i){
+            for(size_t i=0; i<data_o.get_nbins(); ++i){
                 sum_d += data_o.get(i);
                 sum_p += pred_o.get(i);
                 ks_ts = max(ks_ts, fabs(sum_d - sum_p));
@@ -74,12 +74,12 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
         Data pred;
         model.get_prediction(pred, minres.values);
         double bh_ts = 0.0;
-        const Histogram & data_o = data[*bh_ts_obsid];
-        const Histogram & pred_o = pred[*bh_ts_obsid];
+        const Histogram1D & data_o = data[*bh_ts_obsid];
+        const Histogram1D & pred_o = pred[*bh_ts_obsid];
         data_o.check_compatibility(pred_o);
-        for(size_t i=1; i<=data_o.get_nbins(); ++i){
+        for(size_t i=0; i<data_o.get_nbins(); ++i){
             double bump = 0.0;
-            for(size_t j=i; j<=data_o.get_nbins(); ++j){
+            for(size_t j=i; j<data_o.get_nbins(); ++j){
                 bump += data_o.get(j) - pred_o.get(j);
                 bh_ts = max(bh_ts, bump);
             }
@@ -88,25 +88,21 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     }
 }
 
-mle::mle(const theta::plugin::Configuration & cfg): Producer(cfg), start_step_ranges_init(false), write_covariance(false), write_ks_ts(false), write_bh_ts(false){
-    SettingWrapper s = cfg.setting;
-    minimizer = PluginManager<Minimizer>::instance().build(Configuration(cfg, s["minimizer"]));
-    size_t n_parameters = s["parameters"].size();
-    for (size_t i = 0; i < n_parameters; i++) {
-        string par_name = s["parameters"][i];
-        save_ids.push_back(cfg.vm->getParId(par_name));
-        parameter_names.push_back(par_name);
+std::auto_ptr<theta::Producer> mle::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::Producer>(new mle(*this, pm));
+}
+
+mle::mle(const mle & rhs, const PropertyMap & pm): Producer(rhs, pm), save_ids(rhs.save_ids), parameter_names(rhs.parameter_names),
+  start_step_ranges_init(rhs.start_step_ranges_init), start(rhs.start), step(rhs.step), ranges(rhs.ranges), write_covariance(rhs.write_covariance),
+  write_ks_ts(rhs.write_ks_ts), write_bh_ts(rhs.write_bh_ts){
+    minimizer = rhs.minimizer->clone(pm);
+    declare_products();
+    if(rhs.bh_ts_obsid.get()){
+        bh_ts_obsid.reset(new ObsId(*rhs.bh_ts_obsid));
     }
-    if(s.exists("write_covariance")){
-       write_covariance = s["write_covariance"];
-    }
-    if(s.exists("write_ks_ts")){
-       write_ks_ts = s["write_ks_ts"];
-    }
-    if(s.exists("bh")){
-        bh_ts_obsid.reset(new ObsId(cfg.vm->getObsId(s["bh"])));
-        write_bh_ts = true;
-    }
+}
+
+void mle::declare_products(){
     c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
     for(size_t i=0; i<save_ids.size(); ++i){
         parameter_columns.push_back(products_sink->declare_product(*this, parameter_names[i], theta::typeDouble));
@@ -123,5 +119,27 @@ mle::mle(const theta::plugin::Configuration & cfg): Producer(cfg), start_step_ra
     }
 }
 
-REGISTER_PLUGIN(mle)
+mle::mle(const theta::plugin::Configuration & cfg): Producer(cfg), start_step_ranges_init(false), write_covariance(false), write_ks_ts(false), write_bh_ts(false){
+    SettingWrapper s = cfg.setting;
+    minimizer = PluginManager<Minimizer>::instance().build(Configuration(cfg, s["minimizer"]));
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
+    size_t n_parameters = s["parameters"].size();
+    for (size_t i = 0; i < n_parameters; i++) {
+        string par_name = s["parameters"][i];
+        save_ids.push_back(vm->getParId(par_name));
+        parameter_names.push_back(par_name);
+    }
+    if(s.exists("write_covariance")){
+       write_covariance = s["write_covariance"];
+    }
+    if(s.exists("write_ks_ts")){
+       write_ks_ts = s["write_ks_ts"];
+    }
+    if(s.exists("bh")){
+        bh_ts_obsid.reset(new ObsId(vm->getObsId(s["bh"])));
+        write_bh_ts = true;
+    }
+    declare_products();
+}
 
+REGISTER_PLUGIN(mle)

@@ -25,7 +25,7 @@ namespace theta {
          *
          * The returned reference is only guaranteed to be valid as long as this HistogramFunction object.
          */
-        virtual const Histogram & operator()(const ParValues & values) const = 0;
+        virtual const Histogram1D & operator()(const ParValues & values) const = 0;
 
         /** \brief Returns the Histogram for the given parameter values, but randomly fluctuated around its parametrization uncertainty.
          *
@@ -53,7 +53,7 @@ namespace theta {
          * included as parameter in the likelihood (possibly with some constraint). Choosing between this possibilities
          * is up to the user specifying the model.
          */
-        virtual const Histogram & getRandomFluctuation(Random & rnd, const ParValues & values) const{
+        virtual const Histogram1D & getRandomFluctuation(Random & rnd, const ParValues & values) const{
             return operator()(values);
         }
 
@@ -70,10 +70,12 @@ namespace theta {
          * This function is used as part of the setup to make sure that the Histogram dimensions match; to save
          * time, it is not usually not used during usual likelihood evaluation, etc.
          */
-        virtual Histogram get_histogram_dimensions() const = 0;
+        virtual Histogram1D get_histogram_dimensions() const = 0;
 
         /// Declare the destructor virtual as there will be polymorphic access to derived classes
         virtual ~HistogramFunction(){}
+        
+        virtual std::auto_ptr<HistogramFunction> clone() const = 0;
         
     protected:
         /// To be filled by derived classes:
@@ -93,19 +95,25 @@ namespace theta {
          *
          *  \sa HistogramFunction getRandomFluctuation
          */
-        ConstantHistogramFunction(const Histogram & histo){
+        ConstantHistogramFunction(const Histogram1D & histo){
             set_histo(histo);
         }
 
         /** \brief Returns the Histogram \c h set at construction time.
          */
-        virtual const Histogram & operator()(const ParValues & values) const{
+        virtual const Histogram1D & operator()(const ParValues & values) const{
             return h;
         }
         
-        /// Return a Histogram of the same dimenions as the one returned by operator()
-        virtual Histogram get_histogram_dimensions() const{
+        /// Return a Histogram of the same dimensions as the one returned by operator()
+        virtual Histogram1D get_histogram_dimensions() const{
             return h;
+        }
+        
+        virtual std::auto_ptr<HistogramFunction> clone() const{
+            std::auto_ptr<ConstantHistogramFunction> result;
+            result->h = h;
+            return std::auto_ptr<HistogramFunction>(result.release());
         }
 
     protected:
@@ -114,16 +122,14 @@ namespace theta {
          * This method is meant for derived classes which can use it to set the constant Histogram to
          * be returned by operator()
          */
-        void set_histo(const Histogram & h_){
+        void set_histo(const Histogram1D & h_){
            h = h_;
-           h.set(0,0);
-           h.set(h.get_nbins()+1,0);
         }
         /** \brief Default constructor to be used by derived classes
          */
         ConstantHistogramFunction(){}
      private:
-        Histogram h;
+        Histogram1D h;
     };
 
 
@@ -149,19 +155,19 @@ namespace theta {
          *
          *  \sa HistogramFunction getRandomFluctuation Histogram::check_compatibility
          */
-        ConstantHistogramFunctionError(const Histogram & histo, const Histogram & error){
+        ConstantHistogramFunctionError(const Histogram1D & histo, const Histogram1D & error){
             set_histos(histo, error);
         }
 
         /** \brief Returns the Histogram \c h set at construction time.
          */
-        virtual const Histogram & operator()(const ParValues & values) const{
+        virtual const Histogram1D & operator()(const ParValues & values) const{
             return h;
         }
 
         /** \brief Returns the bin-by-bin fluctuated Histogram.
          *
-         * For evey bin j, a random number from a gaussian distribution around 1, truncated at 0, with
+         * For evey bin j, a random number from a Gaussian distribution around 1, truncated at 0, with
          * the width taken from bin j of the error-Histogram is drawn. The contents of
          * the histogram is multiplied by this random number and filled in the result
          * histogram bin j.
@@ -171,13 +177,22 @@ namespace theta {
          * Note that for large relative errors, some argue that the truncation at zero is
          * not the "natural" solution as it does not look "nice" at zero. If you ever
          * enter the discussion, you should remember that there is no sensible "&lt; 0" for
-         * bin entries, so the density of a truncated gaussian is continous for *everywhere*.
+         * bin entries, so the density of a truncated Gaussian is continous for *everywhere*.
          */
-        virtual const Histogram & getRandomFluctuation(Random & rnd, const ParValues & values) const;
+        virtual const Histogram1D & getRandomFluctuation(Random & rnd, const ParValues & values) const;
         
-        /// Return a Histogram of the same dimenions as the one returned by operator()
-        virtual Histogram get_histogram_dimensions() const{
+        /// Return a Histogram of the same dimensions as the one returned by operator()
+        virtual Histogram1D get_histogram_dimensions() const{
             return h;
+        }
+        
+        virtual std::auto_ptr<HistogramFunction> clone() const{
+            std::auto_ptr<ConstantHistogramFunctionError> result;
+            //result->par_ids remains empty ...
+            result->h = h;
+            result->err = err;
+            result->fluc = fluc;
+            return std::auto_ptr<HistogramFunction>(result.release());
         }
 
     protected:
@@ -188,15 +203,13 @@ namespace theta {
          * in ConstantHistogramFunctionError::ConstantHistogramFunctionError, the \c error Histogram
          * contains bin-by-bin relative errors which are assumed to be independent.
          */
-        void set_histos(const Histogram & histo, const Histogram & error){
+        void set_histos(const Histogram1D & histo, const Histogram1D & error){
+            histo.check_compatibility(error); //throws if not compatible
             h = histo;
             err = error;
-            h.check_compatibility(error);//throws if not compatible
-            h.set(0,0);
-            h.set(h.get_nbins()+1,0);
-            fluc.reset(h.get_nbins(), h.get_xmin(), h.get_xmax());
+            fluc = h;
             //check that errors are positive:
-            for(size_t i=1; i<=h.get_nbins(); ++i){
+            for(size_t i=0; i<h.get_nbins(); ++i){
                 if(error.get(i)<0.0) throw InvalidArgumentException("ConstantHistogramFunctionError: error histogram contains negative entries");
             }
         }
@@ -206,19 +219,10 @@ namespace theta {
         ConstantHistogramFunctionError(){}
         
     private:
-        Histogram h;
-        Histogram err;
-        mutable Histogram fluc; // the fluctuated Histogram returned by getFluctuatedHistogram
+        Histogram1D h;
+        Histogram1D err;
+        mutable Histogram1D fluc; // the fluctuated Histogram returned by getFluctuatedHistogram
     };
-    
-    namespace HistogramFunctionUtils{
-        /** \brief Read the normalize_to setting
-         *
-         * parese the normalize_to setting, which can either be a double, or an array/list of doubles which are
-         * then multiplied.
-         */
-        double read_normalize_to(const theta::SettingWrapper & s);
-    }
 
 }
 

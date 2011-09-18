@@ -134,7 +134,8 @@ BOOST_AUTO_TEST_SUITE(random2_tests)
 
 //test the copied randomtaus versus the expected results directly from GSL taus2.
 BOOST_AUTO_TEST_CASE(randommt){
-    Random rnd(new RandomSourceMersenneTwister());
+    std::auto_ptr<RandomSource> rnd_src(new RandomSourceMersenneTwister());
+    Random rnd(rnd_src);
     BOOST_REQUIRE_EQUAL(rnd.get(), genrand_int32());
     for(int i=0; i<1000; ++i){
         BOOST_REQUIRE_EQUAL(rnd.get(), genrand_int32());
@@ -149,7 +150,8 @@ BOOST_AUTO_TEST_CASE(randommt){
 }
 
 BOOST_AUTO_TEST_CASE(random2_taus){
-    Random rnd(new RandomSourceTaus());
+    std::auto_ptr<RandomSource> rnd_src(new RandomSourceTaus());
+    Random rnd(rnd_src);
     unsigned int first_expected [10] = {802792108u, 4084684829u, 2342628799u, 320516809u, 984487517u, 2246144618u,
     398433606u, 2198246467u, 1456873311u, 3409412117u};
     for(int i=0; i<10; i++){

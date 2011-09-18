@@ -31,8 +31,8 @@ BOOST_AUTO_TEST_CASE(largefile){
    std::auto_ptr<Database> db = PluginManager<Database>::instance().build(cfg);
    std::auto_ptr<Table> table = db->create_table("test_table");
    Column c = table->add_column("col1", theta::typeHisto);
-   Histogram h(1000, 0.0, 1.0);
-   for(size_t i=0; i<=1001; ++i){
+   Histogram1D h(1000, 0.0, 1.0);
+   for(size_t i=0; i<1000; ++i){
        h.set(i, i+1);
    }
    //about 8kbytes per row. For 1 mio rows => 8 GB.

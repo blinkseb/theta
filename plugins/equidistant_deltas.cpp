@@ -7,8 +7,9 @@ using namespace std;
 
 equidistant_deltas::equidistant_deltas(const theta::plugin::Configuration & cfg){
     n = cfg.setting["n"];
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     if(n<2) throw ConfigurationException("n>=2 must hold!");
-    par_ids.insert(cfg.vm->getParId(cfg.setting["parameter"]));
+    par_ids.insert(vm->getParId(cfg.setting["parameter"]));
     low = support_.first = cfg.setting["range"][0];
     support_.second = cfg.setting["range"][1];
     width_ = (support_.second - support_.first) / (n-1);
@@ -34,6 +35,10 @@ double equidistant_deltas::evalNL_withDerivatives(const theta::ParValues & value
 
 const std::pair<double, double> & equidistant_deltas::support(const theta::ParId&) const{
     return support_;
+}
+
+std::auto_ptr<theta::Distribution> equidistant_deltas::clone() const{
+    return std::auto_ptr<theta::Distribution>(new equidistant_deltas(*this));
 }
 
 REGISTER_PLUGIN(equidistant_deltas)

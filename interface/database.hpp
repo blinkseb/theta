@@ -15,7 +15,6 @@
 
 namespace theta {
 
-
 /** \brief Abstract class for data input
  *
  * A database in theta is a collection of tables. Tables are identified by a unique name
@@ -61,7 +60,7 @@ public:
          */
         virtual double get_double(size_t icol) = 0;
         virtual int get_int(size_t icol) = 0;
-        virtual theta::Histogram get_histogram(size_t icol) = 0;
+        virtual theta::Histogram1D get_histogram(size_t icol) = 0;
         virtual std::string get_string(size_t icol) = 0;
         //@}
         
@@ -97,7 +96,7 @@ public:
 
     /** \brief Virtual Destructor
      *
-     * Virtual, as polymrophic access to derived classes will happen.
+     * Virtual, as polymorphic access to derived classes will happen.
      *
      * Should do any cleanup work (like closing the database file for file-based databases,
      * closing the network connection for network-based, etc.).
@@ -110,7 +109,7 @@ public:
      * digits and underscores. Throws an InvalidArgumentException if the name does not meet the requirements.
      *
      * The returned Table can be used only as long as this Database instance is not destroyed.
-     * Using Tables created from a destroyed Database yields undefined behaviour.
+     * Using Tables created from a destroyed Database yields undefined behavior.
      */
     virtual std::auto_ptr<Table> create_table(const std::string & table_name) = 0;
 
@@ -128,16 +127,20 @@ protected:
 
 /** \brief Class representing a single Column within a Table
  * 
- * This is a minimal class which only implements an "identity" and an operator< in order to be used in maps and alike.
- * All creation and access is done via an instance of Table.
+ * Column is a thin wrapper around an \c int called id.
+ * Instances should always be retrieved via Table::add_column.
  */
 class Column{
 public:
+    /// Comparison operator
     bool operator<(const Column & rhs) const{
         return id < rhs.id;
     }
+    
+    /// Construct a Column instance, given the id
     explicit Column(int id_ = -1): id(id_){}
     
+    /// Get the id as set at construction time
     int get_id() const{
         return id;
     }
@@ -145,9 +148,16 @@ private:
     int id;
 };
 
-
+/** \brief Data for a single row in a Table
+ * 
+ * This class represents (the data of) a single row within a theta::Table. It exposes getter
+ * and setter methods to get/set the values of a column identified by an instance
+ * of theta::Column.
+ */
 class Row{
 public:
+    ///@{
+    /// Setters for the row values, given a Column instance
     void set_column(const Column & col, double d){
         doubles[col] = d;
     }
@@ -157,10 +167,17 @@ public:
     void set_column(const Column & col, const std::string & s){
         strings[col] = s;
     }
-    void set_column(const Column & col, const Histogram & h){
+    void set_column(const Column & col, const Histogram1D & h){
         histos[col] = h;
     }
+    ///@}
     
+    ///@{ Getters for the row values, given a Column instance
+    /** \brief Setters for the row values, given a Column instance
+     * 
+     * Will throw a DatabseException if the Column value asked for has not been
+     * set previously by a (type-matching) setter method.
+     */
     double get_column_double(const Column & col) const{
         std::map<Column, double>::const_iterator it = doubles.find(col);
         if(it==doubles.end()) throw DatabaseException("Row: column not set");
@@ -176,30 +193,32 @@ public:
         if(it==strings.end()) throw DatabaseException("Row: column not set");
         return it->second;
     }
-    const Histogram & get_column_histogram(const Column & col) const{
-        std::map<Column, Histogram>::const_iterator it = histos.find(col);
+    const Histogram1D & get_column_histogram(const Column & col) const{
+        std::map<Column, Histogram1D>::const_iterator it = histos.find(col);
         if(it==histos.end()) throw DatabaseException("Row: column not set");
         return it->second;
     }
+    ///@}
 private:
     std::map<Column, double> doubles;
     std::map<Column, int> ints;
     std::map<Column, std::string> strings;
-    std::map<Column, Histogram> histos;
+    std::map<Column, Histogram1D> histos;
 };
 
 
 /** \brief Abstract class for a table in a Database
  *
- * Tables are always constrcuted via a Datase instance. Once created, it can be used by:
+ * Tables are always constructed via a Database instance. Once created, it can be used by:
  * <ol>
- *   <li>calling get_column one or more times and save the returned Column handles</li>
- *   <li>To write out a row, create a Row instance and call Row::set_column, using the Column handles from the previous step. After the Row instance
- *       is fully populated (=has values for all Columns in this Table), call Table::add_row.</li>
+ *   <li>Call add_column one or more times and save the returned Column handles</li>
+ *   <li>To write out a row, create a Row instance and call Row::set_column,
+ *      using the Column handles from the previous step. After the Row instance
+ *      is fully populated (=has values for all Columns in this Table), call Table::add_row.</li>
  * </ol>
  *
- * If the Table is modified (via a call to get_column) between a call to Table::get_row_template and Table::add_row, add_row
- * will throw a DatabaseException.
+ * You must not call add_column after the first call to add_row. Roes added via add_row must
+ * provide data for all previously defined columns.
  */
 /* Implementation notes: there used to be an old interface for Table consisting of
  * set_column(Column &, const T & value)    [T=double, int, string, Histogram]
@@ -209,7 +228,7 @@ private:
  * add a row with the latest set values.
  * Instead, the new interface encapsulates the data state for a new row into a Row instance. This is done
  * for easier implementation of concurrency: different threads can populate their own Row instance and add it via a single call
- * to add_row, which is much easier to synchronise than a block of set_column calls, followed by a add_row.
+ * to add_row, which is much easier to synchronize than a block of set_column calls, followed by a add_row.
  */
 class Table: private boost::noncopyable {
 public:
@@ -219,9 +238,8 @@ public:
     
     /** \brief Add a column to the table
      *
-     * Retrievies a handle for the column with the given name and type, effectively creating such a column.
-     *
-     * The result can be used as first argument to the Row::set_column() methods.
+     * Create a new column of the given name and type and return the corresponding
+     * Column handle which can be used for the methods in the Row class.
      *
      * This method should only be called at the beginning, after the construction of the object and
      * before using it to actually write any data.
@@ -229,6 +247,8 @@ public:
     virtual Column add_column(const std::string & name, const data_type & type) = 0;
     
     /** \brief Add a row to the table
+     * 
+     * row must provide a value for all Columns previously created with add_column.
      */
     virtual void add_row(const Row & row) = 0;
 protected:
@@ -261,7 +281,7 @@ private:
  */
 class ProductsTable: public ProductsSink {
 public:
-        //@{
+        ///@{
         /** \brief Forwards to Table::set_column
          */
         virtual void set_product(const Column & c, double d){
@@ -276,11 +296,10 @@ public:
             current_row.set_column(c, s);
         }
         
-        virtual void set_product(const Column & c, const theta::Histogram & histo){
+        virtual void set_product(const Column & c, const theta::Histogram1D & histo){
             current_row.set_column(c, histo);
         }
-        
-        //@}
+        ///@}
         
         /** \brief Add a column to this table
          *
@@ -366,7 +385,7 @@ public:
     /** \brief Set the current log level.
      *
      * Future calls to append() will only write the message to the table if the messages
-     * has a severity which is euqal to or exceeds the level given here.
+     * has a severity which is equal to or exceeds the level given here.
      *
      * Note that is it not possible to disable logging of error messages.
      */
@@ -442,4 +461,3 @@ private:
 }
 
 #endif
-

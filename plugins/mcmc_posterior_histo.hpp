@@ -76,8 +76,12 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     mcmc_posterior_histo(const theta::plugin::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
+    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
     
 private:
+    mcmc_posterior_histo(const mcmc_posterior_histo & rhs, const PropertyMap & pm);
+    void declare_products();
+    
     //whether sqrt_cov* and startvalues* have been initialized:
     bool init;
     
@@ -95,8 +99,6 @@ private:
     unsigned int burn_in;
     theta::Matrix sqrt_cov;
     std::vector<double> startvalues;
-    
-    boost::shared_ptr<theta::VarIdManager> vm;
     
     bool smooth;
 };

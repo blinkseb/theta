@@ -22,12 +22,12 @@ gaussmean = {
     
    signal-region = {
        background = {
-          coefficient-function = { type = "mult"; parameters = ("mu_b"); };
+          coefficient-function = { type = "multiply"; factors = ("mu_b"); };
           histogram = "@flat-histo-s";
        };
        
        signal = {
-          coefficient-function = { type = "mult"; parameters = ("mu_s"); };
+          coefficient-function = { type = "multiply"; factors = ("mu_s"); };
           histogram = "@flat-histo-s"; 
        };
    };

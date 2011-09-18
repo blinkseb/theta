@@ -24,6 +24,15 @@ bool nameOk(const std::string & name){
 
 }
 
+
+const std::string & ProductsSource::getName() const{
+   return name;
+}
+
+ProductsSource::ProductsSource(const ProductsSource & rhs, const PropertyMap & pm): name(rhs.name), products_sink(pm.get<ProductsSink>()){}
+
+ProductsSource::ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink): name(name_), products_sink(sink){}
+
 ProductsSource::ProductsSource(const plugin::Configuration & cfg): name(cfg.setting["name"]){
     products_sink = cfg.pm->get<ProductsSink>();
     if(not nameOk(name)){
@@ -38,6 +47,15 @@ Producer::Producer(const Configuration & cfg): ProductsSource(cfg){
     }
     if(cfg.setting.exists("additional-nll-term")){
         additional_nll_term = PluginManager<Function>::instance().build(Configuration(cfg, cfg.setting["additional-nll-term"]));
+    }
+}
+
+Producer::Producer(const Producer & rhs, const PropertyMap & pm): ProductsSource(rhs, pm){
+    if(rhs.override_parameter_distribution){
+        override_parameter_distribution = rhs.override_parameter_distribution->clone();
+    }
+    if(rhs.additional_nll_term){
+        additional_nll_term = rhs.additional_nll_term->clone();
     }
 }
 

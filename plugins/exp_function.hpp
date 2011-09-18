@@ -13,6 +13,10 @@
  *     // alternatively:
  *     lambda_minus = 0.01;
  *     lambda_plus = 0.02;
+ *     // to multiply several exponentials, use
+ *     parameters = ("par0", "par1", "par2");
+ *     lambdas_minus = (0.02, 0.03, 0.01);
+ *     lambdas_plus = (0.02, 0.03, 0.01);
  *  };
  * \endcode
  *
@@ -23,14 +27,15 @@
  */
 class exp_function: public theta::Function{
 private:
-    theta::ParId pid;
-    double lambda_minus, lambda_plus;
+    std::vector<theta::ParId> v_pids;
+    std::vector<double> lambdas_minus, lambdas_plus;
 
 public:
     /// constructor for the plugin system
     exp_function(const theta::plugin::Configuration & cfg);
     /// overloaded evaluation operator of theta::Function
     virtual double operator()(const theta::ParValues & v) const;
+    virtual std::auto_ptr<theta::Function> clone() const;
 };
 
 

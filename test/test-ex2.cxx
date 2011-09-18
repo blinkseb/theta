@@ -27,6 +27,10 @@ public:
            throw;
        }
     }
+    
+    virtual std::auto_ptr<Function> clone() const{
+        throw InvalidArgumentException("clone not supported");
+    }
 private:
    auto_ptr<Function> f;
 };

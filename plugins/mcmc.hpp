@@ -37,11 +37,11 @@ namespace theta {
  * @param burn_in is the number of Markov-Chain iterations run at the beginning which are <em>not</em> reported to the \c res
  *   object.
  */
-template<class nlltype, class resulttype>
-void metropolisHastings(const nlltype & nllikelihood, resulttype &res, Random & rand,
+template<class resulttype>
+void metropolisHastings(const Function & nllikelihood, resulttype &res, Random & rand,
         const std::vector<double> & startvalues, const Matrix & sqrt_cov, size_t iterations, size_t burn_in) {    
     const size_t npar = startvalues.size();
-    if(npar != sqrt_cov.getRows() || npar!=sqrt_cov.getCols() || npar!=nllikelihood.getnpar() || npar!=res.getnpar())
+    if(npar != sqrt_cov.getRows() || npar!=sqrt_cov.getCols() || npar!=nllikelihood.getParameters().size() || npar!=res.getnpar())
     throw InvalidArgumentException("metropolisHastings: dimension/size of arguments mismatch");
     size_t npar_reduced = npar;
     for(size_t i=0; i<npar; i++){
@@ -114,8 +114,7 @@ void metropolisHastings(const nlltype & nllikelihood, resulttype &res, Random & 
  * \param[out] startvalues will contain the suggested startvalues. The contents when calling this function will be ignored.
  */
 Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & startvalues,
-                    const boost::shared_ptr<theta::Distribution> & override_parameter_distribution,
-                    const boost::shared_ptr<VarIdManager> & vm);
+                    const boost::shared_ptr<theta::Distribution> & override_parameter_distribution);
 
 /** \brief Calculate the cholesky decomposition, but allow zero eigenvalues.
  *

@@ -10,11 +10,11 @@ Result::Result(size_t n) :
     npar(n), count(0), count_different_points(0), means(n), count_covariance(n, n) {
 }
 
-void Result::reset() {
+/*void Result::reset() {
     std::fill(means.begin(), means.end(), 0.0);
     count_covariance.reset(npar, npar);
     count = count_different_points = 0;
-}
+}*/
 
 void Result::fill(const double * p, double nll, size_t weight){
     //factor for the covariance ...
@@ -33,6 +33,7 @@ void Result::fill(const double * p, double nll, size_t weight){
     }
     count += weight;
     count_different_points++;
+    fill2(p, nll, weight);
 }
 
 size_t Result::getnpar() const {

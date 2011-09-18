@@ -61,10 +61,11 @@ public:
      */
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
             const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
+    
+    virtual std::auto_ptr<theta::Minimizer> clone(const PropertyMap & pm) const;
 private:
     
     ROOT::Minuit2::EMinimizerType type;
-    std::auto_ptr<ROOT::Minuit2::Minuit2Minimizer> min;
     double tolerance;
     int printlevel;
     int max_iterations, max_function_calls, n_retries;

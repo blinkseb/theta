@@ -9,7 +9,8 @@ namespace libconfig{
 }
 
 namespace theta{
-    class Histogram;
+    class DoubleVector;
+    class Histogram1D;
     class HistogramFunction;
     class Minimizer;
     class Producer;

@@ -58,7 +58,12 @@ public:
     mcmc_quantiles(const theta::plugin::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
+    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+    
 private:
+    mcmc_quantiles(const mcmc_quantiles & rhs, const PropertyMap & pm);
+    void declare_products();
+    
     //whether sqrt_cov* and startvalues* have been initialized:
     bool init;
     
@@ -66,8 +71,6 @@ private:
     std::vector<double> quantiles;
     theta::ParId par_id;
     size_t ipar; //parameter of the requested index, as in NLLikelihood::operator()(const double*) index convention
-    
-    boost::shared_ptr<theta::VarIdManager> vm;
     
     //result columns: one per requested quantile:
     std::vector<theta::Column> columns;

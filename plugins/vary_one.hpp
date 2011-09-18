@@ -63,7 +63,11 @@ public:
        throw theta::FatalException("vary_one::width is not implemented");
     }
     vary_one(const theta::plugin::Configuration & cfg);
+    
+    virtual std::auto_ptr<theta::Distribution> clone() const;
+    
 private:
+
     theta::ParValues default_values;
     std::vector<std::pair<theta::ParId, std::vector<double> > > other_values;
     mutable size_t next_index;

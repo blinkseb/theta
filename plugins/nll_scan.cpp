@@ -24,7 +24,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
     ReducedNLL nll_r(*nll, pid, minres.values, re_minimize ? minimizer.get() : 0, m_start, m_step, m_ranges);
     nll_r.set_offset_nll(minres.fval);
     
-    theta::Histogram result(n_steps, start, start + n_steps * step);
+    theta::Histogram1D result(n_steps, start, start + n_steps * step);
     for(unsigned int i=0; i<n_steps; ++i){
         double x = start + i * step;
         result.set(i, nll_r(x));
@@ -32,11 +32,22 @@ void nll_scan::produce(const Data & data, const Model & model) {
     products_sink->set_product(c_nll, result);
 }
 
-nll_scan::nll_scan(const theta::plugin::Configuration & cfg): Producer(cfg), pid(cfg.vm->getParId(cfg.setting["parameter"])),
+std::auto_ptr<theta::Producer> nll_scan::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::Producer>(new nll_scan(*this, pm));
+}
+
+nll_scan::nll_scan(const nll_scan & rhs, const PropertyMap & pm): Producer(rhs, pm), pid(rhs.pid), start(rhs.start),
+  stop(rhs.stop), step(rhs.step), n_steps(rhs.n_steps), re_minimize(rhs.re_minimize), start_step_ranges_init(rhs.start_step_ranges_init),
+  m_start(rhs.m_start), m_step(rhs.m_step), m_ranges(rhs.m_ranges){
+    minimizer = rhs.minimizer->clone(pm);
+    c_nll = products_sink->declare_product(*this, "nll", theta::typeHisto);
+    c_maxl = products_sink->declare_product(*this, "maxl", theta::typeDouble);
+}
+
+nll_scan::nll_scan(const theta::plugin::Configuration & cfg): Producer(cfg), pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])),
    re_minimize(true), start_step_ranges_init(false){
     SettingWrapper s = cfg.setting;
     minimizer = plugin::PluginManager<Minimizer>::instance().build(theta::plugin::Configuration(cfg, s["minimizer"]));
-    string par_name = s["parameter"];
     if(s.exists("re-minimize")){
         re_minimize = s["re-minimize"];
     }

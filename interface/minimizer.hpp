@@ -85,7 +85,8 @@ namespace theta{
         /** \brief Attempt to minimize the function.
          *
          * The function f is attempted to be minimized, with specified start values, step sizes and
-         * ranges.
+         * ranges. The step size should be an estimate of the posterior RMS (minimization implementations
+         * can scale this up or down, depending on what performs best for the specific minimization implementation).
          *
          * If a serious error occurs during minimization and the minimization fails,
          * a MinimizationException is thrown. The reasons for such a failure are manifold
@@ -97,20 +98,10 @@ namespace theta{
          */
         virtual MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
                 const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges) = 0;
-                
-        const VarIdManager & get_vm() const{
-            return *vm;
-        }
-
-    protected:
-        /// Pointer to the relevant VarIdManager instance. Used to control parameter limits
-        const boost::shared_ptr<theta::VarIdManager> vm;
         
-        /// The configured tolerance. Meaning depends on the derived class
-        double tolerance;
-
-        /// Construct Minimizer from a Configuration instance, setting the VarIdManager vm
-        Minimizer(const theta::plugin::Configuration & cfg): vm(cfg.vm){}
+        // note: usually, pm is not required for cloning. However, some methods might be RandomConsumers
+        // and in that case, the random state is saved to the RndInfoTable in pm.
+        virtual std::auto_ptr<Minimizer> clone(const PropertyMap & pm) const = 0;
     };
     
 }

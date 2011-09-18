@@ -10,7 +10,9 @@ namespace theta {
 
     /** \brief Class to be used as second argument to metropolisHastings to save some information of the Markov-Chain
      *
-     * Also useful as base class for more specialized classes for use with metropolisHastings
+     * Also useful as base class for more specialized classes for use with metropolisHastings.
+     * These derived classes should implement fill2 which will be called by fill and
+     * does nothing in this class.
      */
     class Result {
     protected:
@@ -28,6 +30,8 @@ namespace theta {
         
         // sliding covariance times count
         Matrix count_covariance;
+        
+        virtual void fill2(const double * p, double nll, size_t weight){}
     public:
         /** \brief Construct result with \c npar parameters
          */
@@ -37,7 +41,7 @@ namespace theta {
         virtual ~Result(){}
         
         /// Reset everything to collect data from a new chain
-        void reset();
+        //void reset();
         
         /** \brief fill a new chain point with the given parameter values, nll value and weight
          *

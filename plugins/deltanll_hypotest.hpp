@@ -66,8 +66,10 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     deltanll_hypotest(const theta::plugin::Configuration & cfg);
     virtual void produce(const theta::Data &, const theta::Model&);
+    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+private:
+    deltanll_hypotest(const deltanll_hypotest & rhs, const PropertyMap & pm);
     
-private:    
     boost::shared_ptr<theta::Distribution> s_plus_b;
     boost::shared_ptr<theta::Distribution> b_only;
     

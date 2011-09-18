@@ -36,7 +36,8 @@ BOOST_AUTO_TEST_CASE(matrix0){
 BOOST_AUTO_TEST_CASE(matrix1){
    const unsigned int N=10;
    //create a positive definite matrix n:
-   Random rnd(new RandomSourceTaus());//no setSeed to keep it the same every time ...
+   std::auto_ptr<RandomSource> rnd_src(new RandomSourceTaus());
+   Random rnd(rnd_src);//no setSeed to keep it the same every time ...
    Matrix m(N,N);
    for(size_t i=0; i<N; i++){
       for(size_t j=0; j<N;j++){
@@ -89,7 +90,8 @@ BOOST_AUTO_TEST_CASE(matrix1){
 BOOST_AUTO_TEST_CASE(matrix2){
    const unsigned int N=10;
    //create a positive definite matrix n (see matrix 1 test case):
-   Random rnd(new RandomSourceTaus());//no setSeed to keep it the same every time ...
+   std::auto_ptr<RandomSource> rnd_src(new RandomSourceTaus());
+   Random rnd(rnd_src);//no setSeed to keep it the same every time ...
    Matrix m(N,N);
    for(size_t i=0; i<N; i++){
       for(size_t j=0; j<N;j++){

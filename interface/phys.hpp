@@ -61,14 +61,8 @@ namespace theta {
         const ParIds & getParameters() const{
             return par_ids;
         }
-
-        /** \brief The number of parameters this function depends on
-         *
-         * Same as \c getParameters().size().
-         */
-        size_t getnpar() const{
-            return par_ids.size();
-        }
+        
+        virtual std::auto_ptr<Function> clone() const = 0;
         
         /// Declare destructor virtual as polymorphic access to derived classes will happen.
         virtual ~Function(){}
@@ -78,14 +72,6 @@ namespace theta {
          * Has to be set correctly by derived classes
          */
         ParIds par_ids;
-        
-        /** \brief Assignment operator. For use by derived classes
-         *
-         */
-        //Do not use default implementation, as ParValues pv cannot be assigned (and they do not need to be ...).
-        void operator=(const Function & rhs){
-            par_ids = rhs.par_ids;
-        }
         
     private:
         mutable ParValues pv; //saving this class-wide and not in operator()(const double*) saves quiet some time ...
@@ -107,7 +93,10 @@ namespace theta {
     private:
         void fail_get(const ObsId & oid) const;
     public:
-        /** \brief Returns all obs_ids for which any data was added using addData(obs_id).
+        /** \brief Returns all observable ids for which there is data
+         * 
+         * Returns those observable ids for which there was previously
+         * a Histogram1D saved via the operator[].
          */
         ObsIds getObservables() const;
 
@@ -117,12 +106,12 @@ namespace theta {
          * Histogram. If no Histogram is saved for the supplied observable id,
          * a NotFoundException will be thrown from the const version.
          */
-        //@{
-        Histogram & operator[](const ObsId & id){
+        ///@{
+        Histogram1D & operator[](const ObsId & id){
             if(id.id >= data.size()) data.resize(id.id + 1);
             return data[id.id];
         }
-        const Histogram & operator[](const ObsId & id) const{
+        const Histogram1D & operator[](const ObsId & id) const{
             if(id.id >= data.size() || data[id.id].get_nbins()==0) fail_get(id);
             return data[id.id];
         }
@@ -131,19 +120,19 @@ namespace theta {
         
         /// \brief reset all current Histograms, i.e., set to zero entry
         void reset(){
-            std::vector<Histogram>::iterator it = data.begin();
+            std::vector<Histogram1D>::iterator it = data.begin();
             for(; it!=data.end(); ++it){
-               it->reset();
+               it->set_all_values(0.0);
             }
         }
 
     private:
-        std::vector<Histogram> data;
+        std::vector<Histogram1D> data;
     };
     
     /** \brief A data-providing class, can be used as base class in the plugin system
      *
-     * DataSource classes are used as part of a run, which, for each pseuso
+     * DataSource classes are used as part of a run, which, for each pseudo
      * experiment, calls the DataSource::fill function to get the pseudo data.
      */
     class DataSource: public ProductsSource{
@@ -169,9 +158,12 @@ namespace theta {
         /// Declare destructor virtual as polymorphic access to derived classes will happen.
         virtual ~DataSource(){}
         
+        virtual std::auto_ptr<DataSource> clone(const PropertyMap & pm) const = 0;
+        
     protected:
         /// proxy to ProductsTableWriter constructor for derived classes
         DataSource(const theta::plugin::Configuration & cfg): ProductsSource(cfg){}
+        DataSource(const DataSource & rhs, const PropertyMap & pm): ProductsSource(rhs, pm){}
     };
     
 

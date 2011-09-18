@@ -36,29 +36,31 @@ public:
     /** Returns the interpolated Histogram as documented in the class documentation.
      * throws a NotFoundException if a parameter is missing.
      */
-    virtual const theta::Histogram & operator()(const theta::ParValues & values) const;
+    virtual const theta::Histogram1D & operator()(const theta::ParValues & values) const;
 
     /// Return a Histogram of the same dimenions as the one returned by operator()
-    virtual theta::Histogram get_histogram_dimensions() const{
+    virtual theta::Histogram1D get_histogram_dimensions() const{
         return h0;
     }
 
 
-    virtual const theta::Histogram & gradient(const theta::ParValues & values, const theta::ParId & pid) const;
+    virtual const theta::Histogram1D & gradient(const theta::ParValues & values, const theta::ParId & pid) const;
+    
+    virtual std::auto_ptr<theta::HistogramFunction> clone() const;
 private:
     /** \brief Build a (constant) Histogram from a Setting block.
     *
     * Will throw an InvalidArgumentException if the Histogram is not constant.
     */
-    static theta::Histogram getConstantHistogram(const theta::plugin::Configuration & ctx, theta::SettingWrapper s);
+    static theta::Histogram1D getConstantHistogram(const theta::plugin::Configuration & ctx, theta::SettingWrapper s);
     
-    theta::Histogram h0;
-    std::vector<theta::Histogram> hplus;
-    std::vector<theta::Histogram> hminus;
+    theta::Histogram1D h0;
+    std::vector<theta::Histogram1D> hplus;
+    std::vector<theta::Histogram1D> hminus;
     //the interpolation parameters used to interpolate between hplus and hminus.
     std::vector<theta::ParId> vid;
     //the Histogram returned by operator(). Defined as mutable to allow operator() to be const.
-    mutable theta::Histogram h;
+    mutable theta::Histogram1D h;
 };
 
 #endif

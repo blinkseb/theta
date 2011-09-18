@@ -35,4 +35,14 @@ void add_sources::fill(theta::Data & dat){
     }
 }
 
+std::auto_ptr<theta::DataSource> add_sources::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::DataSource>(new add_sources(*this, pm));
+}
+
+add_sources::add_sources(const add_sources & rhs, const PropertyMap & pm): DataSource(rhs){
+    for(size_t i=0; i<rhs.sources.size(); ++i){
+        sources.push_back(rhs.sources[i].clone(pm));
+    }
+}
+
 REGISTER_PLUGIN(add_sources)

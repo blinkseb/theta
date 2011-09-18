@@ -95,7 +95,7 @@ namespace theta {
      * The interface allows an STL-like iteration over the VarIds contained in this object.
      * The iteration will visit the elements in their natural order.
      * 
-     * \tparam id_type The type to build the container for. Only ObsId and ParId are used here.
+     * \param id_type The type to build the container for. Only ObsId and ParId are used here.
      */
     template<class id_type>
     class VarIds {
@@ -400,7 +400,7 @@ namespace theta {
             return result;
         }
 
-        /** \brief Returns whether \c pid is contained in this VarVariables.
+        /** \brief Returns whether there is a value for \c pid.
          */
         bool contains(const ParId & pid) const{
             const size_t id = pid.id;
@@ -415,7 +415,7 @@ namespace theta {
         //Make private an do not implement, because usually, one should not replace
         // the values already set and should use "set(ParValues)" instead ...
         const ParValues & operator=(const ParValues &);
-        //values are stored using the VarId.id as index
+        //values are stored using the ParId.id as index
         std::vector<double> values;
     };
 

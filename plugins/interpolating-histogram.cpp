@@ -6,12 +6,12 @@ using namespace theta;
 using namespace theta::plugin;
 using namespace libconfig;
 
-const Histogram & interpolating_histo::operator()(const ParValues & values) const {
-    h.reset_to_1();
+const Histogram1D & interpolating_histo::operator()(const ParValues & values) const {
+    h.set_all_values(1.0);
     const size_t n_sys = hplus.size();
     for (size_t isys = 0; isys < n_sys; isys++) {
         const double delta = values.get(vid[isys]);
-        const Histogram & t_sys = delta > 0 ? hplus[isys] : hminus[isys];
+        const Histogram1D & t_sys = delta > 0 ? hplus[isys] : hminus[isys];
         if (t_sys.get_nbins() == 0)continue;
         h.multiply_with_ratio_exponented(t_sys, h0, fabs(delta));
     }
@@ -19,25 +19,25 @@ const Histogram & interpolating_histo::operator()(const ParValues & values) cons
     return h;
 }
 
-const Histogram & interpolating_histo::gradient(const ParValues & values, const ParId & pid) const{
+const Histogram1D & interpolating_histo::gradient(const ParValues & values, const ParId & pid) const{
     const size_t n_sys = hplus.size();
     bool found = false;
     for (size_t isys = 0; isys < n_sys; isys++) {
         if(vid[isys]!=pid)continue;
         found = true;
         const double delta = values.get(vid[isys]);
-        const Histogram & t_sys = delta > 0 ? hplus[isys] : hminus[isys];
+        const Histogram1D & t_sys = delta > 0 ? hplus[isys] : hminus[isys];
         if (t_sys.get_nbins() == 0)continue;
         h.multiply_with_ratio_exponented(t_sys, h0, fabs(delta));
         const size_t nbins = t_sys.get_nbins();
-        for(size_t i=1; i<=nbins; ++i){
+        for(size_t i=0; i<nbins; ++i){
             if(h0.get(i)>0.0)
                 h.set(i, h.get(i) * theta::utils::log(t_sys.get(i) / h0.get(i)));
         }
         break;
     }
     if(not found){
-        h.reset();
+        h.set_all_values(0.0);
     }
     else{
         h *= h0;
@@ -47,6 +47,7 @@ const Histogram & interpolating_histo::gradient(const ParValues & values, const 
 
 interpolating_histo::interpolating_histo(const Configuration & ctx){
     SettingWrapper psetting = ctx.setting["parameters"];
+    boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     //build nominal histogram:
     h0 = getConstantHistogram(ctx, ctx.setting["nominal-histogram"]);
     size_t n = psetting.size();
@@ -55,7 +56,7 @@ interpolating_histo::interpolating_histo(const Configuration & ctx){
     // the unused delta*-{plus,minus}-histogram blocks anyway ...
     for(size_t i=0; i<n; i++){
         string par_name = psetting[i];
-        ParId pid = ctx.vm->getParId(par_name);
+        ParId pid = vm->getParId(par_name);
         par_ids.insert(pid);
         vid.push_back(pid);
         stringstream setting_name;
@@ -78,22 +79,18 @@ interpolating_histo::interpolating_histo(const Configuration & ctx){
         pid_set.insert(vid[i]);
         h0.check_compatibility(hplus[i]);
         h0.check_compatibility(hminus[i]);
-        //set overflow and underflow to zero. Those are not included in the likelihood and in order
-        // to get the normalization right, we have to subtract those:
-        hplus[i].set(0,0);
-        hplus[i].set(hplus[i].get_nbins()+1,0);
-        hminus[i].set(0,0);
-        hminus[i].set(hminus[i].get_nbins()+1,0);
     }
     //to make calculation of derivatives easier, we do not allow the same parameter twice.
     if(pid_set.size()!=nsys){
         throw InvalidArgumentException("interpolating_histo::interpolating_histo: having one parameter parametrizing two interpolations is not supported.");
     }
-    h0.set(0,0);
-    h0.set(h0.get_nbins()+1,0);
 }
 
-Histogram interpolating_histo::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
+std::auto_ptr<theta::HistogramFunction> interpolating_histo::clone() const{
+    return std::auto_ptr<theta::HistogramFunction>(new interpolating_histo(*this));
+}
+
+Histogram1D interpolating_histo::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
     std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, s));
     if(hf->getParameters().size()!=0){
         stringstream ss;

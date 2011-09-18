@@ -45,7 +45,7 @@ public:
 
     MyProgressListener(): stdout_fd(theta::cout_fd), is_tty(isatty(stdout_fd)), chars_written(0), next_update(btime::microsec_clock::local_time()){
         if(!is_tty) return;
-        //disable terminmal echoing; we don't expect any input.
+        //disable terminal echoing; we don't expect any input.
         termios settings;
         if (tcgetattr (stdout_fd, &settings) < 0) return; //ignore error
         settings.c_lflag &= ~ECHO;
@@ -54,7 +54,7 @@ public:
     
     ~MyProgressListener(){
         if(!is_tty) return;
-        //enable terminmal echoing again; don't be evil
+        //enable terminal echoing again; don't be evil
         termios settings;
         if (tcgetattr (stdout_fd, &settings) < 0) return; //ignore error
         settings.c_lflag |= ECHO;
@@ -114,7 +114,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, const string & theta_dir
     bool init_complete = false;
     try {
         try {
-            //as includes in config files shouled always be resolved relative to the config file's location:
+            //as includes in config files should always be resolved relative to the config file's location:
             string old_path = fs::current_path().string();
             //convert any failure to a FileIOException:
             try{
@@ -139,14 +139,15 @@ boost::shared_ptr<Main> build_main(string cfg_filename, const string & theta_dir
         }
         
         SettingWrapper root(cfg.getRoot(), cfg.getRoot(), rec);
-        Configuration config(vm, root, theta_dir);
+        Configuration config(root, theta_dir);
+        config.pm->set("default", vm);
         
         //process options:
         Configuration cfg_options(config, config.setting["options"]);
         PluginLoader::execute(cfg_options);
         
-        //fill VarIdManager:
-        VarIdManagerUtils::apply_settings(config);
+        //populate VarIdManager from config:
+        apply_vm_settings(config);
         //build run:
         main = PluginManager<Main>::instance().build(Configuration(config, root["main"]));
         init_complete = true;
@@ -155,8 +156,6 @@ boost::shared_ptr<Main> build_main(string cfg_filename, const string & theta_dir
         theta::cerr << "Error: the required setting " << ex.getPath() << " was not found." << endl;
     } catch (SettingTypeException & ex) {
         theta::cerr << "Error: the setting " << ex.getPath() << " has the wrong type." << endl;
-    } catch (SettingException & ex) {
-        theta::cerr << "Error while processing the configuration at " << ex.getPath() << endl;
     } catch (Exception & e) {
         theta::cerr << "Error: " << e.message << endl;
     }
@@ -256,11 +255,11 @@ int main(int argc, char** argv) {
        return 1;
     }
     catch (Exception & ex) {
-        theta::cerr << "An error ocurred in Run::run: " << ex.what() << endl;
+        theta::cerr << "An error ocurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     catch(FatalException & ex){
-        theta::cerr << "A fatal error ocurred in Run::run: " << ex.message << endl;
+        theta::cerr << "A fatal error ocurred in Main::run: " << ex.message << endl;
         return 1;
     }
     if(theta::stop_execution){
@@ -268,4 +267,3 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
-

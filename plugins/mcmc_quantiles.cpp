@@ -52,7 +52,7 @@ class MCMCPosteriorQuantilesResult{
 void mcmc_quantiles::produce(const Data & data, const Model & model) {
     if(!init){
         try{
-            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, vm);
+            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution);
             //find the number of the parameter of interest:
             ParIds model_pars = model.getParameters();
             ipar=0;
@@ -77,9 +77,26 @@ void mcmc_quantiles::produce(const Data & data, const Model & model) {
     }
 }
 
+std::auto_ptr<theta::Producer> mcmc_quantiles::clone(const PropertyMap & pm) const{
+    return std::auto_ptr<theta::Producer>(new mcmc_quantiles(*this, pm));
+}
+
+mcmc_quantiles::mcmc_quantiles(const mcmc_quantiles & rhs, const PropertyMap & pm): Producer(rhs, pm), RandomConsumer(rhs, pm, getName()),
+ init(rhs.init), quantiles(rhs.quantiles), par_id(rhs.par_id), ipar(rhs.ipar), iterations(rhs.iterations), burn_in(rhs.burn_in),
+ sqrt_cov(rhs.sqrt_cov), startvalues(rhs.startvalues){
+    declare_products();
+}
+
+void mcmc_quantiles::declare_products(){
+    for(size_t i=0; i<quantiles.size(); ++i){
+        stringstream ss;
+        ss << "quant" << setw(5) << setfill('0') << static_cast<int>(quantiles[i] * 10000 + 0.5);
+        columns.push_back(products_sink->declare_product(*this, ss.str(), theta::typeDouble));
+    }
+}
+
 mcmc_quantiles::mcmc_quantiles(const theta::plugin::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
-   init(false), par_id(cfg.vm->getParId(cfg.setting["parameter"])){
-    vm = cfg.vm;
+   init(false), par_id(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])){
     SettingWrapper s = cfg.setting;
     string parameter = s["parameter"];
     size_t n = s["quantiles"].size();
@@ -100,11 +117,7 @@ mcmc_quantiles::mcmc_quantiles(const theta::plugin::Configuration & cfg): Produc
     else{
         burn_in = iterations / 10;
     }
-    for(size_t i=0; i<quantiles.size(); ++i){
-        stringstream ss;
-        ss << "quant" << setw(5) << setfill('0') << static_cast<int>(quantiles[i] * 10000 + 0.5);
-        columns.push_back(products_sink->declare_product(*this, ss.str(), theta::typeDouble));
-    }
+    declare_products();
 }
 
 REGISTER_PLUGIN(mcmc_quantiles)

@@ -13,21 +13,22 @@ using namespace std;
 
 fixed_poly::fixed_poly(const Configuration & ctx){
     SettingWrapper s = ctx.setting;
-    ObsId obs_id = ctx.vm->getObsId(s["observable"]);
+    boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
+    ObsId obs_id = vm->getObsId(s["observable"]);
     int order = s["coefficients"].size() - 1;
     if (order == -1) {
         stringstream ss;
         ss << "Empty definition of coefficients for polynomial at path " << s["coefficients"].getPath();
         throw ConfigurationException(ss.str());
     }
-    size_t nbins = ctx.vm->get_nbins(obs_id);
-    pair<double, double> range = ctx.vm->get_range(obs_id);
-    Histogram h(nbins, range.first, range.second);
+    size_t nbins = vm->get_nbins(obs_id);
+    pair<double, double> range = vm->get_range(obs_id);
+    Histogram1D h(nbins, range.first, range.second);
     vector<double> coeffs(order + 1);
     for (int i = 0; i <= order; i++) {
         coeffs[i] = s["coefficients"][i];
     }
-    for (size_t i = 1; i <= nbins; i++) {
+    for (size_t i = 0; i < nbins; i++) {
         double x = h.get_bincenter(i);
         double value = coeffs[order];
         for (int k = 0; k < order; k++) {
@@ -36,9 +37,9 @@ fixed_poly::fixed_poly(const Configuration & ctx){
         }
         h.set(i, value);
     }
-    double norm_to = HistogramFunctionUtils::read_normalize_to(ctx.setting);
+    double norm_to = ctx.setting["normalize_to"];
     double norm;
-    if ((norm = h.get_sum_of_bincontents()) == 0.0) {
+    if ((norm = h.get_sum()) == 0.0) {
         throw ConfigurationException("Histogram specification is zero (can't normalize)");
     }
     h *= norm_to / norm;
@@ -49,18 +50,19 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
     SettingWrapper s = ctx.setting;
     double width = s["width"];
     double mean = s["mean"];
-    ObsId obs_id = ctx.vm->getObsId(s["observable"]);
-    size_t nbins = ctx.vm->get_nbins(obs_id);
-    pair<double, double> range = ctx.vm->get_range(obs_id);
-    Histogram h(nbins, range.first, range.second);
+    boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
+    ObsId obs_id = vm->getObsId(s["observable"]);
+    size_t nbins = vm->get_nbins(obs_id);
+    pair<double, double> range = vm->get_range(obs_id);
+    Histogram1D h(nbins, range.first, range.second);
     //fill the histogram:
-    for (size_t i = 1; i <= nbins; i++) {
+    for (size_t i = 0; i < nbins; i++) {
         double d = (h.get_bincenter(i) - mean) / width;
         h.set(i, exp(-0.5 * d * d));
     }
-    double norm_to = HistogramFunctionUtils::read_normalize_to(ctx.setting);
+    double norm_to = ctx.setting["normalize_to"];
     double norm;
-    if ((norm = h.get_sum_of_bincontents()) == 0.0) {
+    if ((norm = h.get_sum()) == 0.0) {
         throw ConfigurationException("Histogram specification is zero (can't normalize)");
     }
     h *= norm_to / norm;
@@ -71,13 +73,18 @@ log_normal::log_normal(const Configuration & cfg){
     support_.first = 0.0;
     support_.second = std::numeric_limits<double>::infinity();
     SettingWrapper s = cfg.setting;
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     mu = s["mu"];
     sigma = s["sigma"];
     if(sigma <= 0.0){
         throw ConfigurationException("log_normal: sigma <= 0.0 is not allowed");
     }
     string par_name = s["parameter"];
-    par_ids.insert(cfg.vm->getParId(par_name));
+    par_ids.insert(vm->getParId(par_name));
+}
+
+std::auto_ptr<theta::Distribution> log_normal::clone() const{
+    return auto_ptr<Distribution>(new log_normal(*this));
 }
 
 double log_normal::evalNL(const ParValues & values) const {
@@ -116,14 +123,19 @@ void log_normal::mode(theta::ParValues & result) const{
 
 /* START delta_distribution */
 delta_distribution::delta_distribution(const theta::plugin::Configuration & cfg){
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
         if(cfg.setting[i].getName()=="type") continue;
-        const ParId pid = cfg.vm->getParId(cfg.setting[i].getName());
+        const ParId pid = vm->getParId(cfg.setting[i].getName());
         const double val = cfg.setting[i];
         values.set(pid, val);
         supports[pid].second = supports[pid].first = val;
     }
     par_ids = values.getParameters();
+}
+
+std::auto_ptr<theta::Distribution> delta_distribution::clone() const{
+    return auto_ptr<Distribution>(new delta_distribution(*this));
 }
 
 void delta_distribution::sample(theta::ParValues & result, theta::Random &) const{
@@ -155,10 +167,11 @@ const std::pair<double, double> & delta_distribution::support(const theta::ParId
 /* START flat_distribution */
 
 flat_distribution::flat_distribution(const theta::plugin::Configuration & cfg){
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
         if(cfg.setting[i].getName()=="type") continue;
         SettingWrapper s = cfg.setting[i];
-        ParId pid = cfg.vm->getParId(s.getName());
+        ParId pid = vm->getParId(s.getName());
         par_ids.insert(pid);
         double low = ranges[pid].first = s["range"][0].get_double_or_inf();
         double high = ranges[pid].second = s["range"][1].get_double_or_inf();
@@ -172,6 +185,9 @@ flat_distribution::flat_distribution(const theta::plugin::Configuration & cfg){
             modes.set(pid, fix_sample_values.get(pid));
         }
     }
+}
+std::auto_ptr<theta::Distribution> flat_distribution::clone() const{
+    return auto_ptr<Distribution>(new flat_distribution(*this));
 }
 
 void flat_distribution::sample(theta::ParValues & result, theta::Random & rnd) const{
@@ -256,6 +272,10 @@ void gauss::sample(ParValues & result, Random & rnd) const{
     }while(repeat);
 }
 
+std::auto_ptr<theta::Distribution> gauss::clone() const{
+    return auto_ptr<Distribution>(new gauss(*this));
+}
+
 double gauss::evalNL(const ParValues & values) const{
     const size_t n = v_par_ids.size();
     boost::scoped_array<double> delta(new double[n]);
@@ -302,11 +322,12 @@ double gauss::evalNL_withDerivatives(const ParValues & values, ParValues & deriv
 
 gauss::gauss(const Configuration & cfg){
     Matrix cov;
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
       if(cfg.setting.exists("parameter")){
             mu.resize(1);
             cov.reset(1,1);
             ranges.resize(1);
-            v_par_ids.push_back(cfg.vm->getParId(cfg.setting["parameter"]));
+            v_par_ids.push_back(vm->getParId(cfg.setting["parameter"]));
             mu[0] = cfg.setting["mean"];
             double width = cfg.setting["width"];
             cov(0,0) = width*width;
@@ -327,7 +348,7 @@ gauss::gauss(const Configuration & cfg){
            cov.reset(n,n);
            ranges.resize(n);
            for(size_t i=0; i<n; i++){
-               v_par_ids.push_back(cfg.vm->getParId(cfg.setting["parameters"][i]));
+               v_par_ids.push_back(vm->getParId(cfg.setting["parameters"][i]));
                mu[i] = cfg.setting["mean"][i];
                ranges[i].first = cfg.setting["ranges"][i][0].get_double_or_inf();
                ranges[i].second = cfg.setting["ranges"][i][1].get_double_or_inf();
@@ -376,6 +397,10 @@ void gauss1d::sample(ParValues & result, Random & rnd) const{
     throw Exception("gauss1d::sample: too many iterations necessary to fulfill configured range");
 }
 
+std::auto_ptr<theta::Distribution> gauss1d::clone() const{
+    return auto_ptr<Distribution>(new gauss1d(*this));
+}
+
 double gauss1d::evalNL(const ParValues & values) const{
     double value = values.get(*par_ids.begin());
     if(value > range.second || value < range.first){
@@ -398,8 +423,9 @@ double gauss1d::evalNL_withDerivatives(const ParValues & values, ParValues & der
 }
 
 gauss1d::gauss1d(const Configuration & cfg){
+   boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
    string par_name = cfg.setting["parameter"];
-   par_ids.insert(cfg.vm->getParId(par_name));
+   par_ids.insert(vm->getParId(par_name));
    mu = cfg.setting["mean"];
    sigma = cfg.setting["width"];
    if(sigma <= 0){
@@ -425,31 +451,7 @@ void gauss1d::mode(theta::ParValues & result) const{
 }
 
 
-mult::mult(const Configuration & cfg){
-    size_t n = cfg.setting["parameters"].size();
-    if(n==0){
-        throw ConfigurationException("mult: 'parameters' empty (or not a list)!");
-    }
-    SettingWrapper s = cfg.setting["parameters"];
-    v_pids.reserve(n);
-    for(size_t i=0; i<n; ++i){
-        string parname = s[i];
-        ParId pid = cfg.vm->getParId(parname);
-        par_ids.insert(pid);
-        v_pids.push_back(pid);
-    }
-}
-
-double mult::operator()(const ParValues & v) const{
-    double result = 1.0;
-    for(vector<ParId>::const_iterator it=v_pids.begin(); it!=v_pids.end(); ++it){
-        result *= v.get(*it);
-    }
-    return result;
-}
-
 //product_distribution
-
 void product_distribution::add_distributions(const Configuration & cfg, const theta::SettingWrapper & s, int depth){
     if(depth==0) throw ConfigurationException("product_distribution: nesting too deep while trying to resolve distributions");
     for(size_t i=0; i<s.size(); ++i){
@@ -471,6 +473,17 @@ void product_distribution::add_distributions(const Configuration & cfg, const th
 
 product_distribution::product_distribution(const Configuration & cfg){
     add_distributions(cfg, cfg.setting["distributions"], 10);
+}
+
+product_distribution::product_distribution(const product_distribution & rhs): Distribution(rhs), parid_to_index(rhs.parid_to_index){
+    distributions.reserve(rhs.distributions.size());
+    for(size_t i=0;i < rhs.distributions.size(); ++i){
+        distributions.push_back(rhs.distributions[i].clone());
+    }
+}
+
+std::auto_ptr<theta::Distribution> product_distribution::clone() const{
+    return auto_ptr<Distribution>(new product_distribution(*this));
 }
 
 void product_distribution::sample(ParValues & result, Random & rnd) const{
@@ -516,6 +529,7 @@ model_source::model_source(const theta::plugin::Configuration & cfg): DataSource
   dice_template_uncertainties(true){
     model = PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["model"]));
     par_ids = model->getParameters();
+    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     if(cfg.setting.exists("override-parameter-distribution")){
         override_parameter_distribution = PluginManager<Distribution>::instance().build(Configuration(cfg, cfg.setting["override-parameter-distribution"]));
     }
@@ -531,7 +545,7 @@ model_source::model_source(const theta::plugin::Configuration & cfg): DataSource
         ParIds pids_for_nll;
         for(size_t i=0; i<n; ++i){
             string pname = cfg.setting["parameters-for-nll"][i].getName();
-            ParId pid = cfg.vm->getParId(pname);
+            ParId pid = vm->getParId(pname);
             pids_for_nll.insert(pid);
             try{
                 double value = cfg.setting["parameters-for-nll"][i];
@@ -549,11 +563,33 @@ model_source::model_source(const theta::plugin::Configuration & cfg): DataSource
     }
     //define the table:
     for(ParIds::const_iterator p_it=par_ids.begin(); p_it!=par_ids.end(); ++p_it){
-        parameter_columns.push_back(products_sink->declare_product(*this, cfg.vm->getName(*p_it), theta::typeDouble));
+        parameter_columns.push_back(products_sink->declare_product(*this, vm->getName(*p_it), theta::typeDouble));
     }
     if(save_nll){
         c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
     }
+}
+
+model_source::model_source(const model_source & rhs, const PropertyMap & pm): DataSource(rhs), RandomConsumer(rhs, pm, getName()),
+     parameters_for_nll(rhs.parameters_for_nll), save_nll(rhs.save_nll), par_ids(rhs.par_ids), dice_poisson(rhs.dice_poisson),
+     dice_template_uncertainties(rhs.dice_template_uncertainties){
+    
+    boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
+    for(ParIds::const_iterator p_it=par_ids.begin(); p_it!=par_ids.end(); ++p_it){
+        parameter_columns.push_back(products_sink->declare_product(*this, vm->getName(*p_it), theta::typeDouble));
+    }
+    if(save_nll){
+        c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
+    }
+    model = rhs.model->clone(pm);
+    if(rhs.override_parameter_distribution.get()){
+        override_parameter_distribution = override_parameter_distribution->clone();
+    }
+}
+
+
+std::auto_ptr<theta::DataSource> model_source::clone(const PropertyMap & pm) const{
+    return auto_ptr<DataSource>(new model_source(*this, pm));
 }
 
 void model_source::fill(Data & dat){
@@ -607,6 +643,5 @@ REGISTER_PLUGIN(delta_distribution)
 
 REGISTER_PLUGIN(fixed_poly)
 REGISTER_PLUGIN(fixed_gauss)
-REGISTER_PLUGIN(mult)
 REGISTER_PLUGIN(product_distribution)
 REGISTER_PLUGIN(model_source)

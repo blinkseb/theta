@@ -197,7 +197,7 @@ def ml_fit(model, input = 'data', n = 1, signal_prior = 'flat', nuisance_constra
     main = {'n-events': n, 'model': '@model', 'producers': ('@mle',), 'output_database': sqlite_database(), 'log-report': False}
     mle = {'type': 'mle', 'name': 'mle', 'parameters': None,
        'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_constraint"),
-       'minimizer': {'type': 'root_minuit', 'method':'simplex'}}
+       'minimizer': minimizer()}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     toplevel_settings = {'model-distribution-signal': delta_distribution(beta_signal = beta_signal_value), 'mle': mle, 'main': main, 'signal_prior':
         signal_prior_dict(signal_prior),  'options': cfg_options}
@@ -258,15 +258,16 @@ def ml_fit(model, input = 'data', n = 1, signal_prior = 'flat', nuisance_constra
     config.report.add_html(result_table.html())
     return result
 
-# make a background-only KS-test by dicing toy data from the model (including nuisance according to config in the model),
-# fitting with nuisance_constraint (which is usually left to 'shape:fix'), and determining the KS value after
+# make a KS-test by dicing toy data from the model (including nuisance according to config in the model),
+# make a maximum likelihood fit using nuisance_constraint, and determining the KS value after
 # the fit.
+# returns the p-value for data.
 def ks_test(model, n = 5000, nuisance_constraint = 'shape:fix', **options):
     nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
     main = {'n-events': n, 'model': '@model', 'producers': ('@mle',), 'output_database': sqlite_database(), 'log-report': False}
     mle = {'type': 'mle', 'name': 'mle', 'parameters': None, 'write_ks_ts': True,
        'override-parameter-distribution': product_distribution("@nuisance_constraint"),
-       'minimizer': {'type': 'root_minuit', 'method':'simplex'}}
+       'minimizer': minimizer(need_error = False)}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     toplevel_settings = {'mle': mle, 'main': main, 'options': cfg_options}
     cfg_names_to_run = []
@@ -347,7 +348,7 @@ def pl_intervals(model, input = 'toys:0', n = 100, nuisance_constraint = '', cls
     main = {'n-events': n, 'model': '@model', 'producers': ('@deltanll_interval',), 'output_database': sqlite_database(), 'log-report': False}
     deltanll_interval = {'type': 'deltanll_intervals', 'name': 'deltanll', 'parameter': 'beta_signal',
        'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_constraint"),
-       'clevels': cls, 'minimizer': {'type': 'root_minuit', 'n_retries': 100, 'method':'simplex'}}
+       'clevels': cls, 'minimizer': minimizer(need_error = False)}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     toplevel_settings = {'signal_prior': signal_prior_dict, 
                 'model-distribution-signal': delta_distribution(beta_signal = beta_signal_value), 'deltanll_interval': deltanll_interval, 'main': main,
@@ -400,12 +401,13 @@ def pl_intervals(model, input = 'toys:0', n = 100, nuisance_constraint = '', cls
     return result
 
 # runs deltanll_intervals and measures coverage as a function of the true beta_signal
-# Returns: dictionary: (spid) --> (true beta signal) --> (cl) --> coverage
-def deltanll_coveragetest(model, beta_signal_values = [0.2*i for i in range(10)], n = 1000, write_report = True, **deltanll_options):
+# Returns: dictionary: (spid) --> (true beta signal) --> |  (cl) --> coverage
+#                                                        |  'successrate' --> fit success rate
+def pl_coveragetest(model, beta_signal_values = [0.2*i for i in range(10)], n = 1000, write_report = True, **deltanll_options):
     result = {}
     result_tables = {}
     for beta_signal in beta_signal_values:
-        res = deltanll_intervals(model, input='toys:%g' % beta_signal, n = n, **deltanll_options)
+        res = pl_intervals(model, input='toys:%g' % beta_signal, n = n, **deltanll_options)
         for spid in res:
             cls = [k for k in res[spid].keys() if type(k)==float]
             if spid not in result: result[spid] = {}
@@ -422,8 +424,10 @@ def deltanll_coveragetest(model, beta_signal_values = [0.2*i for i in range(10)]
                 n_total = len(res[spid][cl])
                 coverage = n_covered*1.0 / n_total
                 result[spid][beta_signal][cl] = coverage
+                successrate = (n_total*1.0 / n)
+                result[spid][beta_signal]['successrate'] = successrate
                 result_tables[spid].set_column('coverage %g' % cl, '%g' % coverage)
-                result_tables[spid].set_column('fit success fraction', '%g' % (n_total*1.0 / n))
+                result_tables[spid].set_column('fit success fraction', '%g' % successrate)
             result_tables[spid].add_row()
     if write_report:
         for spid in result_tables:

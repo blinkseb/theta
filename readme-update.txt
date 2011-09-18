@@ -2,6 +2,10 @@ This file summarizes changes relevant to users, i.e., changes in config file
 convention and output. It does not cover internal changes. New entries are added on
 top.
 
+since r188:
+-----------
+ * The function plugin 'mult' has been removed; use 'multiply' instead which is much more general
+ * normalize_to syntax specifying a list of doubles has been removed; use a single double instead
 
 since r109:
 -----------

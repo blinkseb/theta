@@ -6,15 +6,15 @@ using namespace theta;
 using namespace theta::plugin;
 using namespace libconfig;
 
-const Histogram & linear_histo_morph::operator()(const ParValues & values) const {
-    h.reset_to_1();
+const Histogram1D & linear_histo_morph::operator()(const ParValues & values) const {
+    h.set_all_values(1.0);
     const size_t n_sys = kappa_plus.size();
     //1. interpolate linearly in each bin; also calculate normalization
     double scale_unc = 1;
     for (size_t isys = 0; isys < n_sys; ++isys) {
         const double delta = values.get(parameters[isys]);
         if(delta==0.0) continue;
-        const Histogram & kappa_sys = delta > 0 ? kappa_plus[isys] : kappa_minus[isys];
+        const Histogram1D & kappa_sys = delta > 0 ? kappa_plus[isys] : kappa_minus[isys];
         if(kappa_sys.get_nbins() > 0)
            h.add_with_coeff(fabs(delta), kappa_sys);
         double relexp = delta > 0 ? plus_relexp[isys] : minus_relexp[isys];
@@ -23,14 +23,14 @@ const Histogram & linear_histo_morph::operator()(const ParValues & values) const
     }
     h *= h0;
     //2. lower bin cutoff
-    for(size_t i=1; i <= h.get_nbins(); ++i){
+    for(size_t i=0; i < h.size(); ++i){
        if(h.get(i) < 0.0){
          h.set(i, 0.0);
          //throw UnphysicalPredictionException();
        }
     }
     //3.a. rescale to nominal:
-    h *= h0exp / h.get_sum_of_bincontents();
+    h *= h0exp / h.get_sum();
     //3.b. apply scale uncertainty
     h *= scale_unc;
     return h;
@@ -38,20 +38,21 @@ const Histogram & linear_histo_morph::operator()(const ParValues & values) const
 
 linear_histo_morph::linear_histo_morph(const Configuration & ctx){
     SettingWrapper psetting = ctx.setting["parameters"];
+    boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     size_t n = psetting.size();
     for(size_t i=0; i<n; i++){
         string par_name = psetting[i];
-        ParId pid = ctx.vm->getParId(par_name);
+        ParId pid = vm->getParId(par_name);
         par_ids.insert(pid);
         parameters.push_back(pid);
         if(ctx.setting.exists(par_name + "-kappa-plus-histogram"))
            kappa_plus.push_back(getConstantHistogram(ctx, ctx.setting[par_name + "-kappa-plus-histogram"] ));
         else
-           kappa_plus.push_back(Histogram());
+           kappa_plus.push_back(Histogram1D());
         if(ctx.setting.exists(par_name + "-kappa-minus-histogram"))
             kappa_minus.push_back(getConstantHistogram(ctx, ctx.setting[par_name + "-kappa-minus-histogram"] ));
         else
-           kappa_minus.push_back(Histogram());
+           kappa_minus.push_back(Histogram1D());
         if(ctx.setting.exists(par_name + "-plus-relexp"))
             plus_relexp.push_back(ctx.setting[par_name + "-plus-relexp"]);
         else
@@ -77,21 +78,19 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
            h0.check_compatibility(kappa_plus[i]);
         if(kappa_minus[i].get_nbins() > 0)
            h0.check_compatibility(kappa_minus[i]);
-        kappa_plus[i].set(0,0);
-        kappa_plus[i].set(kappa_plus[i].get_nbins()+1,0);
-        kappa_minus[i].set(0,0);
-        kappa_minus[i].set(kappa_minus[i].get_nbins()+1,0);
     }
     if(pid_set.size()!=nsys){
         throw InvalidArgumentException("linear_histo_morph: duplicate parameter in parameter list.");
     }
-    h0.set(0,0);
-    h0.set(h0.get_nbins()+1,0);
     h0exp = ctx.setting["nominal-expectation"];
-    h0 *= h0exp / h0.get_sum_of_bincontents();
+    h0 *= h0exp / h0.get_sum();
 }
 
-Histogram linear_histo_morph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
+std::auto_ptr<theta::HistogramFunction> linear_histo_morph::clone() const{
+    return std::auto_ptr<theta::HistogramFunction>(new linear_histo_morph(*this));
+}
+
+Histogram1D linear_histo_morph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
     std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, s));
     if(hf->getParameters().size()!=0){
         stringstream ss;

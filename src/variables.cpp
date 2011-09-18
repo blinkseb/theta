@@ -146,8 +146,9 @@ void ParValues::fail_get(const ParId & pid) const{
 }
 
 
-void VarIdManagerUtils::apply_settings(plugin::Configuration & ctx){
+void theta::apply_vm_settings(plugin::Configuration & ctx){
     SettingWrapper s = ctx.setting;
+    boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     if(s.exists("observables")){
         size_t nobs = s["observables"].size();
         for (size_t i = 0; i < nobs; ++i) {
@@ -155,7 +156,7 @@ void VarIdManagerUtils::apply_settings(plugin::Configuration & ctx){
             double min = s["observables"][i]["range"][0].get_double_or_inf();
             double max = s["observables"][i]["range"][1].get_double_or_inf();
             unsigned int nbins = s["observables"][i]["nbins"];
-            ctx.vm->createObsId(obs_name, static_cast<size_t>(nbins), min, max);
+            vm->createObsId(obs_name, static_cast<size_t>(nbins), min, max);
         }
     }
     if(s.exists("parameters")){
@@ -163,7 +164,7 @@ void VarIdManagerUtils::apply_settings(plugin::Configuration & ctx){
         size_t npar = s["parameters"].size();
         for (size_t i = 0; i < npar; i++) {
             string par_name = s["parameters"][i];
-            ctx.vm->createParId(par_name);
+            vm->createParId(par_name);
         }
     }
 }

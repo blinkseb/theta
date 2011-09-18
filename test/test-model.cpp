@@ -38,8 +38,8 @@ BOOST_AUTO_TEST_CASE(model0){
     
     ConfigCreator cc("flat-histo = {type = \"fixed_poly\"; observable=\"obs0\"; coefficients = [1.0]; normalize_to = 1.0;};\n"
             "gauss-histo = {type = \"fixed_gauss\"; observable=\"obs0\"; width = 0.5; mean = 0.5; normalize_to = 1.0;};\n"
-            "c1 = {type = \"mult\"; parameters=(\"beta1\");};\n"
-            "c2 = {type = \"mult\"; parameters=(\"beta2\");};\n"
+            "c1 = {type = \"multiply\"; factors=(\"beta1\");};\n"
+            "c2 = {type = \"multiply\"; factors=(\"beta2\");};\n"
             "dist-flat = {\n"
             "       type = \"flat_distribution\";\n"
             "       beta1 = { range = (\"-inf\", \"inf\"); fix-sample-value = 1.0; }; \n"
@@ -69,10 +69,10 @@ BOOST_AUTO_TEST_CASE(model0){
         m = PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["m"]));
     }
     catch(Exception & ex){
-        cerr << ex.message << endl;
+        std::cerr << ex.message << endl;
     }
     catch(libconfig::SettingNotFoundException & ex){
-        cerr << ex.getPath() << " not found" << endl;
+        std::cerr << ex.getPath() << " not found" << endl;
     }
     
     BOOST_REQUIRE(m.get()!=0);
@@ -83,12 +83,12 @@ BOOST_AUTO_TEST_CASE(model0){
     std::auto_ptr<HistogramFunction> f_bkg_histo = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["flat-histo"]));
     
     ParValues values;
-    Histogram signal = (*f_signal_histo)(values);
-    Histogram background = (*f_bkg_histo)(values);
+    Histogram1D signal = (*f_signal_histo)(values);
+    Histogram1D background = (*f_bkg_histo)(values);
     
     values.set(beta1, 1.0);
     values.set(beta2, 0.0);
-    Histogram s;
+    Histogram1D s;
     Data pred;
     BOOST_CHECKPOINT("");
     m->get_prediction(pred, values);
@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE(model0){
     s = pred[obs0];
     BOOST_CHECKPOINT("");
     //s should be signal only:
-    for(size_t i = 1; i<=nbins; i++){
+    for(size_t i = 0; i<nbins; i++){
         BOOST_REQUIRE(signal.get(i)==s.get(i));
     }
     //background only:
@@ -104,7 +104,7 @@ BOOST_AUTO_TEST_CASE(model0){
     values.set(beta2, 1.0);
     m->get_prediction(pred, values);
     s = pred[obs0];
-    for(size_t i = 1; i<=nbins; i++){
+    for(size_t i = 0; i<nbins; i++){
         BOOST_REQUIRE(background.get(i)==s.get(i));
     }
     //zero prediction:
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(model0){
     values.set(beta2, 0.0);
     m->get_prediction(pred, values);
     s = pred[obs0];
-    for(size_t i = 1; i<=nbins; i++){
+    for(size_t i = 0; i<nbins; i++){
         BOOST_REQUIRE(0.0==s.get(i));
     }
 

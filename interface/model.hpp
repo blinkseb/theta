@@ -121,6 +121,13 @@ namespace theta {
          */
         virtual const Distribution & get_parameter_distribution() const = 0;
         
+        /** \brief Clone the Model
+         * 
+         * Clone the model, using the same setting as the current model was created with,
+         * but with all shared properties from the given PropertyMap.
+         */
+        virtual std::auto_ptr<Model> clone(const PropertyMap & pm) const = 0;
+        
         virtual ~Model(){}
 
     protected:
@@ -128,7 +135,9 @@ namespace theta {
         ParIds parameters;
         ObsIds observables;
 
-        explicit Model(const boost::shared_ptr<VarIdManager> & vm);
+        // pseudo copy constructor:
+        Model(const Model & model, const boost::shared_ptr<VarIdManager> & vm);
+        Model(const boost::shared_ptr<VarIdManager> & vm_): vm(vm_){}
     };
     
     
@@ -147,6 +156,8 @@ namespace theta {
         std::auto_ptr<Distribution> parameter_distribution;
         
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
+        
+        default_model(const default_model & model, const PropertyMap & pm);
      public:
      
         default_model(const plugin::Configuration & cfg);
@@ -157,6 +168,7 @@ namespace theta {
         virtual const Distribution & get_parameter_distribution() const {
            return *parameter_distribution;
         }
+        virtual std::auto_ptr<Model> clone(const PropertyMap & pm) const;
         
     };
     
@@ -225,6 +237,15 @@ namespace theta {
         
         ///Make destructor virtual as this is an abstract base class
         virtual ~NLLikelihood(){}
+        
+        /// Likelihood functions are not to be cloned.
+        virtual std::auto_ptr<Function> clone() const{
+            throw InvalidArgumentException("default_model_nll is not clonable");
+        }
+        
+        size_t getnpar() const{
+            return par_ids.size();
+        }
     };
     
     
@@ -240,6 +261,7 @@ namespace theta {
             if(override_distribution) return *override_distribution;
             else return model.get_parameter_distribution();
         }
+        
         
     private:
         const default_model & model;

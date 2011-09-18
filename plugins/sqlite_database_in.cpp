@@ -127,7 +127,7 @@ std::string sqlite_database_in::SqliteResultIterator::get_string(size_t icol){
     return string(res);
 }
 
-theta::Histogram sqlite_database_in::SqliteResultIterator::get_histogram(size_t icol){
+theta::Histogram1D sqlite_database_in::SqliteResultIterator::get_histogram(size_t icol){
     if(sqlite3_column_type(statement, icol)!=SQLITE_BLOB){
         throw DatabaseException("column type mismatch: asked for Histogram (SQLITE_BLOB) but sqlite type was " + sqlite_type_to_string(sqlite3_column_type(statement, icol)));
     }
@@ -138,9 +138,10 @@ theta::Histogram sqlite_database_in::SqliteResultIterator::get_histogram(size_t 
     double xmin = data[0];
     double xmax = data[1];
     if(xmin >= xmax) throw DatabaseException("illegal Histogram value: xmin >= xmax");
-    Histogram result(nbins, xmin, xmax);
-    for(int i=0; i<=nbins+1; ++i){
-         result.set(i, data[i+2]);
+    Histogram1D result(nbins, xmin, xmax);
+    //data[2] is underflow, data[3] is the data for the first bin in the range
+    for(int i=0; i<nbins; ++i){
+         result.set(i, data[i+3]);
     }
     return result;
 }

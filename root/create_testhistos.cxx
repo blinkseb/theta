@@ -7,7 +7,7 @@ int main(){
    TFile file("testhistos.root", "recreate");
    TH1D * histo1d = new TH1D("histo1d", "histo1d", 24, -4, 20);
    for(int i=0; i<=25; ++i){
-      histo1d->SetBinContent(i, i + 1);
+      histo1d->SetBinContent(i, i + 12.0); // content is lower bin edge + 17.
    }
    TH2D* histo2d = new TH2D("histo2d", "histo2d", 10, 0, 10, 11, 0, 11);
    for(int i=0; i<=11; ++i){

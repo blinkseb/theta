@@ -46,6 +46,10 @@ public:
      */
     virtual void fill(theta::Data & dat);
     
+    virtual std::auto_ptr<theta::DataSource> clone(const PropertyMap & pm) const;
+    
 private:
+    // pseudo copy-constructor ...
+    add_sources(const add_sources & rhs, const PropertyMap & pm);
     boost::ptr_vector<theta::DataSource> sources;
 };

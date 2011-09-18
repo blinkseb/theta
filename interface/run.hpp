@@ -87,7 +87,7 @@ public:
 
     /** \brief Perform the actual run.
      * 
-     * In a pseudo-experiment loop, ask the configuraed data_source for data and run
+     * In a pseudo-experiment loop, ask the configured data_source for data and run
      * all the producers on it, using the configured model.
      */
     virtual void run();
@@ -98,7 +98,6 @@ public:
     
 private:
 
-    boost::shared_ptr<VarIdManager> vm;
     std::auto_ptr<Model> model;
     //note: the tables hold a shared_ptr to this database to ensure proper destruction order
     boost::shared_ptr<Database> db;

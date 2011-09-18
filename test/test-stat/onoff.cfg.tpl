@@ -35,7 +35,7 @@ onoff = {
    // mu_b times tau
    background-region = {
       background = {
-          coefficient-function = { type = "mult"; parameters = ("mu_b", "tau"); };
+          coefficient-function = { type = "multiply"; factors = ("mu_b", "tau"); };
           histogram = "@flat-histo-b";
       };
    };
@@ -43,12 +43,12 @@ onoff = {
    // signal region has two components: signal and background, with mu_s and mu_b as expected poisson means
    signal-region = {
        background = {
-          coefficient-function = { type = "mult"; parameters = ("mu_b"); };
+          coefficient-function = { type = "multiply"; factors = ("mu_b"); };
           histogram = "@flat-histo-s";
        };
        
        signal = {
-          coefficient-function = { type = "mult"; parameters = ("mu_s"); };
+          coefficient-function = { type = "multiply"; factors = ("mu_s"); };
           histogram = "@flat-histo-s"; 
        };
    };

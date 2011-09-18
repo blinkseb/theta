@@ -254,8 +254,25 @@ class Function:
             else: raise RuntimeError, 'unknown factor!'
         return result
     
-    def get_cfg(self):
+    def get_cfg(self, optimize = True):
         result = {'type': 'multiply', 'factors': self.factors.values()}
+        #print result
+        # optimize by using several exponentials together:
+        if optimize:
+            result['factors'] = []
+            parameters = [];
+            lambdas_plus = [];
+            lambdas_minus = [];
+            for p in self.factors:
+                if type(self.factors[p])!=dict or self.factors[p]['type'] != 'exp_function':
+                    result['factors'].append(self.factors[p])
+                    continue
+                parameters.append(p)
+                lambdas_plus.append(self.factors[p]['lambda_plus'])
+                lambdas_minus.append(self.factors[p]['lambda_minus'])
+            if len(parameters) > 0:
+                 result['factors'].append({'type': 'exp_function', 'parameters': parameters, 'lambdas_plus': lambdas_plus, 'lambdas_minus': lambdas_minus})
+        #print result
         if self.value != 1.0: result['factors'].append(self.value)
         return result
     

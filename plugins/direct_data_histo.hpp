@@ -21,8 +21,7 @@
  *
  * \c nbins is the number of bins within the range (i.e., not counting overflow and underflow bin)
  *
- * \c data specifies the bin content. This list/array must contain exactly nbins entries; note that underflow and overflow bins
- *  are set to 0.
+ * \c data specifies the bin content. This list/array must contain exactly nbins entries.
  */
 class direct_data_histo : public theta::ConstantHistogramFunction {
 public:

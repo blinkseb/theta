@@ -53,7 +53,8 @@ rootfile_database::rootfile_database(const plugin::Configuration & cfg): file(0)
           double xmin = cfg.setting["products_histograms"][i]["range"][0];
           double xmax = cfg.setting["products_histograms"][i]["range"][1];
           hist_infos.push_back(hist_info());
-          hist_infos.back().h.reset(nbins, xmin, xmax);
+          hist_infos.back().h.reset_n(nbins);
+          hist_infos.back().h.reset_range(xmin, xmax);
           hist_infos.back().name = static_cast<string>(cfg.setting["products_histograms"][i]["name"]);
           hist_infos.back().column_name = static_cast<string>(cfg.setting["products_histograms"][i]["column"]);
       }
@@ -65,9 +66,12 @@ rootfile_database::~rootfile_database() {
        //write those root histos:
        TDirectory * dir = file->mkdir("products_histograms");
        for(size_t i=0; i<hist_infos.size(); ++i){
-           TH1D * root_histo = new TH1D(hist_infos[i].name.c_str(), hist_infos[i].name.c_str(), hist_infos[i].h.get_nbins(),
+           size_t nbins;
+           TH1D * root_histo = new TH1D(hist_infos[i].name.c_str(), hist_infos[i].name.c_str(), nbins = hist_infos[i].h.get_nbins(),
                                         hist_infos[i].h.get_xmin(), hist_infos[i].h.get_xmax());
-           root_histo->SetContent(hist_infos[i].h.getData());
+           for(size_t ibin=0; ibin<nbins; ++ibin){
+               root_histo->SetBinContent(ibin+1, hist_infos[i].h.getData()[i]);
+           }
            root_histo->SetDirectory(dir);
        }
        file->Write();
@@ -150,9 +154,12 @@ void rootfile_database::rootfile_table::add_row(const Row & row){
                 is_histo = true;
         }
         if(is_histo){
-            const Histogram & h = row.get_column_histogram(it->first);
+            const Histogram1D & h = row.get_column_histogram(it->first);
             it->second.data.h->SetBins(h.get_nbins(), h.get_xmin(), h.get_xmax());
-            it->second.data.h->SetContent(h.getData());
+            const double * data = h.getData();
+            for(size_t i=0; i<h.get_nbins(); ++i){
+                it->second.data.h->SetBinContent(i+1, data[i]);
+            }
         }
     }
     tree->Fill();

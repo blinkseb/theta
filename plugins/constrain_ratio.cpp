@@ -3,9 +3,10 @@
 #include "interface/plugin.hpp"
 
 using namespace std;
+using namespace theta;
 
-constrain_ratio::constrain_ratio(const theta::plugin::Configuration & cfg): pid_nominator(cfg.vm->getParId(cfg.setting["nominator"])),
-   pid_denominator(cfg.vm->getParId(cfg.setting["denominator"])){
+constrain_ratio::constrain_ratio(const theta::plugin::Configuration & cfg): pid_nominator(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["nominator"])),
+   pid_denominator(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["denominator"])){
     mean = cfg.setting["mean"];
     width = cfg.setting["width"];
     if(width <= 0.0) throw theta::ConfigurationException("width must be > 0");
@@ -18,6 +19,10 @@ double constrain_ratio::operator()(const theta::ParValues & values) const{
     double denominator = values.get(pid_denominator);
     if(denominator==0.0) throw theta::MathException("constrain_ratio: zero denominator");
     return 0.5 * pow((nominator / denominator - mean) / width, 2);
+}
+
+std::auto_ptr<theta::Function> constrain_ratio::clone() const{
+    return auto_ptr<Function>(new constrain_ratio(*this));
 }
 
 REGISTER_PLUGIN(constrain_ratio)

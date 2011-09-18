@@ -21,15 +21,17 @@ protected:
    
    /// random number generator instance to be used by derived classes
    std::auto_ptr<Random> rnd_gen;
+   
+   // pseudo copy-constructor for clones
+   RandomConsumer(const RandomConsumer & rhs, const PropertyMap & pm, const std::string & name);
 };
 
 
-/** \brief Dice a poisson for each bin of a given Histogram
+/** \brief Replace data by a Poisson value
  *
- * Replaces the bin contents of the given Histogram \c h with a random variable drawn from a Poisson distribution.
- * As mean, the original bin content is used.
+ * Replaces each data value by a Poisson with mean equal to the original value.
  */
-void randomize_poisson(Histogram & h, Random & rnd);
+void randomize_poisson(DoubleVector & d, Random & rnd);
 
 
 }

@@ -1,15 +1,12 @@
 #order matters
 DIRS = src libconfig liblbfgs plugins root bin test
 
-SVN_TAG := $( a=`svn info | grep URL` )
-DUMMY := $( echo svn tag: $(SVN_TAG) )
-
 all:
-	@for d in $(DIRS); do $(MAKE) -C $$d || break; done
+	@for d in $(DIRS); do ( cd $$d; $(MAKE) ) || break; done
 
 clean:
-	@for d in $(DIRS); do ( [ -d $$d ] && $(MAKE) -C $$d clean ) || true; done
-	@$(MAKE) -C test/test-stat clean
+	@for d in $(DIRS); do ( cd $$d && $(MAKE) clean ) || true; done
+	@cd test/test-stat; $(MAKE) clean
 
 #ok, this is not very nice, as it hardcodes the documentation copy target, but as long as I am the only
 # developer, it should work well:

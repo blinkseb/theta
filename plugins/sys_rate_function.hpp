@@ -40,6 +40,8 @@ public:
     sys_rate_function(const theta::plugin::Configuration & cfg);
     /// overloaded evaluation operator from theta::Function
     virtual double operator()(const theta::ParValues & v) const;
+    
+    virtual std::auto_ptr<theta::Function> clone() const;
 };
 
 
