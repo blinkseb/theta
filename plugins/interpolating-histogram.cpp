@@ -68,9 +68,6 @@ interpolating_histo::interpolating_histo(const Configuration & ctx){
         setting_name << par_name << "-minus-histogram";
         hminus.push_back(getConstantHistogram(ctx, ctx.setting[setting_name.str()] ));
     }
-    assert(hplus.size()==hminus.size());
-    assert(vid.size()==hminus.size());
-    assert(vid.size()==n);
     h = h0;
     
     const size_t nsys = hplus.size();

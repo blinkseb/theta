@@ -124,7 +124,7 @@ void tto_ensemble::sort(){
     if(sorted) return;
     truth_partitions.clear();
     if(ttos__truth_ts_sorted.size()==0) return;
-    assert(ttos__truth_ts_sorted.size() == ttos__truth_o_sorted.size());
+    theta_assert(ttos__truth_ts_sorted.size() == ttos__truth_o_sorted.size());
     std::sort(ttos__truth_ts_sorted.begin(), ttos__truth_ts_sorted.end(), tto::truth_ts_ordering());
     std::sort(ttos__truth_o_sorted.begin(), ttos__truth_o_sorted.end(), tto::truth_o_ordering());
     truth_partitions.clear();
@@ -132,7 +132,7 @@ void tto_ensemble::sort(){
     double last_truth = ttos__truth_ts_sorted[0].truth - 1;
     for(vector<tto>::const_iterator it = ttos__truth_ts_sorted.begin(); it!=ttos__truth_ts_sorted.end(); ++it, ++index){
         const double truth = it->truth;
-        assert(ttos__truth_o_sorted[index].truth == truth);
+        theta_assert(ttos__truth_o_sorted[index].truth == truth);
         if(truth != last_truth){
             truth_partitions[truth] = index;
             last_truth = truth;
@@ -323,7 +323,7 @@ t_interval_coverage construct_interval(const tto_ensemble::tto_range & tto_range
     const tto_ensemble::tto_range & tto_range_ts_sorted,
     double cl, double ts_interval0_min, double ts_interval1_min){
     const size_t n_total = distance(tto_range_o_sorted.first, tto_range_o_sorted.second);
-    assert(distance(tto_range_o_sorted.first, tto_range_o_sorted.second) == distance(tto_range_ts_sorted.first, tto_range_ts_sorted.second));
+    theta_assert(distance(tto_range_o_sorted.first, tto_range_o_sorted.second) == distance(tto_range_ts_sorted.first, tto_range_ts_sorted.second));
     const size_t n_target = static_cast<size_t>(cl * n_total);
     //take the ts value corresponding to the lowest ordering value which respects the restrictions as starting point for the interval:
     pair<double, double> result;
@@ -340,7 +340,7 @@ t_interval_coverage construct_interval(const tto_ensemble::tto_range & tto_range
        result.first = max(result.first, ts_interval0_min);
        result.second = max(result.second, ts_interval1_min);
     }
-    assert(result.second >= result.first);
+    theta_assert(result.second >= result.first);
 
     // from here on, only use the "ts sorted" input, not the "o sorted" one.
     // add ajacent toys directly left of or right of the result interval, preferring the value according to the ordering.
@@ -352,7 +352,7 @@ t_interval_coverage construct_interval(const tto_ensemble::tto_range & tto_range
     tto_ensemble::const_tto_iterator it_max = upper_bound(tto_range_ts_sorted.first,
                             tto_range_ts_sorted.second, tto(tto_range_o_sorted.first->truth, result.second), tto::truth_ts_ordering());
     size_t n = distance(it_min, it_max);
-    assert(n > 0);
+    theta_assert(n > 0);
     const double nan = numeric_limits<double>::quiet_NaN();
     while(n < n_target){
         double order_value_left = nan, order_value_right = nan;
@@ -569,7 +569,7 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
         tto_ensemble::tto_range r_interpolation = ensemble_for_interpolation.get_ttos(truth, tto_ensemble::sorted_by_ts);
         theta::cout << "getting range" << endl;
         tto_ensemble::tto_range tto_range = ttos.get_ttos(truth, tto_ensemble::sorted_by_ts);
-        assert(distance(tto_range.first, tto_range.second) >= 2);
+        theta_assert(distance(tto_range.first, tto_range.second) >= 2);
         tto_ensemble::const_tto_iterator it1 = r_interpolation.first;
         tto_ensemble::const_tto_iterator it2 = r_interpolation.first;
         ++it2;
@@ -662,7 +662,7 @@ void neyman_belt::run(){
         add_ordering_central_shortest(ttos);
     }
     else{
-       assert(ordering_rule=="fclike" && model.get()!=0 && poi.get()!=0 && ts_producer!=0);
+       theta_assert(ordering_rule=="fclike" && model.get()!=0 && poi.get()!=0 && ts_producer!=0);
        progress_total += truth_n;
        add_ordering_fclike(ttos);
        truth_values = ttos.get_truth_values();

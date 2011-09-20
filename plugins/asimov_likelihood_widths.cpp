@@ -47,7 +47,7 @@ theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boos
         ParId pid = *it;
         const double pid_mode = mode.get(pid);
         std::pair<double, double> support = dist.support(pid);
-        assert(support.first <= pid_mode && pid_mode <= support.second);
+        theta_assert(support.first <= pid_mode && pid_mode <= support.second);
         if(support.first == support.second){
             result.set(pid, 0.0);
             continue;
@@ -92,7 +92,7 @@ theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boos
         }
         //Now, one of the interval ends has to be infinite, otherwise we would not be here.
         //Scan in that direction:
-        assert(std::isinf(support.first) || std::isinf(support.second));
+        theta_assert(std::isinf(support.first) || std::isinf(support.second));
         bool found = false;
         for(double sign = -1.0; sign <= 1.001; sign+=2.0){
             if(!std::isinf(support.first) && sign < 0) continue;
@@ -115,7 +115,7 @@ theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boos
                         std::swap(xlow, xhigh);
                         std::swap(flow, fhigh);
                     }
-                    assert(xlow <= xhigh);
+                    theta_assert(xlow <= xhigh);
                     result.set(pid, fabs(pid_mode - secant(xlow, xhigh, 0.0, flow, fhigh, 0.05, f)));
                     found = true;
                     break;

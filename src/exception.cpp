@@ -1,4 +1,5 @@
 #include "interface/exception.hpp"
+#include <sstream>
 
 using namespace theta;
 
@@ -14,3 +15,10 @@ FatalException::FatalException(const Exception & ex){
 
 FatalException::FatalException(const std::string & message_): message(message_){
 }
+
+void fail_assert(const char * filename, int lineno, const char * expression){
+    std::stringstream ss;
+    ss << "Assertion '" << expression << "' failed in " << filename << ":" << lineno;
+    throw FatalException(ss.str());
+}
+

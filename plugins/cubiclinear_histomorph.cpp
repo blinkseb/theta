@@ -57,9 +57,6 @@ cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx){
         diff.push_back(hplus_diff.back());
         diff.back().add_with_coeff(-1, hminus_diff.back());
     }
-    assert(hplus_diff.size()==hminus_diff.size());
-    assert(vid.size()==hminus_diff.size());
-    assert(vid.size()==n);
     h = h0;
 }
 

@@ -5,6 +5,13 @@
 #include <sstream>
 #include <typeinfo>
 
+void fail_assert(const char * filename, int lineno, const char * expression);
+
+// define our own assert macro because the standard assert does an abort which does not destroy object properly
+// which is a problem in some cases. Instread, theta_assert raises a FatalException, which, as part of exception handling,
+// detroys all objects ...
+#define theta_assert(expression) if(!(expression)) { ::fail_assert(__FILE__, __LINE__, #expression); }
+
 
 namespace theta {
 

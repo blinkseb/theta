@@ -61,13 +61,7 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
             minus_relexp.push_back(ctx.setting[par_name + "-minus-relexp"]);
         else
             minus_relexp.push_back(0.0);
-    }
-    assert(parameters.size()==n);
-    assert(n==kappa_minus.size());
-    assert(n==kappa_plus.size());
-    assert(n==plus_relexp.size());
-    assert(n==minus_relexp.size());
-    
+    }    
     const size_t nsys = kappa_plus.size();
     std::set<ParId> pid_set;
     h0 = getConstantHistogram(ctx, ctx.setting["nominal-histogram"]);

@@ -196,7 +196,7 @@ void flat_distribution::sample(theta::ParValues & result, theta::Random & rnd) c
         if(fix_sample_values.contains(it->first))continue;
         const double low = it->second.first;
         const double high = it->second.second;
-        assert(!std::isinf(high - low));
+        theta_assert(!std::isinf(high - low));
         result.set(it->first, rnd.uniform()*(high-low) + low);
     }
 }

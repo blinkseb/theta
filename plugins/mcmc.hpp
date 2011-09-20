@@ -67,6 +67,9 @@ void metropolisHastings(const Function & nllikelihood, resulttype &res, Random &
     //set the starting point:
     std::copy(startvalues.begin(), startvalues.end(), &x[0]);
     double nll = nllikelihood(x.get());
+    theta_assert(std::isfinite(nll)); // if theta fails here, it means that the likelihood function at the start values was inf or NAN.
+    // One common reason for this is that the model produces a zero prediction in some bin where there is >0 data which should
+    // be avoided by the model (e.g., by filling in some small number in all bins with content zero).
 
     const size_t iter = burn_in + iterations;
     size_t weight = 1;

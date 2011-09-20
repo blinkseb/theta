@@ -265,25 +265,26 @@ def ml_fit(model, input = 'data', n = 1, signal_prior = 'flat', nuisance_constra
 def ks_test(model, n = 5000, nuisance_constraint = 'shape:fix', **options):
     nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
     main = {'n-events': n, 'model': '@model', 'producers': ('@mle',), 'output_database': sqlite_database(), 'log-report': False}
-    mle = {'type': 'mle', 'name': 'mle', 'parameters': None, 'write_ks_ts': True,
+    mle = {'type': 'mle', 'name': 'mle', 'parameters': [], 'write_ks_ts': True,
        'override-parameter-distribution': product_distribution("@nuisance_constraint"),
        'minimizer': minimizer(need_error = False)}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     toplevel_settings = {'mle': mle, 'main': main, 'options': cfg_options}
     cfg_names_to_run = []
     model_parameters = sorted(list(model.get_parameters('')))
-    mle['parameters'] = model_parameters
     toplevel_settings['nuisance_constraint'] = nuisance_constraint.get_cfg(model_parameters)
+    id = None
+    if 'id' in options: id = options['id']
     # for toys:
     input = 'toys:0'
     main['data_source'], dummy = data_source_dict(model, input)
-    name = write_cfg(model, '', 'ks_test', input, additional_settings = toplevel_settings)
+    name = write_cfg(model, '', 'ks_test', input, id=id, additional_settings = toplevel_settings)
     cfg_names_to_run.append(name)
     # for data:
     input = 'data'
     main['data_source'], dummy = data_source_dict(model, input)
     main['n-events'] = 1
-    name = write_cfg(model, '', 'ks_test', input, additional_settings = toplevel_settings)
+    name = write_cfg(model, '', 'ks_test', input, id=id, additional_settings = toplevel_settings)
     cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run)
@@ -305,6 +306,38 @@ def ks_test(model, n = 5000, nuisance_constraint = 'shape:fix', **options):
     #print "KS value for data: %f" % ks_value_data
     p = len([x for x in ks_values_bkg if x >= ks_value_data]) * 1.0 / len(ks_values_bkg)
     return p
+    
+
+## \brief Perform a KS compatibility test for all individual channels of the given model
+#
+# Each channel is treated independently. For each channel in the model, a "restricted" model is built
+# which contains each only that channel. This restricted model and all options are passed to to ks_test, see there
+# for valid options.
+#
+# If fit_yield is True, one parameter is added to the model which is used to scale all processes
+# at the same time (=the fraction between processes is not modified, at least not by this parameter).
+# In this case, after the fit, the normalisation of simulation and data coincides by construction
+# and the KS-test effectively compares the shapes only, not the rate.
+# Note that even if fit_yield is False, there is still a maximum likelihood fit done which finds the
+# parameter values at the maximum of the likelihood function, using nuisance_constraints (details see ks_test).
+# Depending on the model, this can already mean that the yield is fitted.
+#
+# Returns a dictionary (channel name) --> (p-value).
+def ks_test_individual_channels(model, fit_yield = False, **options):
+    observables = model.observables.keys()
+    result = {}
+    for obs in observables:
+        model_obs = copy.deepcopy(model)
+        model_obs.restrict_to_observables([obs])
+        if fit_yield:
+            model_obs.distribution.set_distribution('scale_', 'gauss', 1.0, inf, (0, inf))
+            procs = model_obs.get_processes(obs)
+            for p in procs:
+                model_obs.get_coeff(obs, p).add_factor('id', parameter = 'scale_')
+        options['id'] = obs
+        result[obs] = ks_test(model_obs, **options)
+    return result
+    
 
 ## \brief Calculate profile likelihood intervals
 #

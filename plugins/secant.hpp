@@ -26,9 +26,9 @@ using namespace std;
  */
 template<typename T>
 double secant(double x_low, double x_high, double x_accuracy, double f_x_low, double f_x_high, double f_accuracy, const T & function){
-    assert(isfinite(x_low) && isfinite(x_high));
-    assert(x_low <= x_high);
-    assert(isfinite(f_x_low) && isfinite(f_x_high));
+    theta_assert(isfinite(x_low) && isfinite(x_high));
+    theta_assert(x_low <= x_high);
+    theta_assert(isfinite(f_x_low) && isfinite(f_x_high));
     if(f_x_low * f_x_high >= 0) throw theta::InvalidArgumentException("secant: function values have the same sign!");
     if(fabs(f_x_low) <= f_accuracy) return x_low;
     if(fabs(f_x_high) <= f_accuracy) return x_high;
@@ -36,8 +36,8 @@ double secant(double x_low, double x_high, double x_accuracy, double f_x_low, do
     const double old_interval_length = x_high - x_low;    
     //calculate intersection point for secant method:
     double x_intersect = x_low - (x_high - x_low) / (f_x_high - f_x_low) * f_x_low;
-    assert(x_intersect >= x_low);
-    assert(x_intersect <= x_high);
+    theta_assert(x_intersect >= x_low);
+    theta_assert(x_intersect <= x_high);
     if(old_interval_length < x_accuracy){
         return x_intersect;
     }

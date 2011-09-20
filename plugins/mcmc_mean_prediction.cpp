@@ -16,7 +16,7 @@ class MCMCMeanPredictionResult{
     public:
         MCMCMeanPredictionResult(const Model & model_, const ObsIds & observables, size_t npar_): model(model_), npar(npar_), obs_ids(observables), n(0){
             par_ids = model.getParameters();
-            assert(par_ids.size() == npar);
+            theta_assert(par_ids.size() == npar);
             nll_min = std::numeric_limits<double>::infinity();
         }
         

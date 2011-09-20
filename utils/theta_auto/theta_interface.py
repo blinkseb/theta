@@ -4,7 +4,7 @@ import config as global_config
 import utils
 from plotutil import *
 
-def settingvalue_to_cfg(value, indent=0, errors = []):
+def settingvalue_to_cfg(value, indent=0, current_path = []):
     if type(value) == numpy.float64: value = float(value)
     if type(value) == str: return '"%s"' % value
     if type(value) == bool: return 'true' if value else 'false'
@@ -14,15 +14,14 @@ def settingvalue_to_cfg(value, indent=0, errors = []):
         elif value == -float("inf"): return '"-inf"'
         return '%.5e' % value
     if type(value) == list or type(value) == tuple or type(value) == numpy.ndarray:
-        return "(" + ",".join(map(lambda v: settingvalue_to_cfg(v, indent + 4), value)) + ')'
+        return "(" + ",".join([settingvalue_to_cfg(value[i], indent + 4, current_path + [str(i)]) for i in range(len(value))]) + ')'
     if type(value) == dict:
         result = "{\n"
         # sort keys to make config files reproducible:
         for s in sorted(value.keys()):
-            result += ' ' * (indent + 4) + s + " = " + settingvalue_to_cfg(value[s], indent + 4) + ";\n"
+            result += ' ' * (indent + 4) + s + " = " + settingvalue_to_cfg(value[s], indent + 4, current_path + [s]) + ";\n"
         return result + ' ' * indent + "}"
-    errors.append("cannot convert type %s to cfg; writing '<type error>' to allow debugging" % type(value))
-    return '<type error for type %s>' % type(value)
+    raise RuntimeError, "Cannot convert type %s to theta cfg in path '%s'" % (type(value), '.'.join(current_path))
 
 #histogram is a tuple (xmin, xmax, data). Returns a dictionary for cfg building
 def get_histo_cfg(histogram):
@@ -38,21 +37,21 @@ def write_cfg(model, signal_processes, method, input, id = None, additional_sett
     additional_settings['main']['output_database']['filename'] = '@output_name'
     additional_settings = copy.deepcopy(additional_settings)
     config = ''
-    config += "parameters = " + settingvalue_to_cfg(model_parameters) + ";\n"
+    config += "parameters = " + settingvalue_to_cfg(model_parameters, 0, ['parameters']) + ";\n"
     obs = {}
     for o in model.observables:
         xmin, xmax, nbins = model.observables[o]
         obs[o] = {'range': [xmin, xmax], 'nbins': nbins}
-    config += "observables = " + settingvalue_to_cfg(obs) + ";\n"
+    config += "observables = " + settingvalue_to_cfg(obs, 0, ['observables']) + ";\n"
     cfg_model = model.get_cfg(signal_processes)
     if 'beta_signal' in model_parameters:
         cfg_model['parameter-distribution'] = product_distribution("@model-distribution-signal", model.distribution.get_cfg(model_parameters))
     else:
         if 'model-distribution-signal' in additional_settings: del additional_settings['model-distribution-signal']
         cfg_model['parameter-distribution'] = model.distribution.get_cfg(model_parameters)
-    config += "model = " + settingvalue_to_cfg(cfg_model) + ";\n"
+    config += "model = " + settingvalue_to_cfg(cfg_model, 0, ['model']) + ";\n"
     for s in additional_settings:
-        config += s + " = " + settingvalue_to_cfg(additional_settings[s]) + ";\n"
+        config += s + " = " + settingvalue_to_cfg(additional_settings[s], 0, [s]) + ";\n"
     m = hashlib.md5()
     m.update(config)
     hash = m.hexdigest()[:10]
@@ -103,7 +102,7 @@ def run_theta(cfg_names, **options):
             #info("not running \"theta %s\": found up-to-date output in cache" % cfgfile)
             continue
         utils.info("running 'theta %s'" % cfgfile)
-        retval = os.system(theta + " " + cfgfile_full)
+        retval = os.system(theta + " --redirect-io=False " + cfgfile_full)
         if retval != 0:
             if os.path.exists(dbfile) and not options.get('nodel', False): os.unlink(dbfile)
             raise RuntimeError, "executing theta for cfg file '%s' failed with exit code %d" % (cfgfile, retval)

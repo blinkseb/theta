@@ -63,9 +63,11 @@ class Model:
         self.observables = {}
         self.processes = set() # all processes
         self.signal_processes = set() # the subset of processes considered signal
-        # observable_to_pred is a dictionary from str observable to dictionary str process to (list Function objects, HistogramFunction instance)
+        # observable_to_pred is a dictionary from (str observable) --> dictionary (str process)
+        #  --> | 'histogram'            --> HistogramFunction instance
+        #      | 'coefficient-function' --> Function instance
         self.observable_to_pred = {}
-        # like model.parameter-distribution:
+        # like model.parameter-distribution (excluding beta_signal):
         self.distribution = Distribution()
         # data histograms: dictionary str obs -> histo
         self.data_histos = {}
@@ -84,6 +86,22 @@ class Model:
         self.processes.update(other_model.processes)
         self.data_histos.update(other_model.data_histos)
         self.observable_to_pred.update(other_model.observable_to_pred)
+    
+    # modify the model to only contain a subset of the current observables.
+    # The parameter observables must be convertible to a set of strings
+    def restrict_to_observables(self, observables):
+        observables = set(observables)
+        model_observables = set(self.observables.keys())
+        assert observables.issubset(model_observables), "observables must be a subset of model.observables!"
+        for obs in model_observables:
+            if obs in observables: continue
+            del self.observables[obs]
+            del self.observable_to_pred[obs]
+            if obs in self.data_histos: del self.data_histos[obs]
+        # in theory, we could also update self.processes / self.signal_processes and
+        # self.distribution (if the model now has fewer dependencies), but this is not necessary.
+        
+        
        
     def set_data_histogram(self, obsname, histo):
         xmin, xmax, nbins = histo[0], histo[1], len(histo[2])
@@ -118,6 +136,9 @@ class Model:
         
     def get_coeff(self, obsname, procname):
         return self.observable_to_pred[obsname][procname]['coefficient-function']
+        
+    def get_processes(self, obsname):
+        return self.observable_to_pred[obsname].keys()
         
     def get_histogram_function(self, obsname, procname):
         if procname not in self.observable_to_pred[obsname]: return None
@@ -338,7 +359,7 @@ class Distribution:
         assert typ in ('gauss', 'gamma')
         assert range[0] <= range[1] and range[0] <= mean and mean <= range[1] and width >= 0.0
         if typ == 'lognormal': assert range[0] >= 0.0
-        self.distributions[par_name] = {'typ': typ, 'mean': mean, 'width': width, 'range': range}
+        self.distributions[par_name] = {'typ': typ, 'mean': mean, 'width': width, 'range': [float(range[0]), float(range[1])]}
         
     # Changes parameters of an existing distribution. pars can contain 'typ', 'mean', 'width', 'range'. Anything
     # not specified will be unchanged
@@ -374,6 +395,7 @@ class Distribution:
         result = {'type': 'product_distribution', 'distributions': []}
         flat_dist = {'type': 'flat_distribution'}
         delta_dist = {'type': 'delta_distribution'}
+        assert set(parameters).issubset(set(self.distributions.keys())), "Requested more parameters than distribution defined for: requested %s, got %s" % (parameters, self.distributions.keys())
         for p in self.distributions:
             if p not in parameters: continue
             d = self.distributions[p]
@@ -391,13 +413,57 @@ class Distribution:
         return result
 
 
-# * histogram_filter is a function which -- given a histogram name as in the root file --
-#   returns either True (=keep histogram) or False (do not keep histogram)
-# * external_to_internal_name maps histogram names (as in the root file) to internal names (as to be used later
-#   in theta)
+## \brief Build a multi-channel model based on template morphing from histograms in a root file
 #
-# filename can be either a string or a list of strings
-def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, external_to_internal_name = lambda s: s):
+# This root file is expected to contain all the templates of the model adhering to a certain naming scheme:
+# <observable>__<process>     for the "nominal" templates (=not affect by any uncertainty) and
+# <observable>__<process>__<uncertainty>__(plus,minus)  for the "shifted" templates to be used for template morphing.
+#
+# ("observable" in theta is a synonym for what other call "channel": a statistically independent selection).
+#
+# <observable>, <process> and <uncertainty> are names you can choose at will as long as it does not contain '__'. You are encouraged
+# to choose sensible names as these names are used in the output a lot.
+#
+# For example, if you want to make a combined statistical evaluation of a muon+jets and an electron+jets ttbar cross section measurement,
+# you can name the observables "mu" and "ele"; the processes might be "ttbar", "w", "nonw", the uncertainties "jes", "q2". Provided
+# all uncertainties affect all template shapes, you would supply 6 nominal and 24 "uncertainty" templates:
+# The 6 nominal would be: mu__ttbar, mu__w, mu__nonw, ele__ttbar, ele__w, ele__nonw
+# Some of the 24 "uncertainty" histograms would be: mu__ttbar__jes__plus, mu__ttbar__jes__minus, ..., ele__nonw__q2__minus
+#
+# theta-auto.py expects that all templates of one observable have the same range and binning. All templates should be normalized
+# to the same luminosity (although normalization can be changed from the analysis python script later, this is generally not recommended, unless
+# scaling everything to a different lumi).
+#
+# It is possible to omit some of the systematic templates completely. In this case, it is assumed
+# that the presence of that uncertainty has no influence on this process in this observable.
+#
+# Data has the special process name "DATA" (all capitals!), so for each observable, there should be exactly one "<observable>_DATA"
+# histogram, if you have data at all. If you do not have data, just omit this; the methods will be limited to calculating the expected
+# result.
+#
+# To identify which process should be considered as signal, use as process name
+# "signal". If you have multiple, uncorrelated signal scenarios (such as a new type of particle
+# with different masses / widths), call it "signal<something>" where <something> is some name you can choose.
+# Note that for multiple signals, use a number if possible. This number will be used in summary plots if investigating multiple signals.
+# 
+# For example, if you want to search for Higgs with masses 100, 110, 120, ..., you can call the processes "signal100",
+# "signal110".
+# Note that this naming convention for signal can be overriden by analysis.py via Model.set_signal_processes.
+#
+# The model built is based on the given templates where the systematic uncertainties are fully correlated across different
+# observables and processes, i.e., the same parameter is used to interpolate between the nominal and shifted templates
+# if the name of the uncertainty is the same. Two different systematic uncertainties (=with different names) are assumed to be uncorrelated.
+# Each parameter has a Gaussian prior with width 1.0 and mean 0.0 and has the same name as the uncertainty. You can use
+# the functions in Distribution (e.g., via model.distribution) to override this prior. This is useful if the "plus" and "minus" templates
+# are not the +-1sigma deviations, but, say, the +-2sigma in which case you can use a prior with width 0.5.
+#
+# * histogram_filter is a function which -- given a histogram name as in the root file --
+#   returns either True (=keep histogram) or False (do not keep histogram). the default is to keep all histograms.
+# * root_hname_to_convention maps histogram names (as in the root file) to histogram names as expected by the
+#    naming convention as described above. The default is to not modify the names.
+#
+# filenames can be either a string or a list of strings
+def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s):
     if type(filenames)==str: filenames = [filenames]
     result = Model()
     histos = {}
@@ -408,7 +474,7 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, exte
         templates = rf.get_templates()
         for hexternal in templates:
             if not histogram_filter(hexternal): continue
-            hinternal = external_to_internal_name(hexternal)
+            hinternal = root_hname_to_convention(hexternal)
             l = hinternal.split('__')
             observable, process, uncertainty, direction = [None]*4
             if len(l)==2:
@@ -447,9 +513,9 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, exte
                 if ('%s__%s__%s__minus' % (o, p, u)) in histos: n_syst += 1
                 if n_syst == 0: continue
                 if n_syst != 2: raise RuntimeError, "only one direction given for (observable, process, uncertainty) = (%s, %s, %s)" % (o, p, u)
-                hf.set_syst_histos('delta_%s' % u, histos['%s__%s__%s__plus' % (o, p, u)], histos['%s__%s__%s__minus' % (o, p, u)])
+                hf.set_syst_histos('%s' % u, histos['%s__%s__%s__plus' % (o, p, u)], histos['%s__%s__%s__minus' % (o, p, u)])
             result.set_histogram_function(o, p, hf)
     for u in uncertainties:
-        result.distribution.set_distribution('delta_%s' % u, 'gauss', mean = 0.0, width = 1.0, range = (-float("inf"), float("inf")))
+        result.distribution.set_distribution('%s' % u, 'gauss', mean = 0.0, width = 1.0, range = (-float("inf"), float("inf")))
     return result
 

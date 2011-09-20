@@ -31,11 +31,10 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    minimizer = minimizer(need_error = False)
     main = {'model': '@model', 'n-events': 1, 'producers': ('@ts_producer',), 'output_database': sqlite_database(), 'log-report': False}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)    
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer, "minimizer": minimizer}
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, 'data')
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
@@ -64,11 +63,10 @@ def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuis
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    minimizer = minimizer(need_error = False)
     main = {'model': '@model', 'n-events': n, 'producers': ('@ts_producer',), 'output_database': sqlite_database(), 'log-report': False}
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
-    ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)    
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer, "minimizer": minimizer}
+    ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, 'toys:0', **options)
     #print toplevel_settings
     cfg_names_to_run = []
@@ -110,7 +108,11 @@ def count_above(the_list, threshold):
         if e >= threshold: n+=1
     return n
 
-def discovery(model, **options):
+
+# returns a tuple (expected significance, observed significance). Each entry in the tuple is in turn a triple (central value, error_minus, error_plus)
+# where the error for the expected significance are the expected 1sigma spread and for the observed one the error from limited toy MC.
+# If you think that latter error is too large, decrease Z_error_max.
+def discovery(model, use_data = True, Z_error_max = 0.05, **options):
     options['signal_prior']='flat'
     options['signal_prior_bkg'] = 'fix:0'
     ts_expected = ts_toys(model, [1.0], 1000, **options)
@@ -120,7 +122,7 @@ def discovery(model, **options):
         ts_sorted = sorted(ts_expected[(spid, beta_signal)])
         expected[spid] = (ts_sorted[int(0.5 * len(ts_sorted))], ts_sorted[int(0.16 * len(ts_sorted))], ts_sorted[int(0.84 * len(ts_sorted))])
     del ts_expected
-    observed = ts_data(model, **options)
+    if use_data: observed = ts_data(model, **options)
     n = 10000
     # dict  spid -> [n, n0] for observed p-value
     observed_nn0 = {}
@@ -129,6 +131,7 @@ def discovery(model, **options):
     for spid in expected:
         expected_nn0[spid] = ([0,0], [0,0], [0,0])
         observed_nn0[spid] = [0,0]
+    observed_significance = None
     for seed in range(1, 100):
         options['toydata_seed'] = seed
         ts_bkgonly = ts_toys(model, [0.0], n, **options)
@@ -141,14 +144,17 @@ def discovery(model, **options):
                 Z[i], Z_error = p_to_Z(*expected_nn0[spid][i])
                 max_Z_error = max(max_Z_error, Z_error)
             print "expected significance for process '%s' (with +-1sigma band): %f  +%f  -%f"  % (spid, Z[0], Z[2] - Z[0], Z[0]-Z[1])
-            observed_nn0[spid][1] += len(ts_bkgonly[spid, beta_signal])
-            observed_nn0[spid][0] += count_above(ts_bkgonly[spid, beta_signal], observed[spid])
-            Z, Z_error = p_to_Z(*observed_nn0[spid])
-            max_Z_error = max(max_Z_error, Z_error)
-            print "observed significance for process '%s' (with stat. error from limited toys): %f +- %f" % (spid, Z, Z_error)
+            expected_significance = Z[0], Z[2] - Z[0], Z[0]-Z[1]
+            if use_data:
+                observed_nn0[spid][1] += len(ts_bkgonly[spid, beta_signal])
+                observed_nn0[spid][0] += count_above(ts_bkgonly[spid, beta_signal], observed[spid])
+                Z, Z_error = p_to_Z(*observed_nn0[spid])
+                max_Z_error = max(max_Z_error, Z_error)
+                observed_significance = Z, Z_error, Z_error
+                print "observed significance for process '%s' (with stat. error from limited toys): %f +- %f" % (spid, Z, Z_error)
         #print "max Z error: ", max_Z_error
-        if max_Z_error < 0.05: break
-
+        if max_Z_error < Z_error_max: break
+    return expected_significance, observed_significance
 
 
 # ts is either 'lr' for likelihood ratio or 'mle' for maximum likelihood estimate.

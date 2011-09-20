@@ -49,7 +49,7 @@ namespace theta {
         double operator()(const double * x) const{
             size_t i=0;
             for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
-                assert(!std::isnan(x[i]));
+                theta_assert(!std::isnan(x[i]));
                 pv.set(*it, x[i]);
             }
             return operator()(pv);

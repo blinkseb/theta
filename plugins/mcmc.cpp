@@ -7,8 +7,6 @@
 #include "interface/redirect_stdio.hpp"
 
 #include <algorithm>
-#include <cassert>
-
 #include <limits>
 
 #include <iostream>
@@ -113,7 +111,7 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
         }
         cov(k, k) = width*width;
     }
-    assert(k==n);
+    theta_assert(k==n);
     get_cholesky(cov, sqrt_cov, static_cast<int>(n) - n_fixed_parameters);
     
     std::auto_ptr<NLLikelihood> p_nll = model.getNLLikelihood(asimov_data);

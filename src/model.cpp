@@ -52,7 +52,7 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
 void default_model::get_prediction(Data & result, const ParValues & parameters) const {
     for(ObsIds::const_iterator obsit=observables.begin(); obsit!=observables.end(); ++obsit){
         histos_type::const_iterator it = histos.find(*obsit);
-        assert(it!=histos.end());
+        theta_assert(it!=histos.end());
         histos_type::const_mapped_reference h_producers = *(it->second);
         coeffs_type::const_iterator it2 = coeffs.find(*obsit);
         coeffs_type::const_mapped_reference h_coeffs = *(it2->second);
@@ -79,7 +79,7 @@ void default_model::get_prediction(Data & result, const ParValues & parameters) 
 void default_model::get_prediction_randomized(Random & rnd, Data & result, const ParValues & parameters) const{
     for(ObsIds::const_iterator obsit=observables.begin(); obsit!=observables.end(); ++obsit){
         histos_type::const_iterator it = histos.find(*obsit);
-        assert(it!=histos.end());
+        theta_assert(it!=histos.end());
         histos_type::const_mapped_reference h_producers = *(it->second);
         coeffs_type::const_iterator it2 = coeffs.find(*obsit);
         coeffs_type::const_mapped_reference h_coeffs = *(it2->second);
@@ -125,7 +125,7 @@ default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarId
             Configuration cfg(ctx, obs_setting[i]["coefficient-function"]);
             auto_ptr<Function> coeff_function = PluginManager<Function>::instance().build(cfg);
             coeffs.push_back(coeff_function);
-            assert(coeff_function.get()==0);
+            theta_assert(coeff_function.get()==0);
             histos.push_back(hf);
         }
         set_prediction(*obsit, coeffs, histos);

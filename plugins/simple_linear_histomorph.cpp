@@ -58,9 +58,6 @@ simple_linear_histomorph::simple_linear_histomorph(const Configuration & cfg){
            hminus_diff.push_back(Histogram1D());
         }
     }
-    assert(hplus_diff.size()==hminus_diff.size());
-    assert(vid.size()==hminus_diff.size());
-    assert(vid.size()==n);
 }
 
 Histogram1D simple_linear_histomorph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){

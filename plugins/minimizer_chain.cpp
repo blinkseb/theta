@@ -5,7 +5,6 @@ using namespace theta;
 using namespace theta::plugin;
 using namespace std;
 
-
 MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues & start,
                 const ParValues & step, const map<ParId, pair<double, double> > & ranges){
     MinimizationResult res;
@@ -16,7 +15,7 @@ MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues
             success = true;
         }
         catch(MinimizationException & ex){
-            // is this was the last attempt: re-throw, otherwise silently ignore.
+            // if this was the last attempt: re-throw, otherwise silently ignore and try the next minimizer ...
             if(i+1==minimizers.size()) throw;
         }
         if(success) break;
