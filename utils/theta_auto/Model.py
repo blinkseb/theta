@@ -185,7 +185,7 @@ class Model:
     # can be called more than once to set the same uncertainty for different observables / processes
     def add_lognormal_uncertainty(self, u_name, rel_uncertainty, procname, obsname='*'):
         found_match = False
-        par_name = 'delta_%s' % u_name
+        par_name = u_name
         if par_name not in self.distribution.get_parameters():
             self.distribution.set_distribution(par_name, 'gauss', mean = 0.0, width = 1.0, range = [-float("inf"), float("inf")])
         for o in self.observable_to_pred:
@@ -395,7 +395,11 @@ class Distribution:
         result = {'type': 'product_distribution', 'distributions': []}
         flat_dist = {'type': 'flat_distribution'}
         delta_dist = {'type': 'delta_distribution'}
-        assert set(parameters).issubset(set(self.distributions.keys())), "Requested more parameters than distribution defined for: requested %s, got %s" % (parameters, self.distributions.keys())
+        set_parameters = set(parameters)
+        set_parameters.discard('beta_signal')
+        set_self_parameters = set(self.distributions.keys())
+        assert set_parameters.issubset(set_self_parameters), "Requested more parameters than distribution" + \
+             " defined for: requested %s, got %s (too much: %s)" % (set_parameters, set_self_parameters, set_parameters.difference(set_self_parameters))
         for p in self.distributions:
             if p not in parameters: continue
             d = self.distributions[p]

@@ -297,10 +297,10 @@ private:
     size_t truth_n;
     std::pair<double, double> truth_range;
     
-    int progress_done, progress_total;
+    int progress_done, progress_total, progress_errors;
     
     void progress(){
-        if(progress_listener) progress_listener->progress(++progress_done, progress_total);
+        if(progress_listener) progress_listener->progress(++progress_done, progress_total, progress_errors);
     }
     
     void add_ordering_fclike(tto_ensemble & inp);
@@ -594,7 +594,7 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
 }
 
 
-neyman_belt::neyman_belt(const plugin::Configuration & cfg): force_increasing_belt(false){
+neyman_belt::neyman_belt(const plugin::Configuration & cfg): force_increasing_belt(false), progress_errors(0){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     progress_done = 0;
     size_t n = cfg.setting["cls"].size();

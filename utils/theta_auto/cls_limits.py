@@ -157,26 +157,16 @@ def discovery(model, use_data = True, Z_error_max = 0.05, **options):
     return expected_significance, observed_significance
 
 
-# ts is either 'lr' for likelihood ratio or 'mle' for maximum likelihood estimate.
+## \brief Calculate CLs limits.
 #
-# for 'lr', there are different variants: (note: the names are taken from
-# https://twiki.cern.ch/twiki/bin/view/CMS/SWGuideHiggsAnalysisCombinedLimit )
-# * 'LEP' will do a 'LEP-like' likelihood ratio in which no minimization is done at all; the likelihood ratio is evaluated using the
-#    most probable values for the nuisance parameters and beta_signal=1, beta_signal=0.
-#    this can be achieved by
-#    nuisance_prior = 'shape:fix;rate:fix'
-#    signal_prior = 'fix:1'
-#    signal_prior_bkg = 'fix:0'
-# * 'Tevatron' minimizes the likelihood ratio w.r.t. all nuisance parameters and use beta_signal=1, beta_signal=0
-#    This can be achieved by using
-#     nuisance_prior = ''
-#     signal_prior = 'fix:1'
-#     signal_prior_bkg = 'fix:0'
-# * 'LHC' / 'ATLAS' method is similar to 'Tevatron' but will also let beta_signal free in the numerator of the likelihood ratio (and use beta_signal=0 for
-#    the denominator). This is achieved by
-#     nuisance_prior = ''
-#     signal_prior = 'fix:1'
-#     signal_prior_bkg = 'flat:[0,1]'
+# Calculate expected and/or observed CLs limits for a given model. The choice of test statistic
+# is driven by the 'ts' option which can be either 'lr' for a likelihood ratio test statistic
+# calculated with the deltanll_hypotest producer or 'mle' for the maximum likelihood estimate
+# of beta_signal to be used as test statistic. In both cases, 'nuisance_prior' controls the nuisance
+# prior to be used in the likelihood function definition and 'signal_prior' is the constraint for signal.
+#
+# In case of ts='lr', you can also set 'signal_prior_bkg' which is the constraint used for the evaluation of the
+# profiled likelihood in the background only case.
 #
 # For ts='mle', signal_prior_bkg has no meaning. The nuisance prior for the s+b / b only likelihood is always the same (so far).
 #
@@ -184,6 +174,11 @@ def discovery(model, use_data = True, Z_error_max = 0.05, **options):
 # * 'data': compute observed limit only
 # * 'expected': compute +-1sigma, +-2sigma limit bands for background only
 # * 'all': both 'data' and 'expected'
+#
+# \return A dictionary (signal process group id) --> ('observed' | 'exp_1s-' | 'exp_1s+' | 'exp_2s-' | 'exo_2s+')  --> (limit in beta_signal, limit_uncertainty)
+#   where 'exp_1s-' is the lower band border for the "+-1sigma expected band", 'exp_1s+' is the upper border, etc.
+#
+# TODO: result is not rellay filled in yet.
 def cls_limits(model, forwhat = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     # if the signal+background distribution is more restrictive than the background only, there is a sign flip ...
@@ -191,11 +186,11 @@ def cls_limits(model, forwhat = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'fl
     #else: ts_sign=''
     ts_sign = ''
     signal_prior = signal_prior_dict(signal_prior)
+    if 'beta_signal' in signal_prior: signal_prior['beta_signal']['fix-sample-value'] = signal_prior['beta_signal']['range'][0]
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    minimizer = minimizer()
     main = {'type': 'cls_limits', 'model': '@model', 'producers': ('@ts_producer',),
-        'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer, 'debuglog': 'debug.txt'}
+        'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True), 'debuglog': 'debug.txt'}
     if forwhat in ('expected', 'all'):
         main['ts_values_background_bands'] = True
     elif forwhat != 'data': raise RuntimeError, "unknown option forwhat='%s'" % forwhat
@@ -203,11 +198,11 @@ def cls_limits(model, forwhat = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'fl
         main['ts_values'], dummy = data_source_dict(model, 'data')
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     if ts == 'mle':
-        ts_producer = {'type': 'mle', 'name': 'mle', 'minimizer': minimizer, 'parameter': 'beta_signal',
+        ts_producer = {'type': 'mle', 'name': 'mle', 'minimizer': minimizer(need_error = False), 'parameter': 'beta_signal',
            'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior")}
         main['ts_column'] = ts_sign + 'mle__beta_signal'
     elif ts == 'lr':
-        ts_producer = {'type': 'deltanll_hypotest', 'name': 'lr', 'minimizer': minimizer,
+        ts_producer = {'type': 'deltanll_hypotest', 'name': 'lr', 'minimizer': minimizer(need_error = False),
         'signal-plus-background-distribution': product_distribution("@signal_prior", "@nuisance_prior"),
         'background-only-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior")}
         main['ts_column'] = ts_sign + 'lr__nll_diff'

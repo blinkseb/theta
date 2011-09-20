@@ -28,22 +28,47 @@ namespace btime = boost::posix_time;
 
 class MyProgressListener: public ProgressListener{
 public:
-    virtual void progress(int done, int total){
+    virtual void progress(int done_, int total_, int n_error_){
+        done = done_;
+        total = total_;
+        n_error = n_error_;
+        print();
+    }
+    
+    void print(){
         if(!is_tty) return;
         btime::ptime now = btime::microsec_clock::local_time();
         if(now < next_update && done < total) return;
         //move back to beginning of terminal line:
         theta::cout << "\033[" << chars_written << "D";
-        chars_written = 0;
-        double d = 100.0 * done / total;
-        char c[40];
-        chars_written += snprintf(c, 40, "%6d / %-6d [%5.1f%%] ", done, total, d);
+        chars_written = 0;  
+        char c[200];
+        double error_fraction = 100.0 * n_error / done;
+        const char * color_start;
+        const char * color_end = "\033[0m";
+        if(error_fraction > 30){ //red:
+           color_start = "\033[31m";
+        }
+        else if(error_fraction > 5){ //yellow:
+           color_start = "\033[1;33m";
+        }
+        else{ //green:
+           color_start = "\033[32m";
+        }
+        if(total > 0){
+            double progress_fraction = 100.0 * done / total;
+            chars_written += snprintf(c, 200, "progress: %6d / %-6d [%5.1f%%]   errors: %s%6d [%5.1f%%]%s", done, total, progress_fraction, color_start, n_error, error_fraction, color_end);
+        }
+        else{
+            chars_written += snprintf(c, 200, "progress: %6d   errors: %s%6d [%5.1f%%]%s", done, color_start, n_error, error_fraction, color_end);
+        }
         theta::cout << c;
         theta::cout.flush();
         next_update = now + btime::milliseconds(50);
     }
 
-    MyProgressListener(): stdout_fd(theta::cout_fd), is_tty(isatty(stdout_fd)), chars_written(0), next_update(btime::microsec_clock::local_time()){
+    MyProgressListener(): stdout_fd(theta::cout_fd), done(0), total(0), n_error(0), is_tty(isatty(stdout_fd)),
+      chars_written(0), next_update(btime::microsec_clock::local_time()) {
         if(!is_tty) return;
         //disable terminal echoing; we don't expect any input.
         termios settings;
@@ -64,6 +89,7 @@ public:
     
 private:
     int stdout_fd;
+    int done, total, n_error;
     bool is_tty;
     int chars_written;
     btime::ptime next_update;

@@ -17,6 +17,7 @@ void Run::run(){
     logtable->append(runid, 0, LogTable::info, "run start");
    
     Data data;
+    int n_errors = 0;
     //main event loop:
     for (int eventid = 1; eventid <= n_event; eventid++) {
         if(stop_execution)break;
@@ -40,6 +41,7 @@ void Run::run(){
                 std::stringstream ss;
                 ss << "Producer '" << producers[j].getName() << "' failed: " << ex.message << ".";
                 logtable->append(runid, eventid, LogTable::error, ss.str());
+                ++n_errors;
                 break;
             }
             catch(FatalException & f){
@@ -54,7 +56,7 @@ void Run::run(){
             products_table->add_row(runid, eventid);
         }
         logtable->append(runid, eventid, LogTable::info, "end");
-        if(progress_listener) progress_listener->progress(eventid, n_event);
+        if(progress_listener) progress_listener->progress(eventid, n_event, n_errors);
     }
     
     logtable->append(runid, 0, LogTable::info, "run end");

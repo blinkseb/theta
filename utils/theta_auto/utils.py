@@ -15,7 +15,7 @@ def minimizer(need_error = True):
     minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
     minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 1000, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
     result = {'type': 'minimizer_chain', 'minimizers': minimizers}
-    if need_error: result['last_minimizer': {'type': 'root_minuit'}]
+    if need_error: result['last_minimizer'] = {'type': 'root_minuit'}
     return result
 
 # returns a Distribution object, given the model, signal process and nuisance_prior specification ('shape:X;rate:Y'...)

@@ -83,7 +83,7 @@ def sqlite_database(fname = ''):
 
 # cfg_names is a list of filenames (without ".cfg") which are expected to be located in the working directory
 # valid options:
-#  * nodel: if True, do not delete the db file in case of failure
+#  * model: if True, do not delete the db file in case of failure
 def run_theta(cfg_names, **options):
     cache_dir = os.path.join(global_config.workdir, 'cache')
     if not os.path.exists(cache_dir): os.mkdir(cache_dir)
@@ -104,7 +104,7 @@ def run_theta(cfg_names, **options):
         utils.info("running 'theta %s'" % cfgfile)
         retval = os.system(theta + " --redirect-io=False " + cfgfile_full)
         if retval != 0:
-            if os.path.exists(dbfile) and not options.get('nodel', False): os.unlink(dbfile)
+            if os.path.exists(dbfile) and not options.get('debug', False): os.unlink(dbfile)
             raise RuntimeError, "executing theta for cfg file '%s' failed with exit code %d" % (cfgfile, retval)
         # move to cache, also the config file ...
         shutil.move(dbfile, dbfile_cache)

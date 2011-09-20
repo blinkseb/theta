@@ -29,11 +29,6 @@ public:
         }
         double result = f(x);
         if(isinf(result)){
-           theta::cerr << "Error in function to minimize: result is infinity. Parameter values: " << endl;
-           for(size_t i=0; i<ndim; ++i){
-               theta::cerr << x[i] << " ";
-           }
-           theta::cerr << endl;
            throw MinimizationException("function to minimize was infinity during minimization");
         }
         return result;

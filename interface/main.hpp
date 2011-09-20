@@ -39,10 +39,12 @@ public:
     * This function will be called by Main to indicate the current progress.
     * \param done how many units of work have been done
     * \param total total units of work
+    * \param how many failures there have been in 'done'
     *
-    * It is not guaranteed that total remains constant or that done increases.
+    * In some cases, the 'total units of work' are not known. In this case, it is still useful
+    * to indicate some activity / progress and total should be set to a value <= 0 in that case.
     */
-    virtual void progress(int done, int total) = 0;
+    virtual void progress(int done, int total, int errors) = 0;
     
     /// Make destructor virtual as we have polymorphic access
     virtual ~ProgressListener(){}
