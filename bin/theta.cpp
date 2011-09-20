@@ -19,7 +19,7 @@
 using namespace std;
 using namespace theta;
 using namespace theta::utils;
-using namespace theta::plugin;
+
 using namespace libconfig;
 
 namespace fs = boost::filesystem;

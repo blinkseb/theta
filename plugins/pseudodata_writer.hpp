@@ -42,12 +42,12 @@ class pseudodata_writer: public theta::Producer {
 public:
 
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    pseudodata_writer(const theta::plugin::Configuration & cfg);
+    pseudodata_writer(const theta::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
-    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    pseudodata_writer(const pseudodata_writer & rhs, const PropertyMap & pm);
+    pseudodata_writer(const pseudodata_writer & rhs, const theta::PropertyMap & pm);
     void declare_products(const boost::shared_ptr<theta::VarIdManager> & vm);
     
     std::vector<theta::ObsId> observables;

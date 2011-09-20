@@ -2,7 +2,6 @@
 #include "interface/histogram-function.hpp"
 
 using namespace theta;
-using namespace theta::plugin;
 using namespace std;
 
 histo_source::histo_source(const Configuration & cfg): DataSource(cfg){
@@ -25,11 +24,11 @@ void histo_source::fill(Data & dat){
     dat = data;
 }
 
-std::auto_ptr<DataSource> histo_source::clone(const PropertyMap & pm) const{
+std::auto_ptr<DataSource> histo_source::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<DataSource>(new histo_source(*this, pm));
 }
 
-histo_source::histo_source(const histo_source & rhs, const PropertyMap & pm): DataSource(rhs, pm), data(rhs.data){
+histo_source::histo_source(const histo_source & rhs, const theta::PropertyMap & pm): DataSource(rhs, pm), data(rhs.data){
 }
 
 REGISTER_PLUGIN(histo_source)

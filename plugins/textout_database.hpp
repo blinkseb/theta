@@ -35,7 +35,7 @@ public:
      *
      * See class documentation for a description of the parsed Configuration settings.
      */
-    textout_database(const theta::plugin::Configuration & cfg);
+    textout_database(const theta::Configuration & cfg);
     
     
     virtual ~textout_database();

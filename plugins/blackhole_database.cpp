@@ -10,7 +10,7 @@
 using namespace std;
 using namespace theta;
 
-blackhole_database::blackhole_database(const plugin::Configuration & cfg){}
+blackhole_database::blackhole_database(const Configuration & cfg){}
 
 blackhole_database::~blackhole_database() {}
 

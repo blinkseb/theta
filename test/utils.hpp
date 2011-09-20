@@ -15,7 +15,7 @@ public:
     
     ConfigCreator(const std::string & cfg_string, const boost::shared_ptr<theta::VarIdManager> & vm);
     
-    const theta::plugin::Configuration & get(){
+    const theta::Configuration & get(){
         return cfg;
     }
     
@@ -26,7 +26,7 @@ private:
     int dummy;
     
     boost::shared_ptr<theta::SettingUsageRecorder> rec;
-    theta::plugin::Configuration cfg;
+    theta::Configuration cfg;
 };
 
 #endif

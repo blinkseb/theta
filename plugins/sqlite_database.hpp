@@ -43,7 +43,7 @@ public:
      *
      * See class documentation for a description of the Configuration settings.
      */
-    sqlite_database(const theta::plugin::Configuration & cfg);
+    sqlite_database(const theta::Configuration & cfg);
     
     
     virtual ~sqlite_database();

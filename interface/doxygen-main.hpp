@@ -495,7 +495,7 @@
   * To define and use your own plugin, you have to:
   * <ol>
   * <li>Define a new class which is derived from a plugin-class and implement all its pure virtual methods and a constructor
-  *     taking a \link theta::plugin::Configuration Configuration \endlink object as the only argument.</li>
+  *     taking a \link theta::Configuration Configuration \endlink object as the only argument.</li>
   * <li>In a .cpp-file, call the REGISTER_PLUGIN(yourclass) macro</li>
   * <li>Make sure to compile and link this definition to a shared-object file.</li>
   * <li>In the configuration file, make sure to load the shared-object file as plugin.
@@ -514,7 +514,7 @@
   *
   * The first thing to do is to write down the documentation, of how this plugin will be configured. Note that
   * the setting group you speficy has to provide enough information to completely specify the instance to create:
-  * the constructor will <em>only</em> have accedd to the \link theta::plugin::Configuration Configuration \endlink object which essentially
+  * the constructor will <em>only</em> have accedd to the \link theta::Configuration Configuration \endlink object which essentially
   * contains the settings from the configuration file and the defined observables and parameters, but not more.
   *
   * The setting group should look like this:

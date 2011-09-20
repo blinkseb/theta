@@ -33,7 +33,7 @@
 class fixed_poly: public theta::ConstantHistogramFunction{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    fixed_poly(const theta::plugin::Configuration & cfg);
+    fixed_poly(const theta::Configuration & cfg);
 };
 
 /** \brief A normal distribution where mean and width do not depend on any parameters
@@ -60,7 +60,7 @@ public:
 class fixed_gauss: public theta::ConstantHistogramFunction{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-   fixed_gauss(const theta::plugin::Configuration & cfg);
+   fixed_gauss(const theta::Configuration & cfg);
 };
 
 /** \brief A lognormal distribution in one dimension.
@@ -87,7 +87,7 @@ public:
 class log_normal: public theta::Distribution{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    log_normal(const theta::plugin::Configuration & cfg);
+    log_normal(const theta::Configuration & cfg);
     
     ///@{
     /** \brief Implementation of the pure methods of theta::Distribution
@@ -134,7 +134,7 @@ private:
 class delta_distribution: public theta::Distribution{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    delta_distribution(const theta::plugin::Configuration & cfg);
+    delta_distribution(const theta::Configuration & cfg);
     
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
@@ -186,7 +186,7 @@ private:
 class flat_distribution: public theta::Distribution{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    flat_distribution(const theta::plugin::Configuration & cfg);
+    flat_distribution(const theta::Configuration & cfg);
     ///@{
     /** \brief Implementation of the pure methods of theta::Distribution
      *
@@ -253,7 +253,7 @@ private:
 class gauss: public theta::Distribution{
    public:
         /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-        gauss(const theta::plugin::Configuration & cfg);
+        gauss(const theta::Configuration & cfg);
 
         virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
         virtual void mode(theta::ParValues & result) const;
@@ -297,7 +297,7 @@ class gauss: public theta::Distribution{
 class gauss1d: public theta::Distribution{
    public:
         /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-        gauss1d(const theta::plugin::Configuration & cfg);
+        gauss1d(const theta::Configuration & cfg);
 
         virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
         virtual void mode(theta::ParValues & result) const;
@@ -334,7 +334,7 @@ class product_distribution: public theta::Distribution{
 public:
 
     /// Constructor from a Configuration for the plugin system
-    product_distribution(const theta::plugin::Configuration & cfg);
+    product_distribution(const theta::Configuration & cfg);
 
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
@@ -346,7 +346,7 @@ public:
 
 private:
     product_distribution(const product_distribution & rhs);
-    void add_distributions(const theta::plugin::Configuration & cfg, const theta::SettingWrapper & s, int depth);
+    void add_distributions(const theta::Configuration & cfg, const theta::SettingWrapper & s, int depth);
     
     boost::ptr_vector<theta::Distribution> distributions;
     std::map<theta::ParId, size_t> parid_to_index;
@@ -412,7 +412,7 @@ class model_source: public theta::DataSource, public theta::RandomConsumer {
 public:
 
     /// Construct from a Configuration; required by the plugin system
-    model_source(const theta::plugin::Configuration & cfg);
+    model_source(const theta::Configuration & cfg);
 
     /** \brief Fills the provided Data instance with data from the model
      *
@@ -421,10 +421,10 @@ public:
      */
     virtual void fill(theta::Data & dat);
     
-    virtual std::auto_ptr<theta::DataSource> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::DataSource> clone(const theta::PropertyMap & pm) const;
     
 private:
-    model_source(const model_source & rhs, const PropertyMap & pm);
+    model_source(const model_source & rhs, const theta::PropertyMap & pm);
     theta::ParValues parameters_for_nll;
     
     bool save_nll;

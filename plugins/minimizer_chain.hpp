@@ -43,15 +43,15 @@
 class minimizer_chain: public theta::Minimizer {
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    minimizer_chain(const theta::plugin::Configuration & cfg);
+    minimizer_chain(const theta::Configuration & cfg);
     
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
                 const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
     
-    virtual std::auto_ptr<theta::Minimizer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Minimizer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    minimizer_chain(const minimizer_chain & rhs, const PropertyMap & pm);
+    minimizer_chain(const minimizer_chain & rhs, const theta::PropertyMap & pm);
     
     std::auto_ptr<theta::Minimizer> last_minimizer;
     boost::ptr_vector<theta::Minimizer> minimizers;

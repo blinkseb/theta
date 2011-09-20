@@ -2,7 +2,7 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
+
 using namespace libconfig;
 
 const Histogram1D & simple_linear_histomorph::operator()(const ParValues & values) const {

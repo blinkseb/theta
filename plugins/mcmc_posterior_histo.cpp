@@ -7,7 +7,6 @@
 
 using namespace theta;
 using namespace std;
-using namespace libconfig;
 
 namespace{
 
@@ -140,11 +139,11 @@ void mcmc_posterior_histo::produce(const Data & data, const Model & model) {
     }
 }
 
-std::auto_ptr<theta::Producer> mcmc_posterior_histo::clone(const PropertyMap & pm) const{
+std::auto_ptr<theta::Producer> mcmc_posterior_histo::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<theta::Producer>(new mcmc_posterior_histo(*this, pm));
 }
 
-mcmc_posterior_histo::mcmc_posterior_histo(const mcmc_posterior_histo & rhs, const PropertyMap & pm): Producer(rhs, pm), RandomConsumer(rhs, pm, getName()),
+mcmc_posterior_histo::mcmc_posterior_histo(const mcmc_posterior_histo & rhs, const theta::PropertyMap & pm): Producer(rhs, pm), RandomConsumer(rhs, pm, getName()),
   init(rhs.init), parameters(rhs.parameters), parameter_names(rhs.parameter_names), ipars(rhs.ipars), lower(rhs.lower), upper(rhs.lower), nbins(rhs.nbins),
   iterations(rhs.iterations), burn_in(rhs.burn_in), sqrt_cov(rhs.sqrt_cov), startvalues(rhs.startvalues), smooth(rhs.smooth){
     declare_products();
@@ -157,7 +156,7 @@ void mcmc_posterior_histo::declare_products(){
 }
 
 
-mcmc_posterior_histo::mcmc_posterior_histo(const theta::plugin::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
+mcmc_posterior_histo::mcmc_posterior_histo(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
         init(false), smooth(false){
     SettingWrapper s = cfg.setting;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();

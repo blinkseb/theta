@@ -52,13 +52,13 @@ class nll_scan: public theta::Producer{
 public:
 
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    nll_scan(const theta::plugin::Configuration & cfg);
+    nll_scan(const theta::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
-    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    nll_scan(const nll_scan & rhs, const PropertyMap & pm);
+    nll_scan(const nll_scan & rhs, const theta::PropertyMap & pm);
     
     //boost::shared_ptr<theta::VarIdManager> vm;
     theta::ParId pid;

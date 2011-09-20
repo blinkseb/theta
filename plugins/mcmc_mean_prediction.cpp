@@ -9,7 +9,6 @@
 
 using namespace theta;
 using namespace std;
-using namespace libconfig;
 
 //the result class for the metropolisHastings routine.
 class MCMCMeanPredictionResult{
@@ -118,11 +117,11 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
     }
 }
 
-std::auto_ptr<theta::Producer> mcmc_mean_prediction::clone(const PropertyMap & pm) const{
+std::auto_ptr<theta::Producer> mcmc_mean_prediction::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<theta::Producer>(new mcmc_mean_prediction(*this, pm));
 }
 
-mcmc_mean_prediction::mcmc_mean_prediction(const mcmc_mean_prediction & rhs, const PropertyMap & pm): Producer(rhs, pm),
+mcmc_mean_prediction::mcmc_mean_prediction(const mcmc_mean_prediction & rhs, const theta::PropertyMap & pm): Producer(rhs, pm),
          RandomConsumer(rhs, pm, getName()), observables(rhs.observables), iterations(rhs.iterations), burn_in(rhs.burn_in),
          sqrt_cov(rhs.sqrt_cov), startvalues(rhs.startvalues), init(rhs.init){
     boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
@@ -137,7 +136,7 @@ void mcmc_mean_prediction::declare_products(const boost::shared_ptr<VarIdManager
     }
 }
 
-mcmc_mean_prediction::mcmc_mean_prediction(const theta::plugin::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
+mcmc_mean_prediction::mcmc_mean_prediction(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
         init(false){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     SettingWrapper s = cfg.setting;

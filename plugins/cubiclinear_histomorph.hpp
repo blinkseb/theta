@@ -38,7 +38,7 @@ public:
     
     /** \brief Constructor used by the plugin system to build an instance from settings in a configuration file
      */
-    cubiclinear_histomorph(const theta::plugin::Configuration & ctx);
+    cubiclinear_histomorph(const theta::Configuration & ctx);
         
     /** Returns the interpolated Histogram as documented in the class documentation.
      * throws a NotFoundException if a parameter is missing.
@@ -55,12 +55,12 @@ public:
 
 private:
     
-    //cubiclinear_histomorph(const cubiclinear_histomorph & rhs, const PropertyMap & pm);
+    //cubiclinear_histomorph(const cubiclinear_histomorph & rhs, const theta::PropertyMap & pm);
     /** \brief Build a (constant) Histogram from a Setting block.
     *
     * Will throw an InvalidArgumentException if the Histogram is not constant.
     */
-    static theta::Histogram1D getConstantHistogram(const theta::plugin::Configuration & ctx, theta::SettingWrapper s);
+    static theta::Histogram1D getConstantHistogram(const theta::Configuration & ctx, theta::SettingWrapper s);
     
     theta::Histogram1D h0;
     std::vector<theta::Histogram1D> hplus_diff; // hplus_diff[i] + h0 yields hplus

@@ -1,6 +1,6 @@
 #include "plugins/direct_data_histo.hpp"
 
-direct_data_histo::direct_data_histo(const theta::plugin::Configuration & cfg){
+direct_data_histo::direct_data_histo(const theta::Configuration & cfg){
    unsigned int nbins = cfg.setting["nbins"];
    double xmin = cfg.setting["range"][0];
    double xmax = cfg.setting["range"][1];

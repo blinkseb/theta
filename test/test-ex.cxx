@@ -9,7 +9,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
 
 class test_exception: public Function{
 public:

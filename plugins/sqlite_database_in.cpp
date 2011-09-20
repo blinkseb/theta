@@ -7,7 +7,7 @@
 using namespace theta;
 using namespace std;
 
-sqlite_database_in::sqlite_database_in(const theta::plugin::Configuration & cfg){
+sqlite_database_in::sqlite_database_in(const theta::Configuration & cfg){
    if(cfg.setting.exists("filename") && cfg.setting.exists("filenames")) throw ConfigurationException("both 'filename' and 'filenames' given");
    vector<string> filenames;
    if(cfg.setting.exists("filename")){

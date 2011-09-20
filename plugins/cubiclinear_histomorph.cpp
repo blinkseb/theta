@@ -2,7 +2,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
 
 const Histogram1D & cubiclinear_histomorph::operator()(const ParValues & values) const {
     h = h0;

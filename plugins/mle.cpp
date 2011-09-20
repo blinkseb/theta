@@ -10,7 +10,6 @@
 using namespace theta;
 using namespace std;
 using namespace libconfig;
-using namespace theta::plugin;
 
 namespace{
 
@@ -88,11 +87,11 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     }
 }
 
-std::auto_ptr<theta::Producer> mle::clone(const PropertyMap & pm) const{
+std::auto_ptr<theta::Producer> mle::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<theta::Producer>(new mle(*this, pm));
 }
 
-mle::mle(const mle & rhs, const PropertyMap & pm): Producer(rhs, pm), save_ids(rhs.save_ids), parameter_names(rhs.parameter_names),
+mle::mle(const mle & rhs, const theta::PropertyMap & pm): Producer(rhs, pm), save_ids(rhs.save_ids), parameter_names(rhs.parameter_names),
   start_step_ranges_init(rhs.start_step_ranges_init), start(rhs.start), step(rhs.step), ranges(rhs.ranges), write_covariance(rhs.write_covariance),
   write_ks_ts(rhs.write_ks_ts), write_bh_ts(rhs.write_bh_ts){
     minimizer = rhs.minimizer->clone(pm);
@@ -119,7 +118,7 @@ void mle::declare_products(){
     }
 }
 
-mle::mle(const theta::plugin::Configuration & cfg): Producer(cfg), start_step_ranges_init(false), write_covariance(false), write_ks_ts(false), write_bh_ts(false){
+mle::mle(const theta::Configuration & cfg): Producer(cfg), start_step_ranges_init(false), write_covariance(false), write_ks_ts(false), write_bh_ts(false){
     SettingWrapper s = cfg.setting;
     minimizer = PluginManager<Minimizer>::instance().build(Configuration(cfg, s["minimizer"]));
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();

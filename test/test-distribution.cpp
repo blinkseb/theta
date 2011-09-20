@@ -7,7 +7,7 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
+
 using namespace libconfig;
 
 BOOST_AUTO_TEST_SUITE(distribution_tests)

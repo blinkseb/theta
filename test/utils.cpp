@@ -8,7 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace theta;
-using namespace theta::plugin;
+
 
 using namespace std;
 

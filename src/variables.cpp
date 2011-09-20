@@ -146,7 +146,7 @@ void ParValues::fail_get(const ParId & pid) const{
 }
 
 
-void theta::apply_vm_settings(plugin::Configuration & ctx){
+void theta::apply_vm_settings(Configuration & ctx){
     SettingWrapper s = ctx.setting;
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     if(s.exists("observables")){

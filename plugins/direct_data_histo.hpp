@@ -28,7 +28,7 @@ public:
     
     /** \brief Constructor used by the plugin system to build an instance from settings in a configuration file
      */
-    direct_data_histo(const theta::plugin::Configuration & ctx);
+    direct_data_histo(const theta::Configuration & ctx);
 };
 
 #endif

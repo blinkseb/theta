@@ -10,7 +10,7 @@
 using namespace std;
 using namespace theta;
 
-sqlite_database::sqlite_database(const plugin::Configuration & cfg) :
+sqlite_database::sqlite_database(const Configuration & cfg) :
     db(0), transaction_active(false), save_all_products(true){
     std::string filename = cfg.setting["filename"];
     if(cfg.setting.exists("products_data")){

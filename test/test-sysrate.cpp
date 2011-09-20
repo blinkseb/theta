@@ -7,7 +7,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace theta;
-using namespace theta::plugin;
+
 using namespace std;
 
 
@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(sysrate0){
     
     BOOST_CHECKPOINT("config parsed");
     
-    const theta::plugin::Configuration & cfg = cc.get();
+    const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building function");
     std::auto_ptr<Function> f;
     try{

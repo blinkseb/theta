@@ -27,7 +27,7 @@
 class sqlite_database_in: public theta::DatabaseInput{
 public:
     /// Constructor used by the plugin system to build an instance given the configuration
-    sqlite_database_in(const theta::plugin::Configuration & cfg);
+    sqlite_database_in(const theta::Configuration & cfg);
     
     ~sqlite_database_in();
     

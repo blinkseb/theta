@@ -29,7 +29,7 @@
 class equidistant_deltas: public theta::Distribution{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    equidistant_deltas(const theta::plugin::Configuration & cfg);
+    equidistant_deltas(const theta::Configuration & cfg);
     
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;

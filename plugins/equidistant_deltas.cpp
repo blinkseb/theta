@@ -5,7 +5,7 @@
 using namespace theta;
 using namespace std;
 
-equidistant_deltas::equidistant_deltas(const theta::plugin::Configuration & cfg){
+equidistant_deltas::equidistant_deltas(const theta::Configuration & cfg){
     n = cfg.setting["n"];
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     if(n<2) throw ConfigurationException("n>=2 must hold!");

@@ -3,7 +3,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
 using namespace libconfig;
 
 const Histogram1D & interpolating_histo::operator()(const ParValues & values) const {

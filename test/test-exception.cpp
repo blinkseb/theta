@@ -10,7 +10,7 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
+
 using namespace theta::utils;
 using namespace libconfig;
 

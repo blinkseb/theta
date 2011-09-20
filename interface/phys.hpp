@@ -158,12 +158,12 @@ namespace theta {
         /// Declare destructor virtual as polymorphic access to derived classes will happen.
         virtual ~DataSource(){}
         
-        virtual std::auto_ptr<DataSource> clone(const PropertyMap & pm) const = 0;
+        virtual std::auto_ptr<DataSource> clone(const theta::PropertyMap & pm) const = 0;
         
     protected:
         /// proxy to ProductsTableWriter constructor for derived classes
-        DataSource(const theta::plugin::Configuration & cfg): ProductsSource(cfg){}
-        DataSource(const DataSource & rhs, const PropertyMap & pm): ProductsSource(rhs, pm){}
+        DataSource(const theta::Configuration & cfg): ProductsSource(cfg){}
+        DataSource(const DataSource & rhs, const theta::PropertyMap & pm): ProductsSource(rhs, pm){}
     };
     
 

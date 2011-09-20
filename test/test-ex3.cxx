@@ -7,7 +7,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
 
 class test_ex_during_build: public Function{
 public:

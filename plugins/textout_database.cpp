@@ -6,7 +6,7 @@
 using namespace std;
 using namespace theta;
 
-textout_database::textout_database(const plugin::Configuration & cfg) : save_all_products(true){
+textout_database::textout_database(const Configuration & cfg) : save_all_products(true){
     if(cfg.setting.exists("products_data")){
       try{
          string s = cfg.setting["products_data"];

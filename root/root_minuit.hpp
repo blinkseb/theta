@@ -5,8 +5,6 @@
 #include "Minuit2/Minuit2Minimizer.h"
 #include "Math/IFunction.h"
 
-#include "interface/plugin.hpp"
-#include "interface/phys.hpp"
 #include "interface/minimizer.hpp"
 
 /** \brief Minimizer using the MINUIT minimizer from root
@@ -47,7 +45,7 @@ class root_minuit: public theta::Minimizer{
 public:
     /** \brief Constructor used by the plugin system to build an instance from a configuration file.
      */
-    root_minuit(const theta::plugin::Configuration & cfg);
+    root_minuit(const theta::Configuration & cfg);
 
     /** \brief Implement the Minimizer::minimize routine.
      *
@@ -62,7 +60,7 @@ public:
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
             const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
     
-    virtual std::auto_ptr<theta::Minimizer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Minimizer> clone(const theta::PropertyMap & pm) const;
 private:
     
     ROOT::Minuit2::EMinimizerType type;

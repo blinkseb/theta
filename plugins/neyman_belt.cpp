@@ -20,7 +20,7 @@ using namespace std;
 using namespace boost::bimaps;
 using namespace libconfig;
 using namespace theta;
-using namespace theta::plugin;
+
 
 
 class SaveDoubleProducts: public ProductsSink{
@@ -275,7 +275,7 @@ tto_ensemble::tto_range tto_ensemble::get_ttos(double truth_value, const sortfla
  */
 class neyman_belt: public theta::Main{
 public:
-    neyman_belt(const plugin::Configuration & cfg);
+    neyman_belt(const Configuration & cfg);
     virtual void run();
     virtual ~neyman_belt(){}
 private:
@@ -594,7 +594,7 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
 }
 
 
-neyman_belt::neyman_belt(const plugin::Configuration & cfg): force_increasing_belt(false), progress_errors(0){
+neyman_belt::neyman_belt(const Configuration & cfg): force_increasing_belt(false), progress_errors(0){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     progress_done = 0;
     size_t n = cfg.setting["cls"].size();
@@ -611,17 +611,17 @@ neyman_belt::neyman_belt(const plugin::Configuration & cfg): force_increasing_be
         force_increasing_belt = cfg.setting["force_increasing_belt"];
     }
     
-    toy_database = plugin::PluginManager<DatabaseInput>::instance().build(Configuration(cfg, cfg.setting["toy_database"]));
+    toy_database = PluginManager<DatabaseInput>::instance().build(Configuration(cfg, cfg.setting["toy_database"]));
     truth_column = static_cast<string>(cfg.setting["truth_column"]);
     ts_column = static_cast<string>(cfg.setting["ts_column"]);
     
-    output_database = plugin::PluginManager<Database>::instance().build(Configuration(cfg, cfg.setting["output_database"]));
+    output_database = PluginManager<Database>::instance().build(Configuration(cfg, cfg.setting["output_database"]));
     if(ordering_rule == "fclike"){
         save_double_products.reset(new SaveDoubleProducts());
         cfg.pm->set<ProductsSink>("default", save_double_products);
-        model = plugin::PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["model"]));
+        model = PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["model"]));
         poi.reset(new ParId(vm->getParId(cfg.setting["fclike_options"]["truth"])));
-        ts_producer = plugin::PluginManager<Producer>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["ts_producer"]));
+        ts_producer = PluginManager<Producer>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["ts_producer"]));
         //ts_name is the "module only" part of ts_column:
         size_t p = ts_column.find("__");
         if(p==string::npos){

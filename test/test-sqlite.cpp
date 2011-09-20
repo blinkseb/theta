@@ -9,7 +9,7 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
+
 
 BOOST_AUTO_TEST_SUITE(sqlite)
 

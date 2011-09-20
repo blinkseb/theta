@@ -124,9 +124,9 @@ namespace theta {
         /** \brief Clone the Model
          * 
          * Clone the model, using the same setting as the current model was created with,
-         * but with all shared properties from the given PropertyMap.
+         * but with all shared properties from the given theta::PropertyMap.
          */
-        virtual std::auto_ptr<Model> clone(const PropertyMap & pm) const = 0;
+        virtual std::auto_ptr<Model> clone(const theta::PropertyMap & pm) const = 0;
         
         virtual ~Model(){}
 
@@ -157,10 +157,10 @@ namespace theta {
         
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
         
-        default_model(const default_model & model, const PropertyMap & pm);
+        default_model(const default_model & model, const theta::PropertyMap & pm);
      public:
      
-        default_model(const plugin::Configuration & cfg);
+        default_model(const Configuration & cfg);
         //the pure virtual functions:
         virtual void get_prediction_randomized(Random & rnd, Data & result, const ParValues & parameters) const;
         virtual void get_prediction(Data & result, const ParValues & parameters) const;
@@ -168,7 +168,7 @@ namespace theta {
         virtual const Distribution & get_parameter_distribution() const {
            return *parameter_distribution;
         }
-        virtual std::auto_ptr<Model> clone(const PropertyMap & pm) const;
+        virtual std::auto_ptr<Model> clone(const theta::PropertyMap & pm) const;
         
     };
     

@@ -53,15 +53,15 @@
 class mcmc_minimizer: public theta::Minimizer, public theta::RandomConsumer{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    mcmc_minimizer(const theta::plugin::Configuration & ctx);
+    mcmc_minimizer(const theta::Configuration & ctx);
     
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
                 const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
     
-    virtual std::auto_ptr<theta::Minimizer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Minimizer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    mcmc_minimizer(const mcmc_minimizer & rhs, const PropertyMap & pm);
+    mcmc_minimizer(const mcmc_minimizer & rhs, const theta::PropertyMap & pm);
     
     std::auto_ptr<theta::Minimizer> after_minimizer;
     std::string name;

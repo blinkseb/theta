@@ -1,8 +1,6 @@
 #include "root/root_minuit.hpp"
-#include "interface/redirect_stdio.hpp"
 
 using namespace theta;
-using namespace theta::plugin;
 using namespace std;
 
 // function adapter to be used by root minuit and
@@ -39,7 +37,7 @@ private:
     const size_t ndim;
 };
 
-std::auto_ptr<theta::Minimizer> root_minuit::clone(const PropertyMap & pm) const{
+std::auto_ptr<theta::Minimizer> root_minuit::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<theta::Minimizer>(new root_minuit(*this));
 }
 
@@ -53,7 +51,6 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     //Using a "new" one every time seems very wastefull, but it seems to work ...
     std::auto_ptr<ROOT::Minuit2::Minuit2Minimizer> min(new ROOT::Minuit2::Minuit2Minimizer(type));
     min->SetPrintLevel(printlevel);
-    //theta::cout << "maxfunctioncalls: " << min->MaxFunctionCalls() << "; maxiterations: " << min->MaxIterations() << endl;
     if(max_function_calls > 0) min->SetMaxFunctionCalls(max_function_calls);
     if(max_iterations > 0) min->SetMaxIterations(max_iterations);
     MinimizationResult result;

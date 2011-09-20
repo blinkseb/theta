@@ -74,7 +74,7 @@ void Run::run(){
     }
 }
 
-Run::Run(const plugin::Configuration & cfg){
+Run::Run(const Configuration & cfg){
     SettingWrapper s = cfg.setting;
     
     //0. set default values for members:
@@ -83,7 +83,7 @@ Run::Run(const plugin::Configuration & cfg){
     n_event = s["n-events"];
     
     //1. setup database and tables:
-    db = plugin::PluginManager<Database>::instance().build(plugin::Configuration(cfg, s["output_database"]));
+    db = PluginManager<Database>::instance().build(Configuration(cfg, s["output_database"]));
 
     std::auto_ptr<Table> logtable_underlying = db->create_table("log");
     logtable.reset(new LogTable(logtable_underlying));
@@ -100,8 +100,8 @@ Run::Run(const plugin::Configuration & cfg){
     cfg.pm->set("runid", ptr_runid);
         
     //2. model and data_source
-    model = plugin::PluginManager<Model>::instance().build(plugin::Configuration(cfg, s["model"]));
-    data_source = plugin::PluginManager<DataSource>::instance().build(plugin::Configuration(cfg, s["data_source"]));
+    model = PluginManager<Model>::instance().build(Configuration(cfg, s["model"]));
+    data_source = PluginManager<DataSource>::instance().build(Configuration(cfg, s["data_source"]));
     
     //3. logging stuff
     LogTable::e_severity level = LogTable::warning;
@@ -128,7 +128,7 @@ Run::Run(const plugin::Configuration & cfg){
     if (n_p == 0)
         throw ConfigurationException("no producers specified!");
     for (size_t i = 0; i < n_p; i++) {
-         producers.push_back(plugin::PluginManager<Producer>::instance().build(plugin::Configuration(cfg, s["producers"][i])));
+         producers.push_back(PluginManager<Producer>::instance().build(Configuration(cfg, s["producers"][i])));
     }
 }
 

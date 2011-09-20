@@ -29,7 +29,7 @@ class multiply: public theta::Function{
 public:
     /** \brief Construct a MultFunction from a Configuration instance
      */
-    multiply(const theta::plugin::Configuration & cfg);
+    multiply(const theta::Configuration & cfg);
     virtual double operator()(const theta::ParValues & v) const;
     virtual std::auto_ptr<theta::Function> clone() const;
 private:

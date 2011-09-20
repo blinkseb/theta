@@ -19,7 +19,7 @@ void pseudodata_writer::produce(const Data & data, const Model & model) {
     }
 }
 
-pseudodata_writer::pseudodata_writer(const theta::plugin::Configuration & cfg): Producer(cfg){
+pseudodata_writer::pseudodata_writer(const theta::Configuration & cfg): Producer(cfg){
     size_t n = cfg.setting["observables"].size();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     observables.reserve(n);
@@ -38,11 +38,11 @@ void pseudodata_writer::declare_products(const boost::shared_ptr<VarIdManager> &
     }
 }
 
-std::auto_ptr<theta::Producer> pseudodata_writer::clone(const PropertyMap & pm) const{
+std::auto_ptr<theta::Producer> pseudodata_writer::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<theta::Producer>(new pseudodata_writer(*this, pm));
 }
 
-pseudodata_writer::pseudodata_writer(const pseudodata_writer & rhs, const PropertyMap & pm): Producer(rhs, pm),
+pseudodata_writer::pseudodata_writer(const pseudodata_writer & rhs, const theta::PropertyMap & pm): Producer(rhs, pm),
   observables(rhs.observables), write_data(rhs.write_data){
     boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
     declare_products(vm);

@@ -100,11 +100,11 @@
 class root_ntuple_source: public theta::DataSource, public theta::RandomConsumer {
 public:
     /// \brief Constructor used by the plugin system
-    root_ntuple_source(const theta::plugin::Configuration & cfg);
+    root_ntuple_source(const theta::Configuration & cfg);
     
     virtual void fill(theta::Data & data_out);
     
-    virtual std::auto_ptr<theta::DataSource> clone(const PropertyMap & pm) const{
+    virtual std::auto_ptr<theta::DataSource> clone(const theta::PropertyMap & pm) const{
         throw theta::InvalidArgumentException("clone not implemented for root_ntuple_source");;
     }
     

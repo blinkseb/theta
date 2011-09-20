@@ -7,7 +7,7 @@
 #include "TKey.h"
 
 using namespace theta;
-using namespace theta::plugin;
+
 using namespace std;
 
 //relweight_branchname can be empty; in this case, 1 is used as weight.

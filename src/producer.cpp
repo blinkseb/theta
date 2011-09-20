@@ -3,10 +3,8 @@
 #include "interface/phys.hpp"
 
 using namespace theta;
-using namespace theta::plugin;
 
 REGISTER_PLUGIN_BASETYPE(Producer);
-
 
 namespace{
 bool nameOk(const std::string & name){
@@ -29,11 +27,11 @@ const std::string & ProductsSource::getName() const{
    return name;
 }
 
-ProductsSource::ProductsSource(const ProductsSource & rhs, const PropertyMap & pm): name(rhs.name), products_sink(pm.get<ProductsSink>()){}
+ProductsSource::ProductsSource(const ProductsSource & rhs, const theta::PropertyMap & pm): name(rhs.name), products_sink(pm.get<ProductsSink>()){}
 
 ProductsSource::ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink): name(name_), products_sink(sink){}
 
-ProductsSource::ProductsSource(const plugin::Configuration & cfg): name(cfg.setting["name"]){
+ProductsSource::ProductsSource(const Configuration & cfg): name(cfg.setting["name"]){
     products_sink = cfg.pm->get<ProductsSink>();
     if(not nameOk(name)){
        throw InvalidArgumentException("name '" + name + "' is not a valid product name. ");
@@ -50,7 +48,7 @@ Producer::Producer(const Configuration & cfg): ProductsSource(cfg){
     }
 }
 
-Producer::Producer(const Producer & rhs, const PropertyMap & pm): ProductsSource(rhs, pm){
+Producer::Producer(const Producer & rhs, const theta::PropertyMap & pm): ProductsSource(rhs, pm){
     if(rhs.override_parameter_distribution){
         override_parameter_distribution = rhs.override_parameter_distribution->clone();
     }

@@ -1,9 +1,8 @@
 #include "plugins/add_sources.hpp"
 
 using namespace theta;
-using namespace theta::plugin;
 
-add_sources::add_sources(const theta::plugin::Configuration & cfg): DataSource(cfg){
+add_sources::add_sources(const theta::Configuration & cfg): DataSource(cfg){
     SettingWrapper s = cfg.setting["sources"];
     size_t n = s.size();
     if(n==0) ConfigurationException("have to specify at least one source in 'sources'");
@@ -35,11 +34,11 @@ void add_sources::fill(theta::Data & dat){
     }
 }
 
-std::auto_ptr<theta::DataSource> add_sources::clone(const PropertyMap & pm) const{
+std::auto_ptr<theta::DataSource> add_sources::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<theta::DataSource>(new add_sources(*this, pm));
 }
 
-add_sources::add_sources(const add_sources & rhs, const PropertyMap & pm): DataSource(rhs){
+add_sources::add_sources(const add_sources & rhs, const theta::PropertyMap & pm): DataSource(rhs){
     for(size_t i=0; i<rhs.sources.size(); ++i){
         sources.push_back(rhs.sources[i].clone(pm));
     }

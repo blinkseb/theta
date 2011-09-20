@@ -38,7 +38,7 @@ class add_sources: public theta::DataSource{
 public:
 
     /// Construct from a Configuration; required by the plugin system
-    add_sources(const theta::plugin::Configuration & cfg);
+    add_sources(const theta::Configuration & cfg);
 
     /** \brief Fills the provided Data instance with data from the model
      *
@@ -46,10 +46,10 @@ public:
      */
     virtual void fill(theta::Data & dat);
     
-    virtual std::auto_ptr<theta::DataSource> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::DataSource> clone(const  theta::PropertyMap & pm) const;
     
 private:
     // pseudo copy-constructor ...
-    add_sources(const add_sources & rhs, const PropertyMap & pm);
+    add_sources(const add_sources & rhs, const  theta::PropertyMap & pm);
     boost::ptr_vector<theta::DataSource> sources;
 };

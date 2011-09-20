@@ -8,7 +8,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace theta::plugin;
 
 class proxy_function: public Function{
 public:

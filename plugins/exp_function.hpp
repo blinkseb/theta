@@ -32,7 +32,7 @@ private:
 
 public:
     /// constructor for the plugin system
-    exp_function(const theta::plugin::Configuration & cfg);
+    exp_function(const theta::Configuration & cfg);
     /// overloaded evaluation operator of theta::Function
     virtual double operator()(const theta::ParValues & v) const;
     virtual std::auto_ptr<theta::Function> clone() const;

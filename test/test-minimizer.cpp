@@ -9,7 +9,7 @@
 using namespace std;
 using namespace theta;
 using namespace libconfig;
-using namespace theta::plugin;
+
 using namespace theta::utils;
 
 BOOST_AUTO_TEST_SUITE(minimizer_tests)

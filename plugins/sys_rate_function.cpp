@@ -4,7 +4,7 @@
 using namespace std;
 using namespace theta;
 
-sys_rate_function::sys_rate_function(const theta::plugin::Configuration & cfg){
+sys_rate_function::sys_rate_function(const theta::Configuration & cfg){
     unsigned int npar_f = cfg.setting["factors"].size();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(unsigned int i=0; i<npar_f; ++i){

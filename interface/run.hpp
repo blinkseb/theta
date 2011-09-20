@@ -94,7 +94,7 @@ public:
     
     /** \brief Construct a Run from the given configuration
      */
-    Run(const plugin::Configuration & cfg);
+    Run(const Configuration & cfg);
     
 private:
 

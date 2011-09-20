@@ -26,7 +26,7 @@ public:
     
     /** \brief Constructor for the plugin system
      */
-    blackhole_database(const theta::plugin::Configuration & cfg);
+    blackhole_database(const theta::Configuration & cfg);
     
     virtual ~blackhole_database();
     

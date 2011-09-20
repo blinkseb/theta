@@ -54,12 +54,12 @@
 class mcmc_mean_prediction: public theta::Producer, public theta::RandomConsumer{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    mcmc_mean_prediction(const theta::plugin::Configuration & ctx);
+    mcmc_mean_prediction(const theta::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
-    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
 private:
-    mcmc_mean_prediction(const mcmc_mean_prediction & rhs, const PropertyMap & pm);
+    mcmc_mean_prediction(const mcmc_mean_prediction & rhs, const theta::PropertyMap & pm);
     void declare_products(const boost::shared_ptr<theta::VarIdManager> & vm);
     
     //result columns: one "mean" and one "width" column per observable.

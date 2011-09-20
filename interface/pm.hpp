@@ -10,6 +10,8 @@
 
 #include "interface/exception.hpp"
 
+namespace theta{
+
 /** \brief Container for arbitrary configuration data passed between modules
  *
  * Elements in the container are indexed by both a supplied instance name and the type
@@ -19,14 +21,14 @@
  * instance is released and a subsequent call to \c get will throw an exception. There is no way to
  * distinguish whether a NULL pointer has been set for an instance name or nothing has been set at all.
  * 
- * Standard properties in a PropertyMap are:
+ * Standard properties in a theta::PropertyMap are:
  * <ul>
  *    <li>a default VarIdManager</li>
  *    <li>for ProductSources: a default ProductsSink</li>
  *    <li>for RandomConsumers: a default RndInfoTable, an int "runid", and (optionanlly) an int "seed_offset"</li>
  * </ul>
  * 
- * Policy of clone and parameters in PropertyMap:
+ * Policy of clone and parameters in theta::PropertyMap:
  * <ul>
  *   <li>VarIdManager is the same or compatible, i.e., old ParIds and ObsIds remain valid.</li>
  *   <li>Everything else, in particular Columns for ProductsSink, should be redeclared.</li>
@@ -89,6 +91,8 @@ void PropertyMap::set(const std::string & instance_name, const boost::shared_ptr
     nametype nt(instance_name, typeid(T));
     if(value.get()) instances[nt] = value;
     else instances.erase(nt);
+}
+
 }
 
 #endif

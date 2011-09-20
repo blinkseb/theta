@@ -62,7 +62,7 @@ public:
     virtual double width(const theta::ParId & p) const{
        throw theta::FatalException("vary_one::width is not implemented");
     }
-    vary_one(const theta::plugin::Configuration & cfg);
+    vary_one(const theta::Configuration & cfg);
     
     virtual std::auto_ptr<theta::Distribution> clone() const;
     

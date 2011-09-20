@@ -14,7 +14,7 @@ protected:
     *
     * Will save the random seed in the RndInfoTable of the cfg.pm, if this is set.
     */
-   RandomConsumer(const theta::plugin::Configuration & cfg, const std::string & name);
+   RandomConsumer(const theta::Configuration & cfg, const std::string & name);
    
    /// random seed used
    int seed;
@@ -23,7 +23,7 @@ protected:
    std::auto_ptr<Random> rnd_gen;
    
    // pseudo copy-constructor for clones
-   RandomConsumer(const RandomConsumer & rhs, const PropertyMap & pm, const std::string & name);
+   RandomConsumer(const RandomConsumer & rhs, const theta::PropertyMap & pm, const std::string & name);
 };
 
 

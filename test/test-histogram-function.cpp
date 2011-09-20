@@ -8,7 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace theta;
-using namespace theta::plugin;
+
 using namespace std;
 
 BOOST_AUTO_TEST_SUITE(histogram_function_tests)
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(root_histogram_range){
             "root-histo4 = {type = \"root_histogram\"; filename=\"testhistos.root\"; histoname = \"histo1d\"; range = (-4.1, 20.1); };\n" // range excluding underflow / overflow
             "root-histo5 = {type = \"root_histogram\"; filename=\"testhistos.root\"; histoname = \"histo1d\"; range = (-3.9, 19.9); };\n" // invalid range
             , vm);
-    const theta::plugin::Configuration & cfg = cc.get();
+    const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building hf");
     std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo1"]));
     ParValues pv;
@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE(root_histogram){
             "root-histo2 = {type = \"root_histogram\"; filename=\"testhistos.root\"; histoname = \"histo2d\";};\n"
             "root-histo3 = {type = \"root_histogram\"; filename=\"testhistos.root\"; histoname = \"histo3d\";};\n"
             , vm);
-    const theta::plugin::Configuration & cfg = cc.get();
+    const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building hf");
     std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo1"]));
     ParValues pv;
@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
             "};\n"
             , vm);
             
-    const theta::plugin::Configuration & cfg = cc.get();
+    const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building hf");
     std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["histo"]));
     BOOST_CHECKPOINT("hf built");

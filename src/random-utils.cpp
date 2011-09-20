@@ -7,7 +7,7 @@
 
 using namespace theta;
 
-RandomConsumer::RandomConsumer(const theta::plugin::Configuration & cfg, const std::string & name): seed(-1) {
+RandomConsumer::RandomConsumer(const theta::Configuration & cfg, const std::string & name): seed(-1) {
    std::auto_ptr<RandomSource> rnd_source;
    std::string source_type = "taus";
    if(cfg.setting.exists("rnd_gen")){
@@ -60,7 +60,7 @@ RandomConsumer::RandomConsumer(const theta::plugin::Configuration & cfg, const s
    cfg.pm->get<RndInfoTable>()->append(runid, name, seed);
 }
 
-RandomConsumer::RandomConsumer(const RandomConsumer & rhs, const PropertyMap & pm, const std::string & name): seed(rhs.seed){
+RandomConsumer::RandomConsumer(const RandomConsumer & rhs, const theta::PropertyMap & pm, const std::string & name): seed(rhs.seed){
     std::auto_ptr<RandomSource> rnd_src = rhs.rnd_gen->get_source().clone();
     rnd_gen.reset(new Random(rnd_src));
     int seed_offset = 0;

@@ -6,7 +6,6 @@
 #include "TFile.h"
 
 using namespace theta;
-using namespace theta::plugin;
 using namespace std;
 
 root_histogram::root_histogram(const Configuration & ctx){

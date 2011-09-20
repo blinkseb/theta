@@ -7,7 +7,6 @@
 #include <boost/scoped_array.hpp>
 
 using namespace theta;
-using namespace theta::plugin;
 using namespace libconfig;
 using namespace std;
 
@@ -122,7 +121,7 @@ void log_normal::mode(theta::ParValues & result) const{
 }
 
 /* START delta_distribution */
-delta_distribution::delta_distribution(const theta::plugin::Configuration & cfg){
+delta_distribution::delta_distribution(const theta::Configuration & cfg){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
         if(cfg.setting[i].getName()=="type") continue;
@@ -166,7 +165,7 @@ const std::pair<double, double> & delta_distribution::support(const theta::ParId
 
 /* START flat_distribution */
 
-flat_distribution::flat_distribution(const theta::plugin::Configuration & cfg){
+flat_distribution::flat_distribution(const theta::Configuration & cfg){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
         if(cfg.setting[i].getName()=="type") continue;
@@ -525,7 +524,7 @@ const std::pair<double, double> & product_distribution::support(const ParId & p)
     return distributions[it->second].support(p);
 }
 
-model_source::model_source(const theta::plugin::Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, getName()), save_nll(false), dice_poisson(true),
+model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, getName()), save_nll(false), dice_poisson(true),
   dice_template_uncertainties(true){
     model = PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["model"]));
     par_ids = model->getParameters();
@@ -570,7 +569,7 @@ model_source::model_source(const theta::plugin::Configuration & cfg): DataSource
     }
 }
 
-model_source::model_source(const model_source & rhs, const PropertyMap & pm): DataSource(rhs), RandomConsumer(rhs, pm, getName()),
+model_source::model_source(const model_source & rhs, const theta::PropertyMap & pm): DataSource(rhs), RandomConsumer(rhs, pm, getName()),
      parameters_for_nll(rhs.parameters_for_nll), save_nll(rhs.save_nll), par_ids(rhs.par_ids), dice_poisson(rhs.dice_poisson),
      dice_template_uncertainties(rhs.dice_template_uncertainties){
     
@@ -588,7 +587,7 @@ model_source::model_source(const model_source & rhs, const PropertyMap & pm): Da
 }
 
 
-std::auto_ptr<theta::DataSource> model_source::clone(const PropertyMap & pm) const{
+std::auto_ptr<theta::DataSource> model_source::clone(const theta::PropertyMap & pm) const{
     return auto_ptr<DataSource>(new model_source(*this, pm));
 }
 

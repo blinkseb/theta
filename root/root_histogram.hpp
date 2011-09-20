@@ -1,11 +1,7 @@
-#include "interface/plugin.hpp"
-#include "interface/histogram-function.hpp"
-#include "TH1.h"
-#include "TFile.h"
+#ifndef ROOT_ROOT_HISTOGRAM_HPP
+#define ROOT_ROOT_HISTOGRAM_HPP
 
-using namespace theta;
-using namespace theta::plugin;
-using namespace std;
+#include "interface/histogram-function.hpp"
 
 /** \brief Plugin to read Histogram from a root file
  *
@@ -65,8 +61,10 @@ using namespace std;
  *
  * \sa ConstantHistogramFunctionError ConstantHistogramFunction
  */
-class root_histogram: public ConstantHistogramFunctionError{
+class root_histogram: public theta::ConstantHistogramFunctionError{
 public:
     /// Constructor used by the plugin system
-    root_histogram(const Configuration & ctx);
+    root_histogram(const theta::Configuration & ctx);
 };
+
+#endif

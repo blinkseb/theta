@@ -44,11 +44,11 @@ public:
     
 protected:
     /// To be used by derived classes, to fill name and products_sink
-    ProductsSource(const plugin::Configuration & cfg);
+    ProductsSource(const Configuration & cfg);
     ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink);
     
     // pseudo copy-constructor for clone method of derived classes
-    ProductsSource(const ProductsSource & rhs, const PropertyMap & pm);
+    ProductsSource(const ProductsSource & rhs, const theta::PropertyMap & pm);
     
     std::string name;
     boost::shared_ptr<ProductsSink> products_sink;
@@ -87,14 +87,14 @@ public:
      */
     virtual void produce(const Data & data, const Model & model) = 0;
     
-    virtual std::auto_ptr<Producer> clone(const PropertyMap & pm) const = 0;
+    virtual std::auto_ptr<Producer> clone(const theta::PropertyMap & pm) const = 0;
         
 protected:
     /** \brief Construct from a Configuration instance
      *
      * Parses the settings "add-nllikelihood-functions".
      */
-    Producer(const plugin::Configuration & cfg);
+    Producer(const Configuration & cfg);
     
     /** \brief Get the likelihood for the provided Data and Model, including the setting of \c override-parameter-distribution, if applicable
      * 
@@ -104,7 +104,7 @@ protected:
     std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data, const Model & model);
     
     // for derived classes to implement clone:
-    Producer(const Producer & rhs, const PropertyMap & pm);
+    Producer(const Producer & rhs, const theta::PropertyMap & pm);
 
     boost::shared_ptr<theta::Distribution> override_parameter_distribution;
     boost::shared_ptr<theta::Function> additional_nll_term;

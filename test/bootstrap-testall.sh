@@ -18,7 +18,7 @@ fi
 echo [0] Using directory $tmpdir
 cd $tmpdir
 echo [1] Subversion checkout
-svn --non-interactive co https://ekptrac.physik.uni-karlsruhe.de/public/theta/trunk theta &> $logfile
+svn --non-interactive co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/testing theta &> $logfile
 [ $? -eq 0 ] || fail subversion checkout
 cd theta
 echo [2] Compiling

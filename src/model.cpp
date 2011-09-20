@@ -4,7 +4,6 @@
 using namespace std;
 using namespace theta;
 using namespace theta::utils;
-using namespace theta::plugin;
 
 REGISTER_PLUGIN_BASETYPE(Model);
 
@@ -149,7 +148,7 @@ default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarId
     }
 }
 
-default_model::default_model(const default_model & model, const PropertyMap & pm): Model(model, pm.get<VarIdManager>()){
+default_model::default_model(const default_model & model, const theta::PropertyMap & pm): Model(model, pm.get<VarIdManager>()){
     for(histos_type::const_iterator it=model.histos.begin(); it!=model.histos.end(); ++it){
         boost::ptr_vector<HistogramFunction> & vec = histos[it->first];
         for(size_t i=0; i<it->second->size(); ++i){
@@ -165,7 +164,7 @@ default_model::default_model(const default_model & model, const PropertyMap & pm
     parameter_distribution = model.parameter_distribution->clone();
 }
 
-std::auto_ptr<Model> default_model::clone(const PropertyMap & pm) const{
+std::auto_ptr<Model> default_model::clone(const theta::PropertyMap & pm) const{
     return std::auto_ptr<Model>(new default_model(*this, pm));
 }
 

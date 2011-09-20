@@ -55,13 +55,13 @@
 class mcmc_quantiles: public theta::Producer, public theta::RandomConsumer{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    mcmc_quantiles(const theta::plugin::Configuration & ctx);
+    mcmc_quantiles(const theta::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
-    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    mcmc_quantiles(const mcmc_quantiles & rhs, const PropertyMap & pm);
+    mcmc_quantiles(const mcmc_quantiles & rhs, const theta::PropertyMap & pm);
     void declare_products();
     
     //whether sqrt_cov* and startvalues* have been initialized:

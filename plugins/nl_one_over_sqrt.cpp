@@ -5,7 +5,7 @@
 using namespace std;
 using namespace theta;
 
-nl_one_over_sqrt::nl_one_over_sqrt(const theta::plugin::Configuration & cfg): pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])){
+nl_one_over_sqrt::nl_one_over_sqrt(const theta::Configuration & cfg): pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])){
     par_ids.insert(pid);
 }
 

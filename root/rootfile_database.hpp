@@ -8,7 +8,6 @@
 #include "TTree.h"
 #include "TH1D.h"
 
-#include <memory>
 #include <string>
 
 
@@ -81,7 +80,7 @@ public:
     
     /** \brief Constructor for the plugin system
      */
-    rootfile_database(const theta::plugin::Configuration & cfg);
+    rootfile_database(const theta::Configuration & cfg);
     
     virtual ~rootfile_database();
     

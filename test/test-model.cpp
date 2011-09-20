@@ -12,7 +12,7 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace theta;
-using namespace theta::plugin;
+
 using namespace std;
 
 
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE(model0){
     
     BOOST_CHECKPOINT("config parsed");
     
-    const theta::plugin::Configuration & cfg = cc.get();
+    const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building model");
     std::auto_ptr<Model> m;
     try{

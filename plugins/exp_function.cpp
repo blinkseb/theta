@@ -4,7 +4,7 @@
 using namespace std;
 using namespace theta;
 
-exp_function::exp_function(const theta::plugin::Configuration & cfg){
+exp_function::exp_function(const theta::Configuration & cfg){
     ParValues val_lambdas_plus, val_lambdas_minus;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     if(cfg.setting.exists("parameters")){

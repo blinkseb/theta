@@ -2,7 +2,7 @@
 
 using namespace libconfig;
 using namespace theta;
-using namespace theta::plugin;
+
 
 multiply::multiply(const Configuration & cfg): literal_factor(1.0){
     size_t n = cfg.setting["factors"].size();

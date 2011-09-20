@@ -75,13 +75,13 @@ class deltanll_intervals: public theta::Producer{
 public:
 
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
-    deltanll_intervals(const theta::plugin::Configuration & cfg);
+    deltanll_intervals(const theta::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
-    virtual std::auto_ptr<theta::Producer> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    deltanll_intervals(const deltanll_intervals & rhs, const PropertyMap & pm);
+    deltanll_intervals(const deltanll_intervals & rhs, const theta::PropertyMap & pm);
     
     void declare_products();
     

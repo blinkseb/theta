@@ -31,7 +31,7 @@ class histo_source: public theta::DataSource{
 public:
 
     /// Construct from a Configuration; required by the plugin system
-    histo_source(const theta::plugin::Configuration & cfg);
+    histo_source(const theta::Configuration & cfg);
 
     /** \brief Fills the provided Data instance with data from the model
      *
@@ -40,10 +40,10 @@ public:
      */
     virtual void fill(theta::Data & dat);
     
-    virtual std::auto_ptr<DataSource> clone(const PropertyMap & pm) const;
+    virtual std::auto_ptr<DataSource> clone(const theta::PropertyMap & pm) const;
     
 private:
-    histo_source(const histo_source & rhs, const PropertyMap & pm);
+    histo_source(const histo_source & rhs, const theta::PropertyMap & pm);
     theta::Data data;
 };
 

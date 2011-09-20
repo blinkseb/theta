@@ -101,7 +101,7 @@ namespace theta{
         
         // note: usually, pm is not required for cloning. However, some methods might be RandomConsumers
         // and in that case, the random state is saved to the RndInfoTable in pm.
-        virtual std::auto_ptr<Minimizer> clone(const PropertyMap & pm) const = 0;
+        virtual std::auto_ptr<Minimizer> clone(const theta::PropertyMap & pm) const = 0;
     };
     
 }
