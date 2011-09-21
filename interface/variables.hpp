@@ -400,6 +400,10 @@ namespace theta {
             return result;
         }
 
+        double get_unchecked(const ParId & pid) const{
+            return values[pid.id];
+        }
+
         /** \brief Returns whether there is a value for \c pid.
          */
         bool contains(const ParId & pid) const{

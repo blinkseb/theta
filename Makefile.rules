@@ -97,22 +97,29 @@ EXTRA_COMPILE :=
 EXTRA_LINK_EXE :=
 EXTRA_LINK_SO :=
 
-WFLAGSCPP := -Wall -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
-WFLAGSC := -Wall
+FLAGSCPP := -Wall -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
+FLAGSC := -Wall
+
+ifeq ($(OPTIONS_NODEBUG),yes)
+   DEFINES += -DNDEBUG
+else
+   FLAGSCPP += -g
+   FLAGSC += -g
+endif
 
 #lazy evaluation of compile and link command to allow subdirectory-Makefiles to override the value of EXTRA_* ...
-COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -g -c -fPIC -O3 $(INCLUDES) $(EXTRA_COMPILE)
+COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -c -fPIC -O3 $(INCLUDES) $(EXTRA_COMPILE)
 LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib -ldl -ltheta -lconfig $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
 LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO) $(BOOST_LIBS)
 
 .bin/%.o: %.cpp
-	@$(COMPILE) $(WFLAGSCPP) -o $@ $<
+	@$(COMPILE) $(FLAGSCPP) -o $@ $<
 
 .bin/%.o: %.cxx
-	@$(COMPILE) $(WFLAGSCPP) -o $@ $<
+	@$(COMPILE) $(FLAGSCPP) -o $@ $<
 
 .bin/%.o: %.c
-	@$(COMPILE) $(WFLAGSC) -x c -o $@ $<
+	@$(COMPILE) $(FLAGSC) -x c -o $@ $<
 
 
 .bin/%.d: %.cpp

@@ -43,7 +43,7 @@ double exp_function::operator()(const theta::ParValues & values) const{
     double exponent_total = 0.0;
     const size_t n = v_pids.size();
     for(size_t i=0; i<n; ++i){
-        double val = values.get(v_pids[i]);
+        double val = values.get_unchecked(v_pids[i]);
         double lambda = val < 0 ? lambdas_minus[i] : lambdas_plus[i];
         exponent_total += lambda * val;
     }

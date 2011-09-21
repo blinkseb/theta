@@ -49,28 +49,29 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
 }
 
 void default_model::get_prediction(Data & result, const ParValues & parameters) const {
-    for(ObsIds::const_iterator obsit=observables.begin(); obsit!=observables.end(); ++obsit){
-        histos_type::const_iterator it = histos.find(*obsit);
-        theta_assert(it!=histos.end());
-        histos_type::const_mapped_reference h_producers = *(it->second);
-        coeffs_type::const_iterator it2 = coeffs.find(*obsit);
-        coeffs_type::const_mapped_reference h_coeffs = *(it2->second);
+    histos_type::const_iterator h_it = histos.begin();
+    coeffs_type::const_iterator c_it = coeffs.begin();
+    for(; h_it != histos.end(); ++h_it, ++c_it){
+        const ObsId & oid = h_it->first;
+        theta_assert(c_it->first == oid);
+        histos_type::const_mapped_reference h_producers = *(h_it->second);
+        coeffs_type::const_mapped_reference h_coeffs = *(c_it->second);
         bool result_init = false;
         for (size_t i = 0; i < h_producers.size(); i++) {
             if(result_init){
-                result[*obsit].add_with_coeff(h_coeffs[i](parameters), h_producers[i](parameters));
+                result[oid].add_with_coeff(h_coeffs[i](parameters), h_producers[i](parameters));
             }
             else{
-                result[*obsit] = h_producers[i](parameters);
-                result[*obsit] *= h_coeffs[i](parameters);
+                result[oid] = h_producers[i](parameters);
+                result[oid] *= h_coeffs[i](parameters);
                 result_init = true;
             }
         }
         //return empty prediction as correct zero template:
         if(not result_init){
-            const pair<double, double> & o_range = vm->get_range(*obsit);
-            result[*obsit].reset_n(vm->get_nbins(*obsit));
-            result[*obsit].reset_range(o_range.first, o_range.second);
+            const pair<double, double> & o_range = vm->get_range(oid);
+            result[oid].reset_n(vm->get_nbins(oid));
+            result[oid].reset_range(o_range.first, o_range.second);
         }
     }
 }

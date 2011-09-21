@@ -401,7 +401,7 @@ std::auto_ptr<theta::Distribution> gauss1d::clone() const{
 }
 
 double gauss1d::evalNL(const ParValues & values) const{
-    double value = values.get(*par_ids.begin());
+    double value = values.get_unchecked(*par_ids.begin());
     if(value > range.second || value < range.first){
         return std::numeric_limits<double>::infinity();
     }

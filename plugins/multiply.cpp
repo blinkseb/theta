@@ -34,7 +34,7 @@ multiply::multiply(const Configuration & cfg): literal_factor(1.0){
 double multiply::operator()(const ParValues & v) const{
     double result = literal_factor;
     for(size_t i=0; i<v_pids.size(); ++i){
-        result *= v.get(v_pids[i]);
+        result *= v.get_unchecked(v_pids[i]);
     }
     for(size_t i=0; i<functions.size(); ++i){
         result *= functions[i](v);
