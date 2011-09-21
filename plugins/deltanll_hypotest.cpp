@@ -6,9 +6,23 @@
 #include "interface/distribution.hpp"
 #include "interface/variables-utils.hpp"
 
+#include "interface/redirect_stdio.hpp" //TODO: remove
+
 #include <sstream>
 
 using namespace theta;
+
+namespace{
+
+bool in_support(const ParValues & values, const std::map<theta::ParId, std::pair<double, double> > & support){
+    for(std::map<theta::ParId, std::pair<double, double> >::const_iterator it=support.begin(); it!=support.end(); ++it){
+        double val = values.get(it->first);
+        if(val < it->second.first || val > it->second.second) return false;
+    }
+    return true;
+}
+
+}
 
 void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & model){
     if(not init){
@@ -21,13 +35,21 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
         init = true;
     }
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
-    nll->set_override_distribution(s_plus_b);
-    MinimizationResult minres = minimizer->minimize(*nll, s_plus_b_mode, s_plus_b_width, s_plus_b_support);
-    double nll_sb = minres.fval;
-    
+    // fit b-only first:
     nll->set_override_distribution(b_only);
-    minres = minimizer->minimize(*nll, b_only_mode, b_only_width, b_only_support);
+    MinimizationResult minres = minimizer->minimize(*nll, b_only_mode, b_only_width, b_only_support);
     double nll_b = minres.fval;
+
+    nll->set_override_distribution(s_plus_b);    
+    if(in_support(minres.values, s_plus_b_support)){
+        // start at the b-only minimum. This is more robust than starting at the original point again.
+        minres = minimizer->minimize(*nll, minres.values, s_plus_b_width, s_plus_b_support);
+    }
+    else{
+        minres = minimizer->minimize(*nll, s_plus_b_mode, s_plus_b_width, s_plus_b_support);
+    }
+    
+    double nll_sb = minres.fval;
     
     products_sink->set_product(c_nll_sb, nll_sb);
     products_sink->set_product(c_nll_b, nll_b);

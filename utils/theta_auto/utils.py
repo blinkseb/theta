@@ -5,6 +5,26 @@ import theta_interface, plotutil
 
 import Model
 
+# returns a dictionary float x --> signal process group id
+#
+# As default, the x value is the first number encountered in the signal process group id string. 
+#
+# options can contain a dictionary 'spid_to_xvalue' in which case that number is used.
+def get_x_to_sp(spgids, **options):
+    x_to_sp = {}
+    next_x = 0
+    for sp in spgids:
+        if 'spid_to_xvalue' in options and sp in options['spid_to_xvalue']: x = options['spid_to_xvalue'][sp]
+        else: x = extract_number(sp)
+        if x is None:
+            print "WARNING: cannot find ordering value for signal process '%s', using %d" % (sp, next_x)
+            x = next_x
+            next_x += 1
+        x_to_sp[x] = sp
+    assert len(spgids) == len(x_to_sp)
+    return x_to_sp
+
+
 # returns a default minimizer specification which should be pretty robust
 def minimizer(need_error = True):
     #return {'type': 'root_minuit'}
@@ -86,7 +106,7 @@ def signal_prior_dict(spec):
                 xmin, xmax = float(res.group(1)), float(res.group(2))
             else:
                 if spec!='flat': raise RuntimeError, "signal_prior specification '%s' invalid" % spec
-                xmin, xmax = 1e-12, float("inf")
+                xmin, xmax = 0.0, float("inf")
             value = 0.5 * (xmax - xmin)
             if value==float("inf"): value = 1.0
             signal_prior_dict = {'type': 'flat_distribution', 'beta_signal': {'range': [xmin, xmax], 'fix-sample-value': value}}

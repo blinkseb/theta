@@ -170,16 +170,16 @@ def discovery(model, use_data = True, Z_error_max = 0.05, **options):
 #
 # For ts='mle', signal_prior_bkg has no meaning. The nuisance prior for the s+b / b only likelihood is always the same (so far).
 #
-# forwhat controls which limits are computed. Valid vaues are:
-# * 'data': compute observed limit only
+# what controls which limits are computed. Valid vaues are:
+# * 'observed': compute observed limit on data only
 # * 'expected': compute +-1sigma, +-2sigma limit bands for background only
 # * 'all': both 'data' and 'expected'
 #
-# \return A dictionary (signal process group id) --> ('observed' | 'exp_1s-' | 'exp_1s+' | 'exp_2s-' | 'exo_2s+')  --> (limit in beta_signal, limit_uncertainty)
-#   where 'exp_1s-' is the lower band border for the "+-1sigma expected band", 'exp_1s+' is the upper border, etc.
+# returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
+# if 'what' is not 'all', one of the plotdata instances is replaced with None.
 #
-# TODO: result is not rellay filled in yet.
-def cls_limits(model, forwhat = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
+# TODO: return value of cls_limits and bayesian_limits not consistent
+def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     # if the signal+background distribution is more restrictive than the background only, there is a sign flip ...
     #if signal_prior_bkg.startswith('flat') and signal_prior.startswith('fix'): ts_sign = '-'
@@ -191,10 +191,10 @@ def cls_limits(model, forwhat = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'fl
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'type': 'cls_limits', 'model': '@model', 'producers': ('@ts_producer',),
         'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True), 'debuglog': 'debug.txt'}
-    if forwhat in ('expected', 'all'):
+    if what in ('expected', 'all'):
         main['ts_values_background_bands'] = True
-    elif forwhat != 'data': raise RuntimeError, "unknown option forwhat='%s'" % forwhat
-    if forwhat in ('data', 'all'):
+    elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what
+    if what in ('observed', 'all'):
         main['ts_values'], dummy = data_source_dict(model, 'data')
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     if ts == 'mle':
@@ -218,22 +218,77 @@ def cls_limits(model, forwhat = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'fl
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run, **options)
     else: return None
-    
     cachedir = os.path.join(config.workdir, 'cache')
     
-    result = {}
-    #result_table = Report.table()
-    #result_table.add_column('process', 'signal process')
-    #result_table.add_column('limit', header)
+    
+    #expected results maps (process name) -> (median, band1, band2)
+    # where band1 and band2 are tuples for the central 68 and 95%, resp.
+    expected_results = {}
+    # observed result maps (process name) -> (limit, limit_uncertainty)
+    observed_results = {}
+    spids = set()    
     for name in cfg_names_to_run:
         method, sp, dummy = name.split('-',2)
-        #result_table.set_column('process', sp)
+        spids.add(sp)
         sqlfile = os.path.join(cachedir, '%s.db' % name)
         data = sql(sqlfile, 'select "limit", limit_uncertainty from cls_limits order by "index"')
-        for row in data:
-            print row
-        #result_table.add_row()
-    #config.report.new_section("CLs limits on ensemble '%s'" % input)
-    #config.report.add_html(result_table.html())
-    return result
+        index = 0
+        if what in ('all', 'observed'):
+            observed_results[sp] = data[index][0], data[index][1]
+            index += 1
+        if what in ('all', 'expected'):
+            expected_results[sp] = (data[index+2][0], (data[index+1][0], data[index+3][0]), (data[index][0], data[index+4][0]))
+    x_to_sp = get_x_to_sp(spids, **options)
+    
+    pd_expected, pd_observed = None, None
+    result_table = Report.table()
+    result_table.add_column('process', 'signal process')
+    if what in ('all', 'expected'):
+        pd_expected = plotutil.plotdata()
+        pd_expected.color = '#000000'
+        pd_expected.as_function = True
+        pd_expected.legend = 'expected limit'
+        pd_expected.x = sorted(list(x_to_sp.keys()))
+        pd_expected.y  = []
+        pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
+        result_table.add_column('expected limit', 'expected limit (median)')
+        result_table.add_column('expected limit (1sigma band)')
+        result_table.add_column('expected limit (2sigma band)')
+    if what in ('all', 'observed'):
+        pd_observed = plotutil.plotdata()
+        pd_observed.color = '#000000'
+        pd_observed.as_function = True
+        pd_observed.x = sorted(list(x_to_sp.keys()))
+        pd_observed.y = []
+        pd_observed.legend = 'observed limit'
+        result_table.add_column('observed limit')
+    
+    for x in sorted(x_to_sp.keys()):
+        sp = x_to_sp[x]
+        result_table.set_column('process', sp)
+        if what in ('all', 'expected'):
+            expected, band1, band2 = expected_results[sp]
+            pd_expected.y.append(expected)
+            pd_expected.bands[1][0].append(band1[0])
+            pd_expected.bands[1][1].append(band1[1])
+            pd_expected.bands[0][0].append(band2[0])
+            pd_expected.bands[0][1].append(band2[1])
+            result_table.set_column('expected limit', '%.2f' % expected)
+            result_table.set_column('expected limit (1sigma band)', '[%.2f, %.2f]' % band1)
+            result_table.set_column('expected limit (2sigma band)', '[%.2f, %.2f]' % band2)
+        if what in ('all', 'observed'):
+            observed, observed_unc = observed_results[sp]
+            pd_observed.y.append(observed)
+            result_table.set_column('observed limit', '%.2f +- %.2f' % (observed, observed_unc))
+        result_table.add_row()
+    config.report.new_section("CLs limits")
+    config.report.add_html(result_table.html())
+    plots = []
+    if pd_expected is not None and len(pd_expected.x) > 1: plots.append(pd_expected)
+    if pd_observed is not None and len(pd_observed.x) > 1: plots.append(pd_observed)
+    plotsdir = os.path.join(config.workdir, 'plots')
+    if len(plots) > 0:
+        plot(plots, 'signal process', '95% C.L. upper limit', os.path.join(plotsdir, 'cls_limit_band_plot.png'))
+        config.report.add_html('<p><img src="plots/cls_limit_band_plot.png" /></p>')
+    return pd_expected, pd_observed
 

@@ -13,7 +13,7 @@ def get_cmds(line):
     return [c for c in cmds if c!='']
 
 
-# in theta, names must begin with a letter and consist only of A-Za-z0-9_-
+# in theta, names must begin with a letter and consist only of A-Za-z0-9_- and not contain '__'
 def transform_name_to_theta(name):
     result = ''
     for c in name:
@@ -55,7 +55,7 @@ def build_model(fname, filter_channel = lambda chan: True):
     assert cmds[0].lower() in ('bin', 'observation'), "Line %d: Expected 'bin' or 'observation' statement" % lines[0][1]
     if cmds[0].lower() == 'bin':
         # prepend a 'c' so we can use numbers as channel names:
-        channel_labels = [ 'c' + c for c in cmds[1:]]
+        channel_labels = [transform_name_to_theta(c) for c in cmds[1:]]
         if imax=='*': imax = len(channel_labels)
         assert len(channel_labels) == imax, "Line %d: Number of processes from 'imax' and number of labels given in 'bin' line (%s) mismatch" % (lines[0][1], str(channel_labels))
         lines = lines[1:]
@@ -79,7 +79,7 @@ def build_model(fname, filter_channel = lambda chan: True):
     # save the channel 'headers', to be used for parsing the next line:
     channels_for_table = cmds[1:]
     for c in channels_for_table:
-        if 'c' + c not in channel_labels: raise RuntimeError, "Line % d: unknown channel '%s'" % (lines[0][1], c)
+        if transform_name_to_theta(c) not in channel_labels: raise RuntimeError, "Line % d: unknown channel '%s'" % (lines[0][1], c)
     lines = lines[1:]
     n_cols = len(channels_for_table)
 
@@ -117,7 +117,7 @@ def build_model(fname, filter_channel = lambda chan: True):
         raise RuntimeError, "Line %d: 'rate' statement does specify the wrong number of elements" % lines[0][1]
     for i in range(n_cols):
         if not filter_channel(channels_for_table[i]): continue
-        o, p = 'c%s' % channels_for_table[i], processes_for_table[i]
+        o, p = transform_name_to_theta(channels_for_table[i]), processes_for_table[i]
         n_exp = float(cmds[i+1])
         #print o,p,n_exp
         hf = HistogramFunction()
@@ -133,7 +133,7 @@ def build_model(fname, filter_channel = lambda chan: True):
     for i in range(kmax):
         cmds = get_cmds(lines[i])
         assert len(cmds) >= len(processes_for_table) + 2, "Line %d: wrong number of entries for uncertainty '%s'" % (lines[0][1], cmds[0])
-        uncertainty = transform_name_to_theta('u' + cmds[0])
+        uncertainty = transform_name_to_theta(cmds[0])
         if cmds[1] == 'gmN':
             values = cmds[3:]
             n_affected = 0
@@ -143,11 +143,11 @@ def build_model(fname, filter_channel = lambda chan: True):
                 val = float(values[icol])
                 if val==0.0: continue
                 if not filter_channel(channels_for_table[icol]): continue
-                obsname ='c%s' % channels_for_table[icol]
+                obsname = transform_name_to_theta(channels_for_table[icol])
                 procname = processes_for_table[icol]
                 #print cmds[0], k, obsname, procname, values[icol], val
                 # add the same parameter (+the factor in the table) as coefficient:
-                model.get_coeff(obsname, procname).add_factor('id', parameter = 'delta_%s' % uncertainty)
+                model.get_coeff(obsname, procname).add_factor('id', parameter = uncertainty)
                 n_affected += 1
                 n_exp = model.get_histogram_function(obsname, procname).get_nominal_histo()[2][0]
                 #print n_exp
@@ -160,9 +160,9 @@ def build_model(fname, filter_channel = lambda chan: True):
                 obs_sb = '%s_sideband' % uncertainty
                 model.set_histogram_function(obs_sb, 'proc_sb', hf)
                 model.set_data_histogram(obs_sb, (0.0, 1.0, [k]))
-                model.get_coeff(obs_sb, 'proc_sb').add_factor('id', parameter = 'delta_%s' % uncertainty)
+                model.get_coeff(obs_sb, 'proc_sb').add_factor('id', parameter = uncertainty)
                 # the maximum likelihood estimate for the delta parameter is 1.0
-                model.distribution.set_distribution('delta_%s' % uncertainty, 'gauss', mean = 1.0, width = float("inf"), range = (0.0, float("inf")))
+                model.distribution.set_distribution(uncertainty, 'gauss', mean = 1.0, width = float("inf"), range = (0.0, float("inf")))
         elif cmds[1] == 'lnN':
             n_affected = 0
             values = cmds[2:]
@@ -176,13 +176,13 @@ def build_model(fname, filter_channel = lambda chan: True):
                 else:
                     lambda_minus = math.log(float(values[icol]))
                     lambda_plus = lambda_minus
-                obsname ='c%s' % channels_for_table[icol]
+                obsname = transform_name_to_theta(channels_for_table[icol])
                 procname = processes_for_table[icol]
                 n_affected += 1
                 #print cmds[0], obsname, procname, lambda_minus, lambda_plus
-                model.get_coeff(obsname, procname).add_factor('exp', parameter = 'delta_%s' % uncertainty, lambda_minus = lambda_minus, lambda_plus = lambda_plus)
+                model.get_coeff(obsname, procname).add_factor('exp', parameter = uncertainty, lambda_minus = lambda_minus, lambda_plus = lambda_plus)
             if n_affected > 0:
-                model.distribution.set_distribution('delta_%s' % uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (float("-inf"), float("inf")))
+                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (-5.0, 5.0))
         elif cmds[1] == 'gmM':
             values = cmds[2:]
             values_f = set([float(s) for s in values if float(s)!=0.0])
@@ -191,12 +191,12 @@ def build_model(fname, filter_channel = lambda chan: True):
             n_affected = 0
             for icol in range(n_cols):
                 if not filter_channel(channels_for_table[icol]): continue
-                obsname ='c%s' % channels_for_table[icol]
+                obsname = transform_name_to_theta(channels_for_table[icol])
                 procname = processes_for_table[icol]
-                model.get_coeff(obsname, procname).add_factor('id', parameter = 'delta_%s' % uncertainty)
+                model.get_coeff(obsname, procname).add_factor('id', parameter = uncertainty)
                 n_affected += 1
             if n_affected > 0:
-                model.distribution.set_distribution('delta_%s' % uncertainty, 'gamma', mean = 1.0, width = float(values[icol]), range = (0.0, float("inf")))
+                model.distribution.set_distribution(uncertainty, 'gamma', mean = 1.0, width = float(values[icol]), range = (0.0, float("inf")))
         else: raise RuntimeError, "Line %d: unknown uncertainty type %s" % (lines[0][1], cmds[1])
     #print 'signal_processes', signal_processes
     model.set_signal_processes(list(signal_processes))

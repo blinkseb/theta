@@ -110,6 +110,8 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
 #     in the signal process name is used for the x axis value.
 #
 # returns one plotutil.plotdata instance containing the 'observed' (or median expected) limit and 'expected' bands.
+#
+# TODO: return value of cls_limits and limit_band_plot / bayesian_limits not consistent
 def limit_band_plot(quantiles_toys, quantiles_data = None, quantile = 0.95, name = '', **options):
     #expected results maps (process name) -> (median, band1, band2)
     # where band1 and band2 are tuples for the central 68 and 95%, resp.
@@ -129,19 +131,7 @@ def limit_band_plot(quantiles_toys, quantiles_data = None, quantile = 0.95, name
         if len(data) != 0:
             observed_results[sp] = data[len(data)/2]
     # map process names and x values:
-    sp_to_x = {}
-    x_to_sp = {}
-    signal_processes = sorted(list(signal_processes))
-    next_x = 0
-    for sp in signal_processes:
-        if 'signalprocess_to_value' in options and sp in options['signalprocess_to_value']: x = options['signalprocess_to_value'][sp]
-        else: x = extract_number(sp)
-        if x is None:
-            print "WARNING: cannot find ordering value for signal process '%s', using %d" % (sp, next_x)
-            x = next_x
-            next_x += 1
-        sp_to_x[sp] = x
-        x_to_sp[x] = sp
+    x_to_sp = get_x_to_sp(signal_processes, **options)
     pd = plotdata()
     pd.color = '#000000'
     pd.as_function = True

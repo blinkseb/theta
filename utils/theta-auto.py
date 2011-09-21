@@ -228,7 +228,7 @@ def ml_fit(model, input = 'data', n = 1, signal_prior = 'flat', nuisance_constra
     suffix = ''
     if signal_prior_spec.startswith('fix:'): suffix = ' (fixed)'
     result_table.add_column('beta_signal', 'beta_signal%s' % suffix)
-    for i in range(len(cfg_names)):
+    for i in range(len(cfg_names_to_run)):
         sp = signal_processes[i]
         name = cfg_names_to_run[i]
         method, sp_id, dummy = name.split('-',2)
@@ -257,6 +257,30 @@ def ml_fit(model, input = 'data', n = 1, signal_prior = 'flat', nuisance_constra
     #config.report.add_p('input: %s, n: %d, signal prior: %s, nuisance prior: %s' % (input, n, str(signal_prior), str(nuisance_constraint)))
     config.report.add_html(result_table.html())
     return result
+    
+# makes a maximum likelihood fit to data using the model and evaluates the values of the coefficient functions for all
+# pairs of observable / process.
+#
+# options: see ml_fit
+#
+# returns a dictionary
+# (signal process) --> (observable name) --> (process name) --> (factor)
+def ml_fit_coefficiencts(model, **options):
+    result = {}
+    res = ml_fit(model, **options)
+    for sp in res:
+        values = {}
+        for param in res[sp]:
+            values[param] = res[sp][param][0][0]
+        result[sp] = {}
+        for obs in model.observables:
+            result[sp][obs] = {}
+            for proc in model.get_processes(obs):
+                # skip signal processes we are not interested in:
+                if proc in model.signal_processes and proc not in sp: continue
+                result[sp][obs][proc] = model.get_coeff(obs, proc).get_value(values)
+    return result
+            
 
 # make a KS-test by dicing toy data from the model (including nuisance according to config in the model),
 # make a maximum likelihood fit using nuisance_constraint, and determining the KS value after
@@ -475,6 +499,8 @@ def main():
     config.workdir = os.path.join(os.getcwd(), scriptname[:-3])
     config.workdir = os.path.realpath(config.workdir)    
     if not os.path.exists(config.workdir): os.mkdir(config.workdir)
+    # also make plots dir:
+    if not os.path.exists(os.path.join(config.workdir, 'plots')): os.mkdir(os.path.join(config.workdir, 'plots'))
     
     #config.theta_dir = os.path.realpath(os.path.join(os.getcwd(), '..'))
     config.theta_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
