@@ -88,6 +88,7 @@ def run_theta(cfg_names, **options):
     cache_dir = os.path.join(global_config.workdir, 'cache')
     if not os.path.exists(cache_dir): os.mkdir(cache_dir)
     theta = os.path.realpath(os.path.join(global_config.theta_dir, 'bin', 'theta'))
+    debug = options.get('debug', False)
     for name in cfg_names:
         cfgfile = name + '.cfg'
         dbfile = name + '.db'
@@ -102,9 +103,11 @@ def run_theta(cfg_names, **options):
             #info("not running \"theta %s\": found up-to-date output in cache" % cfgfile)
             continue
         utils.info("running 'theta %s'" % cfgfile)
-        retval = os.system(theta + " --redirect-io=False " + cfgfile_full)
+        params = ""
+        if debug: params += " --redirect-io=False"
+        retval = os.system(theta + params + " " + cfgfile_full)
         if retval != 0:
-            if os.path.exists(dbfile) and not options.get('debug', False): os.unlink(dbfile)
+            if os.path.exists(dbfile) and not debug: os.unlink(dbfile)
             raise RuntimeError, "executing theta for cfg file '%s' failed with exit code %d" % (cfgfile, retval)
         # move to cache, also the config file ...
         shutil.move(dbfile, dbfile_cache)

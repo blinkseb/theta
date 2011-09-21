@@ -115,7 +115,7 @@ def count_above(the_list, threshold):
 def discovery(model, use_data = True, Z_error_max = 0.05, **options):
     options['signal_prior']='flat'
     options['signal_prior_bkg'] = 'fix:0'
-    ts_expected = ts_toys(model, [1.0], 1000, **options)
+    ts_expected = ts_toys(model, [1.0], 10000, **options)
     # make (spid) -> (median, -1sigma, +1sigma):
     expected = {}
     for spid, beta_signal in ts_expected:
