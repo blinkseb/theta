@@ -63,7 +63,7 @@ void exp_function::codegen(std::ostream & out, const std::string & prefix, const
                 out << "    exponent_total += (val < 0 ? " << codegen::dtos(lambdas_minus[i]) << ":" << codegen::dtos(lambdas_plus[i]) << ") * val;" << endl;
             }
         }
-    out << "    return exp(exponent_total);" << endl;
+    out << "    return utils::exp(exponent_total);" << endl;
     out << "}" << endl << endl;
 }
 

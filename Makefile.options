@@ -10,6 +10,8 @@ OPTIONS_BUILD_TESTS := yes
 # whether or not to use the log function from crlibm (which is faster than the standard log)
 OPTIONS_USE_CRLIBM := yes
 
+OPTIONS_USE_AMDLIBM := no
+
 # If set to yes, define the NDEBUG macro which omits some checks / asserts. Usually, this optimization
 # only has little impact on the overall runtime (2-4%).
 OPTIONS_NODEBUG := no

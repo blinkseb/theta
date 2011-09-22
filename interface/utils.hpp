@@ -11,6 +11,10 @@
 #include "crlibm/crlibm.h"
 #endif
 
+#ifdef USE_AMDLIBM
+#include "amdlibm/include/amdlibm.h"
+#endif
+
 #ifdef __SSE2__
 #include <emmintrin.h>
 #endif
@@ -110,7 +114,19 @@ inline double log(double x){
 #ifdef USE_CRLIBM
     return log_rn(x);
 #else
+#ifdef USE_AMDLIBM
+    return amd_log(x);
+#else
     return ::log(x);
+#endif
+#endif
+}
+
+inline double exp(double x){
+#ifdef USE_AMDLIBM
+    return amd_exp(x);
+#else
+    return ::exp(x);
 #endif
 }
 

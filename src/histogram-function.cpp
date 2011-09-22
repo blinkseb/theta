@@ -28,7 +28,7 @@ const Histogram1D &  ConstantHistogramFunctionError::getRandomFluctuation(Random
 
 
 void HistogramFunction::codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const{
-    out  << "double " << prefix << "_hf_add_with_coeff(double coeff, const double * par_values, double * histodata){" << std::endl
+    out  << "void " << prefix << "_hf_add_with_coeff(double coeff, const double * par_values, double * histodata){" << std::endl
          << "    Histogram1D h = reinterpret_cast<HistogramFunction*>(" << reinterpret_cast<size_t>(this) << ")->operator()(ParValues(par_values, all_par_ids));" << std::endl
          << "    add_fast_with_coeff(histodata, h.getData(), coeff, h.size());" << std::endl
          << "}" << std::endl;
@@ -53,7 +53,7 @@ void ConstantHistogramFunction::codegen(std::ostream & out, const std::string & 
         out << "    return result;" << endl;
         out << "}" << endl << endl;
     out  << "const DoubleVector " << prefix << "_hf_h(" << prefix << "_hf_h_init());" << endl << endl;
-    out  << "double " << prefix << "_hf_add_with_coeff(double coeff, const double * par_values, double * histodata){" << std::endl
+    out  << "void " << prefix << "_hf_add_with_coeff(double coeff, const double * par_values, double * histodata){" << std::endl
          << "    add_fast_with_coeff(histodata, " << prefix << "_hf_h.getData(), coeff, " << nbins << ");" << std::endl
          << "}" << std::endl;
     out << "/* end of with ConstantHistogramFunction '" << prefix << "' */" << endl;

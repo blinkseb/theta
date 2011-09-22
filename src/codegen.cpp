@@ -86,23 +86,33 @@ string codegen::dtos(double d){
 }
 
 void* codegen::compile_load_so(const std::string & cpp){
+    string command = "make -C " + utils::theta_dir + "/libcodegen clean";
+    cout << "command: " << command << endl;
+    int ret = system(command.c_str());
+    if(ret != 0){
+       throw FatalException("make clean failed");
+    }
     size_t p = cpp.find_last_of('/');
     if(p==string::npos) p=0;
     else ++p;
     std::string name = cpp.substr(p);
     stringstream ss;
-    ss << utils::theta_dir  << "/lib/codegen_" << name << "_" << time(0) << ".so";
-    string command = "g++ -rdynamic -shared -fPIC -O3 -I" + utils::theta_dir + " " + cpp + " -o " + ss.str();
-    cout << command << endl;
-    int ret = system(command.c_str());
-    if(ret!=0){
-        throw Exception("compilation failed (command was '" + command + "')");
+    ss << utils::theta_dir  << "/libcodegen/" << name << "_" << time(0);
+    ret = rename(cpp.c_str(), (ss.str() + ".cpp").c_str());
+    if(ret != 0){
+       throw FatalException("could not move cpp src file '" + cpp + "'");
     }
-    void * result = dlopen(ss.str().c_str(), RTLD_NOW | RTLD_LOCAL);
+    command = "make -C " + utils::theta_dir + "/libcodegen";
+    cout << "command: " << command << endl;
+    ret = system(command.c_str());
+    if(ret!=0){
+        throw FatalException("compilation failed (command was '" + command + "')");
+    }
+    void * result = dlopen((ss.str() + ".so").c_str(), RTLD_NOW | RTLD_LOCAL);
     if(!result){
        stringstream ss_error;
        ss_error << "dlopen failed: " << dlerror();
-       throw Exception(ss_error.str());
+       throw FatalException(ss_error.str());
     }
     return result;
 }

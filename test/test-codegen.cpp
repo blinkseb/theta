@@ -99,7 +99,19 @@ BOOST_AUTO_TEST_CASE(model){
     m->codegen(out, "m", pm);
     codegen::footer(out);
     BOOST_CHECKPOINT("generated code; compiling and loading");
-    void * h = compile_load_so("testgen_model.cpp");
+    void * h = 0;
+    try{
+       h = compile_load_so("testgen_model.cpp");
+    }
+    catch(Exception & ex){
+       cout << "Error during compile_load_so: " << ex.message << endl;
+       throw;
+    }
+    catch(FatalException & ex){
+       cout << "Error during compile_load_so: " << ex.message << endl;
+       throw;
+    }
+    BOOST_ASSERT(h!=0);
     codegen::t_model_get_prediction m_pred_generated = reinterpret_cast<codegen::t_model_get_prediction>(dlsym(h, "m_get_prediction"));
     
     // get generated prediction:
@@ -132,7 +144,11 @@ BOOST_AUTO_TEST_CASE(model){
         }
         catch(Exception & ex){
            cout << ex.message << endl;
-           BOOST_ASSERT(false);
+           throw;
+        }
+        catch(FatalException & ex){
+           cout << "fatal: " << ex.message << endl;
+           throw;
         }
     }
     

@@ -12,7 +12,6 @@
 #include <boost/test/unit_test.hpp>
 
 using namespace theta;
-
 using namespace std;
 
 
@@ -21,6 +20,7 @@ BOOST_AUTO_TEST_SUITE(model_tests)
 BOOST_AUTO_TEST_CASE(model0){
     BOOST_CHECKPOINT("model0 entry");
     load_core_plugins();
+    utils::fill_theta_dir(0);
     
     boost::shared_ptr<VarIdManager> vm(new VarIdManager);
     ParIds pars;
