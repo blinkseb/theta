@@ -406,35 +406,41 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
  * };
  * \endcode
  * 
- * Toys are drawn from the \c model with different values for the signal parameter given in \c signal_parameter (all other parameters are drawn randomly from
- * the model's parameter distribution). For each toy, the \c ts_producer is run and the value from the given \c ts_column.
+ * Toys are drawn from the \c model with different values for the signal parameter given in \c signal_parameter (all other
+ * parameters are drawn randomly from the model's parameter distribution). For each toy, the \c ts_producer is run and the
+ * value from the given \c ts_column uis used as test statistic for the construction of CLs limits.
  * 
  * Which values for the signal parameter are used and how many toys are draw for each parameter value is determined automatically and based
  * on \c ts_values, \c reltol_limit, and \c tol_cls: \c ts_values controls for which test statistic values the toys calculation should be done such that the CLs limit
  * has a relative 1sigma uncertainty of at most \c reltol_limit and the (absolute) tolerance for the CLs value is \c tol_cls.
  *
- * Valid values for \c ts_values are either (i) a list of values or (ii) a DataSource specification in which case the ts producer is run once for that DataSource.
- * If \c ts_values_background_bands is true, the background band is calculated in addition, i.e., the test statistic values at the median, central 1sigma and 2sigma
+ * Valid values for \c ts_values are either (i) a list of values or (ii) a DataSource specification
+ * in which case the ts producer is run once for that DataSource. If \c ts_values_background_bands is true,
+ * the background band is calculated in addition, i.e., the test statistic values at the median, central 1sigma and 2sigma
  * for toys with signal_parameter=0.
- * The neither \c ts_values and \c ts_values_background_bands are given, only background bands are calculated, i.e., \c ts_values_background_bands defaults to \c true in this case.
+ * The neither \c ts_values and \c ts_values_background_bands are given, only background bands
+ * are calculated, i.e., \c ts_values_background_bands defaults to \c true in this case.
  * If \c ts_values is given, \c ts_values_background_bands defaults to \c false and has to be set to \c true explicitly.
  *
- * If \c limit_hint is given, it should be an interval where the limits are probably contained, it does not have to be exact; teh interval does not have to contain the true value.
- * If given, the convergence can be faster. 
+ * If \c limit_hint is given, it should be an interval where the limits are probably contained,
+ * it does not have to be exact; teh interval does not have to contain the true value. If given, the convergence can be faster. 
  *
- * The result is written in \c output_database with the same tables as for theta::Run will be created. In addition, the table
- * "cls_limits" is created which contains the columns "index", "ts_value", "limit", and "limit_uncertainty". If sorted by index, this table will contain the
- * limits for the test statistic values specified via \c ts_values first, and then (if applicable) the 4 limits defining the background band, in increasing
- * order of the ts value.
+ * Both, the toys used for the construction as well as the resulting limits are written to the
+ * \c output_database. For the toys, the tables are the same as for theta::Run. In addition, the table
+ * "cls_limits" is created which contains the columns "index", "ts_value", "limit", and "limit_uncertainty".
+ * If sorted by index, this table will contain the limits for the test statistic values specified via
+ * \c ts_values first, and then (if applicable) the 5 limits defining the "expected" band, in increasing
+ * order of the ts value (=lower edge of 2sigma band, lower edge of 1sigma band, median, upper 1sigma edge, upper 2sigma edge).
  * 
- * (TODO: this is not implemented yet!) The optional setting \c reuse_toys is a list of theta::DatabaseInput specifications. If present, it is assumed that these contain toys
+ * (TODO: this is not implemented yet!) The optional setting \c reuse_toys is a list of theta::DatabaseInput
+ * specifications. If present, it is assumed that these contain toys
  * from previous runs with the same model and ts definition (in particular, with the same truth_parameter and ts_column name ...).
  * Reusing toys can speed up the calculation substiantially.
  *
  * \c debuglog is the filename of the debug log. Debug output is only written if a filename is given here.
  *
- * The indicated progress and errors refer to the number of toys produced. It is hard to tell how many toys are necessary.
- * (TODO: more progress info?)
+ * The indicated progress and errors refer to the number of toys produced. It is hard to tell how many toys are
+ * necessary; for usual settings in the order of 5000-10000.
  */
 class cls_limits: public Main{
 public:

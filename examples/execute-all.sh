@@ -38,3 +38,4 @@ exec_theta examples/gaussoverflat-mle.cfg
 exec_theta examples/gaussoverflat-nll_scan.cfg
 exec_theta examples/gaussoverflat-rootfile.cfg
 exec_theta examples/gaussoverflat-writer.cfg
+exec_theta examples/gaussoverflat-cls.cfg
