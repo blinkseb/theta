@@ -128,6 +128,8 @@ namespace theta {
          */
         virtual std::auto_ptr<Model> clone(const theta::PropertyMap & pm) const = 0;
         
+        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const = 0;
+        
         virtual ~Model(){}
 
     protected:
@@ -141,9 +143,11 @@ namespace theta {
     };
     
     
+    class compiled_model_nll;
     /** \brief The default model in theta
      */
     class default_model: public Model{
+    friend class compiled_model_nll;
     private:
         //The problem of std::map<ObsId, ptr_vector<Function> > is that
         // this requires ptr_vector to be copy-constructible which in turn
@@ -154,17 +158,23 @@ namespace theta {
         histos_type histos;
         coeffs_type coeffs;
         std::auto_ptr<Distribution> parameter_distribution;
+        mutable codegen::t_model_get_prediction model_get_prediction;
         
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
         
         default_model(const default_model & model, const theta::PropertyMap & pm);
+        
      public:
+        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
      
         default_model(const Configuration & cfg);
         //the pure virtual functions:
         virtual void get_prediction_randomized(Random & rnd, Data & result, const ParValues & parameters) const;
         virtual void get_prediction(Data & result, const ParValues & parameters) const;
         virtual std::auto_ptr<NLLikelihood> getNLLikelihood(const Data & data) const;
+        
+        std::auto_ptr<NLLikelihood> getCompiledNLLikelihood(const Data & data) const;
+        
         virtual const Distribution & get_parameter_distribution() const {
            return *parameter_distribution;
         }
@@ -279,7 +289,35 @@ namespace theta {
         
         default_model_nll(const default_model & m, const Data & data, const ObsIds & obs);
      };
+     
+    class compiled_model_nll: public NLLikelihood{
+    friend class default_model;
+    public:
+        using Function::operator();
+        virtual double operator()(const ParValues & values) const;
+        
+        virtual void set_additional_term(const boost::shared_ptr<Function> & term);
+        virtual void set_override_distribution(const boost::shared_ptr<Distribution> & d);
+        virtual const Distribution & get_parameter_distribution() const{
+            if(override_distribution) return *override_distribution;
+            else return model.get_parameter_distribution();
+        }        
+    private:
+        const default_model & model;
+        
+        boost::shared_ptr<Function> additional_term;
+        boost::shared_ptr<Distribution> override_distribution;
+
+        Histogram1D data_concatenated;
+        codegen::t_model_get_prediction model_get_prediction;
+        //cached predictions:
+        mutable Histogram1D pred_concatenated;
+        mutable std::vector<double> parameter_values;
+        
+        compiled_model_nll(const default_model & m, const Data & data, codegen::t_model_get_prediction model_get_prediction);
+     };
     
 }
 
 #endif
+

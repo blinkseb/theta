@@ -3,12 +3,12 @@
 
 #include "interface/decls.hpp"
 #include "interface/pm.hpp"
+#include "interface/histogram-function.hpp"
 #include "interface/exception.hpp"
 #include "interface/cfg-utils.hpp"
 
 #include <boost/utility.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include <sstream>
 #include <iostream>
@@ -24,8 +24,6 @@ namespace theta {
      * for which this plugin class should be created.
      */
     class Configuration{
-    private:
-       const std::string theta_dir;
     public:
 
         /// A property map giving access to various shared objects
@@ -33,23 +31,16 @@ namespace theta {
 
         /// The setting in the configuration file from which to build the instance
         SettingWrapper setting;
-
-        /// Replaces the string "$THETA_DIR" by the theta directory; to be used by plugins resolving filenames
-        std::string replace_theta_dir(const std::string & path) const {
-            return boost::algorithm::replace_all_copy(path, "$THETA_DIR", theta_dir);
-        }
-
+        
         /** \brief Construct Configuration by specifying all data members
          */
-        Configuration(const SettingWrapper & setting_, const std::string & theta_dir_ = "."):
-            theta_dir(theta_dir_), pm(new theta::PropertyMap()), setting(setting_){}
+        Configuration(const SettingWrapper & setting_): pm(new theta::PropertyMap()), setting(setting_){}
 
         /** \brief Copy elements from another Configuration, but replace Configuration::setting
          *
          * Copy all from \c cfg but \c cfg.setting which is replaced by \c setting_.
          */
-        Configuration(const Configuration & cfg, const SettingWrapper & setting_): theta_dir(cfg.theta_dir), pm(cfg.pm),
-            setting(setting_){}
+        Configuration(const Configuration & cfg, const SettingWrapper & setting_): pm(cfg.pm), setting(setting_){}
 
     };        
 

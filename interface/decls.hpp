@@ -35,6 +35,7 @@ namespace theta{
     typedef VarIds<ObsId> ObsIds;
     typedef VarIds<ParId> ParIds;
     class ParValues;
+    class PropertyMap;
     
     class Data;
     class Function;
@@ -44,5 +45,7 @@ namespace theta{
     
     class SettingWrapper;
 }
+
+namespace codegen{}
 
 #endif

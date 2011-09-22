@@ -1,7 +1,9 @@
 #include "plugins/multiply.hpp"
+#include "interface/pm.hpp"
 
 using namespace libconfig;
 using namespace theta;
+using namespace std;
 
 
 multiply::multiply(const Configuration & cfg): literal_factor(1.0){
@@ -52,6 +54,29 @@ multiply::multiply(const multiply & rhs): Function(rhs), v_pids(rhs.v_pids), lit
     for(size_t i=0; i<rhs.functions.size(); ++i){
         functions.push_back(rhs.functions[i].clone());
     }
+}
+
+void multiply::codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const{
+    // write out all functions:
+    for(size_t i=0; i<functions.size(); ++i){
+        stringstream ss_prefix;
+        ss_prefix << prefix << "_factor" << i;
+        functions[i].codegen(out, ss_prefix.str(), pm);
+    }
+    out << "double " << prefix << "_evaluate(const double * par_values){" << endl
+        << "    double result = " << codegen::dtos(literal_factor) << ";" << endl;
+    boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
+    for(size_t i=0; i < v_pids.size(); ++i){
+        out << "    result *= par_values[pindex_" << vm->getName(v_pids[i]) << "];" << endl;
+    }
+    for(size_t i=0; i<functions.size(); ++i){
+        stringstream ss_prefix;
+        ss_prefix << prefix << "_factor" << i;
+        out << "    result *= " << ss_prefix.str() << "_evaluate(par_values);" << endl;
+    }
+
+    out << "    return result;" << endl;
+    out << "}" << endl << endl;
 }
 
 REGISTER_PLUGIN(multiply)

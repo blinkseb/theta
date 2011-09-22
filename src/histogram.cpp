@@ -45,8 +45,10 @@ void get_allocs_frees(int & n_alls, int & n_frs){
 }
 
 DoubleVector::DoubleVector(size_t n): data(0), n_data(n){
-    if(n_data > 0)
+    if(n_data > 0){
        data = allocate_doubles(n_data);
+       set_all_values(0.0);
+    }
 }
 
 DoubleVector::~DoubleVector(){

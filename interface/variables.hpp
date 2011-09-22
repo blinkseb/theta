@@ -12,6 +12,7 @@
 #include "interface/decls.hpp"
 #include "interface/exception.hpp"
 #include "interface/utils.hpp"
+#include "interface/codegen.hpp"
 
 #include <boost/utility.hpp>
 
@@ -34,6 +35,10 @@ namespace theta {
     friend class VarIdManager;
     friend class ParValues;
     friend class Data;
+    friend size_t codegen::get_id(const theta::ParId &);
+    friend ParId codegen::create_pid(size_t);
+    friend size_t codegen::get_id(const theta::ObsId &);
+    friend ObsId codegen::create_oid(size_t);
     friend std::ostream & operator<<(std::ostream & out, const VarId & vid){
         return out << vid.id;
     }

@@ -66,6 +66,8 @@ namespace theta {
         
         /// Declare destructor virtual as polymorphic access to derived classes will happen.
         virtual ~Function(){}
+        
+        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
     protected:
         /** \brief The parameters this function depends on
          *

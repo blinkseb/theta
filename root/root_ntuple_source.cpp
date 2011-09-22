@@ -7,7 +7,6 @@
 #include "TKey.h"
 
 using namespace theta;
-
 using namespace std;
 
 //relweight_branchname can be empty; in this case, 1 is used as weight.
@@ -68,7 +67,7 @@ void root_ntuple_source::t_data::fill(const string & filename, const string & tr
 
 
 root_ntuple_source::root_ntuple_source(const Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, getName()){
-    string filename = cfg.replace_theta_dir(cfg.setting["filename"]);
+    string filename = utils::replace_theta_dir(cfg.setting["filename"]);
     string treename;
     string relweight_branchname;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();

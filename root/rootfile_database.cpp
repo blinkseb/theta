@@ -11,7 +11,7 @@ using namespace std;
 using namespace theta;
 
 rootfile_database::rootfile_database(const Configuration & cfg): file(0){
-   std::string filename = cfg.replace_theta_dir(cfg.setting["filename"]);
+   std::string filename = utils::replace_theta_dir(cfg.setting["filename"]);
    file = new TFile(filename.c_str(), "recreate");
    if(not file->IsOpen()){
        delete file;

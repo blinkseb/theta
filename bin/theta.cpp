@@ -95,27 +95,6 @@ private:
     btime::ptime next_update;
 };
 
-namespace{
-
-string get_theta_dir(char** argv){
-    string theta_dir;
-    fs::path guessed_self_path = fs::current_path() / argv[0];
-    if(fs::is_regular_file(guessed_self_path)){
-        theta_dir = fs::system_complete(guessed_self_path.parent_path().parent_path()).string();
-    }
-    else if(fs::is_symlink("/proc/self/exe")){
-        char path[4096];
-        ssize_t s = readlink("/proc/self/exe", path, 4096);
-        if(s > 0 && s < 4096){
-            path[s] = '\0';
-            theta_dir = fs::path(path).parent_path().parent_path().string();
-        }
-    }
-    return theta_dir;
-}
-
-
-}
 
 
 namespace{
@@ -132,7 +111,7 @@ namespace{
 }
 
 
-boost::shared_ptr<Main> build_main(string cfg_filename, const string & theta_dir, bool nowarn){
+boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
     Config cfg;
     boost::shared_ptr<SettingUsageRecorder> rec(new SettingUsageRecorder());
     boost::shared_ptr<Main> main;
@@ -165,7 +144,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, const string & theta_dir
         }
         
         SettingWrapper root(cfg.getRoot(), cfg.getRoot(), rec);
-        Configuration config(root, theta_dir);
+        Configuration config(root);
         config.pm->set("default", vm);
         
         //process options:
@@ -252,9 +231,9 @@ int main(int argc, char** argv) {
     bool nowarn = cmdline_vars.count("nowarn");
     
     //determine theta_dir (for config file replacements with $THETA_DIR
-    string theta_dir = get_theta_dir(argv);
+    fill_theta_dir(argv);
     if(theta_dir==""){
-        theta::cout << "WARNING: could not determine THETA_DIR, leaving empty" << endl;
+        theta::cerr << "WARNING: could not determine theta_dir, leaving empty" << endl;
     }
     
     try {
@@ -262,7 +241,7 @@ int main(int argc, char** argv) {
             if(!quiet and cfg_filenames.size() > 1){
                 theta::cout << "processing file " << (i+1) << " of " << cfg_filenames.size() << ", " << cfg_filenames[i] << endl;
             }
-            boost::shared_ptr<Main> main = build_main(cfg_filenames[i], theta_dir, nowarn);
+            boost::shared_ptr<Main> main = build_main(cfg_filenames[i], nowarn);
             if(!main) return 1;
             if(not quiet){
                 boost::shared_ptr<ProgressListener> l(new MyProgressListener());

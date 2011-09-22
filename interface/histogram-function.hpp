@@ -77,6 +77,8 @@ namespace theta {
         
         virtual std::auto_ptr<HistogramFunction> clone() const = 0;
         
+        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
+        
     protected:
         /// To be filled by derived classes:
         ParIds par_ids;
@@ -115,6 +117,8 @@ namespace theta {
             result->h = h;
             return std::auto_ptr<HistogramFunction>(result.release());
         }
+        
+        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
 
     protected:
         /** \brief Set the constant Histogram to return

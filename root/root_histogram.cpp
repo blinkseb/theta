@@ -9,7 +9,7 @@ using namespace theta;
 using namespace std;
 
 root_histogram::root_histogram(const Configuration & ctx){
-    string filename = ctx.replace_theta_dir(ctx.setting["filename"]);
+    string filename = utils::replace_theta_dir(ctx.setting["filename"]);
     string histoname = ctx.setting["histoname"];
     int rebin = 1;
     double range_low = -999;

@@ -5,7 +5,31 @@
 
 #include <boost/math/special_functions/gamma.hpp>
 
+#include <boost/filesystem.hpp>
+
+namespace fs = boost::filesystem;
+
 namespace theta{ namespace utils{
+
+void fill_theta_dir(char** argv){
+    if(argv!=0){
+        fs::path guessed_self_path = fs::current_path() / argv[0];
+        if(fs::is_regular_file(guessed_self_path)){
+            theta_dir = fs::system_complete(guessed_self_path.parent_path().parent_path()).string();
+            return;
+        }
+    }
+    if(fs::is_symlink("/proc/self/exe")){
+        char path[4096];
+        ssize_t s = readlink("/proc/self/exe", path, 4096);
+        if(s > 0 && s < 4096){
+            path[s] = '\0';
+            theta_dir = fs::path(path).parent_path().parent_path().string();
+        }
+    }
+}
+
+std::string theta_dir;
 
 double lngamma(double x){
     return boost::math::lgamma(x);

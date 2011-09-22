@@ -1,5 +1,6 @@
 #include "interface/model.hpp"
 #include "interface/log2_dot.hpp"
+#include <fstream>
 
 using namespace std;
 using namespace theta;
@@ -49,6 +50,9 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
 }
 
 void default_model::get_prediction(Data & result, const ParValues & parameters) const {
+    if(!(parameters.getParameters()==this->parameters)){
+        throw InvalidArgumentException("deault_model::get_prediction: parameters was incomplete");
+    }
     histos_type::const_iterator h_it = histos.begin();
     coeffs_type::const_iterator c_it = coeffs.begin();
     for(; h_it != histos.end(); ++h_it, ++c_it){
@@ -74,6 +78,37 @@ void default_model::get_prediction(Data & result, const ParValues & parameters) 
             result[oid].reset_range(o_range.first, o_range.second);
         }
     }
+}
+
+void default_model::codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const{
+    // generate code for all Functions and HistorgamFunctions:
+    histos_type::const_iterator h_it = histos.begin();
+    coeffs_type::const_iterator c_it = coeffs.begin();
+    size_t iobs = 0;
+    for(; h_it != histos.end(); ++h_it, ++c_it, ++iobs){
+        histos_type::const_mapped_reference h_functions = *(h_it->second);
+        coeffs_type::const_mapped_reference h_coeffs = *(c_it->second);
+        for(size_t i=0; i<h_functions.size(); ++i){
+            stringstream ss_prefix;
+            ss_prefix << prefix << "_hf_" << iobs << "_" << i;
+            h_coeffs[i].codegen(out, ss_prefix.str(), pm);
+            h_functions[i].codegen(out, ss_prefix.str(), pm);
+        }
+    }
+    // now generate the evaluate function itself:
+    h_it = histos.begin();
+    c_it = coeffs.begin();
+    out << "void " << prefix << "_get_prediction(const double * par_values, double * pred_data){" << endl;
+    iobs = 0;
+    for(; h_it != histos.end(); ++h_it, ++c_it, ++iobs){
+        histos_type::const_mapped_reference h_functions = *(h_it->second);
+        for(size_t i=0; i<h_functions.size(); ++i){
+            stringstream ss_prefix;
+            ss_prefix << prefix << "_hf_" << iobs << "_" << i;
+            out << "    " << ss_prefix.str() + "_hf_add_with_coeff(" + ss_prefix.str() + "_evaluate(par_values), par_values, pred_data + obs_offset[" << iobs << "]);" << endl;
+        }
+    }
+    out << "}" << endl;
 }
 
 void default_model::get_prediction_randomized(Random & rnd, Data & result, const ParValues & parameters) const{
@@ -107,9 +142,33 @@ std::auto_ptr<NLLikelihood> default_model::getNLLikelihood(const Data & data) co
         throw FatalException("Model::createNLLikelihood: observables of model and data mismatch!");
     }
     return std::auto_ptr<NLLikelihood>(new default_model_nll(*this, data, observables));
+    //return getCompiledNLLikelihood(data);
 }
 
-default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarIdManager>()){
+std::auto_ptr<NLLikelihood> default_model::getCompiledNLLikelihood(const Data & data) const{
+    if(not(data.getObservables()==observables)){
+        throw FatalException("Model::createNLLikelihood: observables of model and data mismatch!");
+    }
+    if(model_get_prediction == 0){
+        // generate code:
+        ofstream out("compiled_model.cpp");
+        PropertyMap pm;
+        pm.set("default", vm);
+        codegen::header(out, pm, parameters, observables);
+        codegen(out, "model", pm);
+        codegen::footer(out);
+        out.close();
+        // compile and load:
+        void * handle = codegen::compile_load_so("compiled_model.cpp");
+        model_get_prediction = reinterpret_cast<codegen::t_model_get_prediction>(dlsym(handle, "model_get_prediction"));
+        if(model_get_prediction==0){
+            throw Exception("model prediction symbol not found");
+        }
+    }
+    return std::auto_ptr<NLLikelihood>(new compiled_model_nll(*this, data, model_get_prediction));
+}
+
+default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarIdManager>()), model_get_prediction(0){
     SettingWrapper s = ctx.setting;
     ObsIds observables = vm->getAllObsIds();
     //go through observables to find the template definition for each of them:
@@ -149,7 +208,7 @@ default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarId
     }
 }
 
-default_model::default_model(const default_model & model, const theta::PropertyMap & pm): Model(model, pm.get<VarIdManager>()){
+default_model::default_model(const default_model & model, const theta::PropertyMap & pm): Model(model, pm.get<VarIdManager>()), model_get_prediction(0){
     for(histos_type::const_iterator it=model.histos.begin(); it!=model.histos.end(); ++it){
         boost::ptr_vector<HistogramFunction> & vec = histos[it->first];
         for(size_t i=0; i<it->second->size(); ++i){
@@ -221,6 +280,64 @@ double default_model_nll::operator()(const ParValues & values) const{
     }
     return result;
 }
+
+/* compiled_model_nll */
+compiled_model_nll::compiled_model_nll(const default_model & m, const Data & dat, codegen::t_model_get_prediction model_get_prediction_): model(m),
+  model_get_prediction(model_get_prediction_){
+    Function::par_ids = model.getParameters();
+    size_t total_nbins = 0;
+    ObsIds observables = dat.getObservables();
+    for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){
+        total_nbins += model.vm->get_nbins(*it);
+        if(total_nbins % 2) ++total_nbins;
+    }
+    data_concatenated.reset_n(total_nbins);
+    size_t offset = 0;
+    for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){
+        size_t nbins = model.vm->get_nbins(*it);
+        memcpy(data_concatenated.getData() + offset, dat[*it].getData(), nbins * sizeof(double));
+        offset += nbins;
+        if(offset % 2) ++offset;
+    }
+    pred_concatenated.reset_n(total_nbins);
+    parameter_values.resize(par_ids.size());
+}
+
+void compiled_model_nll::set_additional_term(const boost::shared_ptr<Function> & term){
+    additional_term = term;
+}
+
+void compiled_model_nll::set_override_distribution(const boost::shared_ptr<Distribution> & d){
+    override_distribution = d;
+}
+
+double compiled_model_nll::operator()(const ParValues & values) const{
+    //0. convert values to vector:
+    size_t i=0;
+    for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
+        parameter_values[i] = values.get_unchecked(*it);
+    }
+    double result = 0.0;
+    //1. the model prior first, because if we are out of bounds, we should not evaluate
+    //   the likelihood of the templates ...
+    if(override_distribution){
+        result += override_distribution->evalNL(values);
+    }
+    else{
+        result += model.get_parameter_distribution().evalNL(values);
+    }
+    //2. get the prediction of the model:
+    pred_concatenated.set_all_values(0.0);
+    model_get_prediction(&parameter_values[0], pred_concatenated.getData());
+    //3. the template likelihood
+    result += template_nllikelihood(data_concatenated.getData(), pred_concatenated.getData(), data_concatenated.size());
+    //3. The additional likelihood terms, if set:
+    if(additional_term){
+       result += (*additional_term)(values);
+    }
+    return result;
+}
+
 
 REGISTER_PLUGIN_DEFAULT(default_model)
 

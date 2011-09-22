@@ -15,7 +15,17 @@
 #include <emmintrin.h>
 #endif
 
+#include <boost/algorithm/string.hpp>
+
 namespace theta { namespace utils{
+
+extern std::string theta_dir;
+void fill_theta_dir(char** argv);
+
+/// Replaces the string "$THETA_DIR" by the theta directory; to be used by plugins resolving filenames
+inline std::string replace_theta_dir(const std::string & path) {
+   return boost::algorithm::replace_all_copy(path, "$THETA_DIR", theta_dir);
+}
 
 double phi_inverse(double p);
 

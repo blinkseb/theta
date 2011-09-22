@@ -11,7 +11,7 @@ sqlite_database_in::sqlite_database_in(const theta::Configuration & cfg){
    if(cfg.setting.exists("filename") && cfg.setting.exists("filenames")) throw ConfigurationException("both 'filename' and 'filenames' given");
    vector<string> filenames;
    if(cfg.setting.exists("filename")){
-       string filename = cfg.replace_theta_dir(cfg.setting["filename"]);
+       string filename = utils::replace_theta_dir(cfg.setting["filename"]);
        filenames.push_back(filename);
        n_files = 1;
    }
@@ -19,7 +19,7 @@ sqlite_database_in::sqlite_database_in(const theta::Configuration & cfg){
        n_files = cfg.setting["filenames"].size();
        if(n_files == 0) throw ConfigurationException("'filenames' is empty");
        for(size_t i=0; i<n_files; ++i){
-           string filename = cfg.replace_theta_dir(cfg.setting["filenames"][i]);
+           string filename = utils::replace_theta_dir(cfg.setting["filenames"][i]);
            filenames.push_back(filename);
        }
    }

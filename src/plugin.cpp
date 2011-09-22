@@ -9,7 +9,7 @@ void PluginLoader::execute(const Configuration & cfg) {
     SettingWrapper files = cfg.setting["plugin_files"];
     size_t n = files.size();
     for (size_t i = 0; i < n; i++) {
-        std::string filename = cfg.replace_theta_dir(files[i]);
+        std::string filename = utils::replace_theta_dir(files[i]);
         load(filename);
     }
 }
