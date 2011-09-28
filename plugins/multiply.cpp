@@ -1,12 +1,25 @@
 #include "plugins/multiply.hpp"
 #include "interface/plugin.hpp"
+#include "interface/redirect_stdio.hpp"
 
 using namespace theta;
 using namespace std;
 
 multiply::multiply(const Configuration & cfg): literal_factor(1.0){
-    size_t n = cfg.setting["factors"].size();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
+    string type = cfg.setting["type"];
+    if(type == "mult"){
+        theta::cout << "Warning: function plugin with type='mult' is obsolete. Use type='multiply' instead." << endl;
+        //compatibility mode: search for "parameters", instead of "factors"
+        size_t n = cfg.setting["parameters"].size();
+        for(size_t i=0; i<n; ++i){
+            ParId pid = vm->getParId(cfg.setting["parameters"][i]);
+            v_pids.push_back(pid);
+            par_ids.insert(pid);
+        }
+        return;
+    }
+    size_t n = cfg.setting["factors"].size();
     for(size_t i=0; i<n; ++i){
         libconfig::Setting::Type t = cfg.setting["factors"][i].getType();
         if(t==libconfig::Setting::TypeFloat){
@@ -44,4 +57,4 @@ double multiply::operator()(const ParValues & v) const{
 
 
 REGISTER_PLUGIN(multiply)
-
+REGISTER_PLUGIN_NAME(multiply,mult)
