@@ -117,16 +117,6 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
     }
 }
 
-std::auto_ptr<theta::Producer> mcmc_mean_prediction::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::Producer>(new mcmc_mean_prediction(*this, pm));
-}
-
-mcmc_mean_prediction::mcmc_mean_prediction(const mcmc_mean_prediction & rhs, const theta::PropertyMap & pm): Producer(rhs, pm),
-         RandomConsumer(rhs, pm, getName()), observables(rhs.observables), iterations(rhs.iterations), burn_in(rhs.burn_in),
-         sqrt_cov(rhs.sqrt_cov), startvalues(rhs.startvalues), init(rhs.init){
-    boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
-    declare_products(vm);
-}
 
 void mcmc_mean_prediction::declare_products(const boost::shared_ptr<VarIdManager> & vm){
     for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){

@@ -1,4 +1,5 @@
 #include "interface/random-utils.hpp"
+#include "interface/random.hpp"
 #include "interface/histogram.hpp"
 #include "interface/database.hpp"
 
@@ -60,17 +61,7 @@ RandomConsumer::RandomConsumer(const theta::Configuration & cfg, const std::stri
    cfg.pm->get<RndInfoTable>()->append(runid, name, seed);
 }
 
-RandomConsumer::RandomConsumer(const RandomConsumer & rhs, const theta::PropertyMap & pm, const std::string & name): seed(rhs.seed){
-    std::auto_ptr<RandomSource> rnd_src = rhs.rnd_gen->get_source().clone();
-    rnd_gen.reset(new Random(rnd_src));
-    int seed_offset = 0;
-    if(pm.exists<int>("seed_offset")){
-        seed_offset = *(pm.get<int>("seed_offset"));
-    }
-    rnd_gen->set_seed(seed + seed_offset);
-    int runid = *(pm.get<int>("runid"));
-    pm.get<RndInfoTable>()->append(runid, name, seed);
-}
+RandomConsumer::~RandomConsumer(){}
 
 void theta::randomize_poisson(DoubleVector & d, Random & rnd){
     const size_t n = d.size();

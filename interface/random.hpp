@@ -20,7 +20,6 @@ class RandomSource{
     friend class Random;
     public:
         virtual ~RandomSource(){}
-        virtual std::auto_ptr<RandomSource> clone() const = 0;
     protected:
         /** \brief Fill the buffer with full 32 bit pseudorandom numbers.
          */
@@ -133,7 +132,6 @@ public:
          */
         virtual void fill(std::vector<unsigned int> & buffer);
         virtual void set_seed(unsigned int);
-        virtual std::auto_ptr<RandomSource> clone() const;
         //@}
     public:
         /// Default constructor; uses the same seed each time
@@ -164,7 +162,6 @@ public:
          */
         virtual void fill(std::vector<unsigned int> & buffer);
         virtual void set_seed(unsigned int);
-        virtual std::auto_ptr<RandomSource> clone() const;
         //@}
     public:
         /// Default constructor; uses the same seed each time

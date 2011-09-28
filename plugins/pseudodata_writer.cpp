@@ -38,14 +38,5 @@ void pseudodata_writer::declare_products(const boost::shared_ptr<VarIdManager> &
     }
 }
 
-std::auto_ptr<theta::Producer> pseudodata_writer::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::Producer>(new pseudodata_writer(*this, pm));
-}
-
-pseudodata_writer::pseudodata_writer(const pseudodata_writer & rhs, const theta::PropertyMap & pm): Producer(rhs, pm),
-  observables(rhs.observables), write_data(rhs.write_data){
-    boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
-    declare_products(vm);
-}
 
 REGISTER_PLUGIN(pseudodata_writer)

@@ -3,7 +3,6 @@
 
 #include "interface/decls.hpp"
 #include "interface/variables.hpp"
-#include "interface/plugin.hpp"
 
 namespace theta{
 
@@ -101,8 +100,6 @@ namespace theta{
         /// declare destructor as virtual, as polymorphic access will happen
         virtual ~Distribution(){}
         
-        /// Clone the Distribution, using shared data from the pm.
-        virtual std::auto_ptr<Distribution> clone() const = 0;
     protected:
         ParIds par_ids;
     };
@@ -122,3 +119,4 @@ namespace theta{
 }
 
 #endif
+

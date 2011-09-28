@@ -1,12 +1,13 @@
 #include "plugins/gamma_distribution.hpp"
 #include "interface/utils.hpp"
 #include "interface/random.hpp"
+#include "interface/plugin.hpp"
 
 using namespace std;
 using namespace theta;
 
 /*
-Note: the gamma-distribution::sample method is from boost and thus subject to following license.
+Note: the gamma_distribution::sample method is from boost and thus subject to following license.
 
 
 Boost Software License - Version 1.0 - August 17th, 2003
@@ -118,11 +119,6 @@ double gamma_distribution::evalNL_withDerivatives(const theta::ParValues & value
 const std::pair<double, double> & gamma_distribution::support(const theta::ParId & p) const{
     return supp;
 }
-
-std::auto_ptr<Distribution> gamma_distribution::clone() const{
-    return std::auto_ptr<Distribution>(new gamma_distribution(*this));
-}
-
 
 double gamma_distribution::width(const theta::ParId & p) const{
     return sqrt(k) * theta;

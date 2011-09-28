@@ -47,7 +47,6 @@ public:
     virtual const std::pair<double, double> & support(const theta::ParId & p) const;
     virtual double width(const theta::ParId & p) const;
     gamma_distribution(const theta::Configuration & cfg);
-    virtual std::auto_ptr<theta::Distribution> clone() const;
 private:
     std::pair<double, double> supp;
     double k, theta, eoverkp1;

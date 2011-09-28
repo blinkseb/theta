@@ -21,27 +21,12 @@ BOOST_AUTO_TEST_CASE(distribution_lognormal){
     
     stringstream ss_config;
     ss_config << "mu = 2.0; sigma = 0.5; parameter = \"var0\"; type=\"log_normal\";";
-    ConfigCreator cc(ss_config.str(), vm);
-    
-    /*Config c;
-    Setting & s = c.getRoot();
-    s.add("mu", Setting::TypeFloat);
-    s["mu"] = mu;
-    s.add("sigma", Setting::TypeFloat);
-    s["sigma"] = sigma;
-    s.add("parameter", Setting::TypeString);
-    s["parameter"] = "var0";
-    s.add("type", Setting::TypeString);
-    s["type"] = "log_normal";*/
-    
-    
+    ConfigCreator cc(ss_config.str(), vm);    
     
     ParId var0 = vm->createParId("var0");
-    /*theta::SettingUsageRecorder rec;
-    Configuration cfg(vm, SettingWrapper(s, s, rec));*/
     
     BOOST_TEST_CHECKPOINT("building lognormal");
-    std::auto_ptr<Distribution> d = PluginManager<Distribution>::instance().build(cc.get());
+    std::auto_ptr<Distribution> d = PluginManager<Distribution>::build(cc.get());
     
     //must return +infinity for argument < 0:
     ParValues values;
@@ -69,7 +54,7 @@ BOOST_AUTO_TEST_CASE(distribution_lognormal){
         //the same on the Distribution object:
         values.set(var0, x);
         double lognormal_x_d = d->evalNL(values);
-        BOOST_CHECK(utils::close_to(-utils::log(lognormal_x / lognormal_mu), lognormal_x_d - lognormal_mu_d, 10));
+        BOOST_CHECK(close_to(-utils::log(lognormal_x / lognormal_mu), lognormal_x_d - lognormal_mu_d, 10));
     }
     std::auto_ptr<RandomSource> rnd_src(new RandomSourceTaus());
     Random rnd(rnd_src);

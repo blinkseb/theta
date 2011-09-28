@@ -57,12 +57,7 @@ public:
     
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
                 const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
-    
-    virtual std::auto_ptr<theta::Minimizer> clone(const theta::PropertyMap & pm) const;
-    
 private:
-    mcmc_minimizer(const mcmc_minimizer & rhs, const theta::PropertyMap & pm);
-    
     std::auto_ptr<theta::Minimizer> after_minimizer;
     std::string name;
     unsigned int iterations;

@@ -55,10 +55,8 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     mle(const theta::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
-    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    mle(const mle & rhs, const theta::PropertyMap & pm);
     void declare_products();
     
     std::auto_ptr<theta::Minimizer> minimizer;

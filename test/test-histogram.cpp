@@ -1,7 +1,7 @@
 #include "interface/histogram.hpp"
 #include "interface/histogram-function.hpp"
 #include "interface/phys.hpp"
-#include "interface/utils.hpp"
+#include "test/utils.hpp"
 #include "interface/random.hpp"
 #include "interface/exception.hpp"
 
@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(getset){
         m.set(i, a);
     }
 
-    BOOST_CHECK(utils::close_to_relative(m.get_sum(),sum));
+    BOOST_CHECK(close_to_relative(m.get_sum(),sum));
 
     for(size_t i=0; i<nbins; i++){
         double a = sqrt(i+0.0);
@@ -115,21 +115,21 @@ BOOST_AUTO_TEST_CASE(getset){
     content += 1.7;
     BOOST_CHECK(content==m.get(0));
     sum += 1.7;
-    BOOST_CHECK(utils::close_to_relative(m.get_sum(),sum));
+    BOOST_CHECK(close_to_relative(m.get_sum(),sum));
 
     //fill in underflow, content should not change
     content = m.get(0);
     double delta = 10.032;
     m.fill(-1.001, delta);
     BOOST_CHECK(content==m.get(0));
-    BOOST_CHECK(utils::close_to_relative(m.get_sum(),sum));
+    BOOST_CHECK(close_to_relative(m.get_sum(),sum));
 
     //fill in overflow, content should not change:
     content = m.get(nbins-1);
     delta = 7.032;
     m.fill(1.001, delta);
     BOOST_CHECK(content==m.get(nbins-1));
-    BOOST_CHECK(utils::close_to_relative(m.get_sum(),sum));
+    BOOST_CHECK(close_to_relative(m.get_sum(),sum));
 }
 
 //test +=

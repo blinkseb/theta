@@ -1,5 +1,6 @@
 #include "interface/distribution.hpp"
 #include "interface/exception.hpp"
+#include "interface/plugin.hpp"
 
 REGISTER_PLUGIN_BASETYPE(theta::Distribution);
 

@@ -28,8 +28,6 @@ public:
     constrain_ratio(const theta::Configuration & cfg);
     /// overloaded evaluation of the function
     virtual double operator()(const theta::ParValues & v) const;
-    
-    virtual std::auto_ptr<theta::Function> clone() const;
 };
 
 #endif

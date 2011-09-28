@@ -3,7 +3,6 @@
 
 #include "interface/decls.hpp"
 #include "interface/histogram.hpp"
-#include "interface/plugin.hpp"
 #include "interface/variables.hpp"
 
 namespace theta {
@@ -75,10 +74,6 @@ namespace theta {
         /// Declare the destructor virtual as there will be polymorphic access to derived classes
         virtual ~HistogramFunction(){}
         
-        virtual std::auto_ptr<HistogramFunction> clone() const = 0;
-        
-        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
-        
     protected:
         /// To be filled by derived classes:
         ParIds par_ids;
@@ -111,14 +106,6 @@ namespace theta {
         virtual Histogram1D get_histogram_dimensions() const{
             return h;
         }
-        
-        virtual std::auto_ptr<HistogramFunction> clone() const{
-            std::auto_ptr<ConstantHistogramFunction> result;
-            result->h = h;
-            return std::auto_ptr<HistogramFunction>(result.release());
-        }
-        
-        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
 
     protected:
         /** \brief Set the constant Histogram to return
@@ -190,15 +177,6 @@ namespace theta {
             return h;
         }
         
-        virtual std::auto_ptr<HistogramFunction> clone() const{
-            std::auto_ptr<ConstantHistogramFunctionError> result;
-            //result->par_ids remains empty ...
-            result->h = h;
-            result->err = err;
-            result->fluc = fluc;
-            return std::auto_ptr<HistogramFunction>(result.release());
-        }
-
     protected:
         /** \brief Set the Histogram and the errors to to return
          *

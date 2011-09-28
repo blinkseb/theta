@@ -21,8 +21,4 @@ double constrain_ratio::operator()(const theta::ParValues & values) const{
     return 0.5 * pow((nominator / denominator - mean) / width, 2);
 }
 
-std::auto_ptr<theta::Function> constrain_ratio::clone() const{
-    return auto_ptr<Function>(new constrain_ratio(*this));
-}
-
 REGISTER_PLUGIN(constrain_ratio)

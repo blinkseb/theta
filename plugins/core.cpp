@@ -20,8 +20,8 @@ fixed_poly::fixed_poly(const Configuration & ctx){
         ss << "Empty definition of coefficients for polynomial at path " << s["coefficients"].getPath();
         throw ConfigurationException(ss.str());
     }
-    size_t nbins = vm->get_nbins(obs_id);
-    pair<double, double> range = vm->get_range(obs_id);
+    size_t nbins = vm->getNbins(obs_id);
+    pair<double, double> range = vm->getRange(obs_id);
     Histogram1D h(nbins, range.first, range.second);
     vector<double> coeffs(order + 1);
     for (int i = 0; i <= order; i++) {
@@ -51,8 +51,8 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
     double mean = s["mean"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     ObsId obs_id = vm->getObsId(s["observable"]);
-    size_t nbins = vm->get_nbins(obs_id);
-    pair<double, double> range = vm->get_range(obs_id);
+    size_t nbins = vm->getNbins(obs_id);
+    pair<double, double> range = vm->getRange(obs_id);
     Histogram1D h(nbins, range.first, range.second);
     //fill the histogram:
     for (size_t i = 0; i < nbins; i++) {
@@ -82,9 +82,6 @@ log_normal::log_normal(const Configuration & cfg){
     par_ids.insert(vm->getParId(par_name));
 }
 
-std::auto_ptr<theta::Distribution> log_normal::clone() const{
-    return auto_ptr<Distribution>(new log_normal(*this));
-}
 
 double log_normal::evalNL(const ParValues & values) const {
     double x = values.get(*par_ids.begin());
@@ -133,9 +130,6 @@ delta_distribution::delta_distribution(const theta::Configuration & cfg){
     par_ids = values.getParameters();
 }
 
-std::auto_ptr<theta::Distribution> delta_distribution::clone() const{
-    return auto_ptr<Distribution>(new delta_distribution(*this));
-}
 
 void delta_distribution::sample(theta::ParValues & result, theta::Random &) const{
     result.set(values);
@@ -184,9 +178,6 @@ flat_distribution::flat_distribution(const theta::Configuration & cfg){
             modes.set(pid, fix_sample_values.get(pid));
         }
     }
-}
-std::auto_ptr<theta::Distribution> flat_distribution::clone() const{
-    return auto_ptr<Distribution>(new flat_distribution(*this));
 }
 
 void flat_distribution::sample(theta::ParValues & result, theta::Random & rnd) const{
@@ -271,9 +262,6 @@ void gauss::sample(ParValues & result, Random & rnd) const{
     }while(repeat);
 }
 
-std::auto_ptr<theta::Distribution> gauss::clone() const{
-    return auto_ptr<Distribution>(new gauss(*this));
-}
 
 double gauss::evalNL(const ParValues & values) const{
     const size_t n = v_par_ids.size();
@@ -396,9 +384,6 @@ void gauss1d::sample(ParValues & result, Random & rnd) const{
     throw Exception("gauss1d::sample: too many iterations necessary to fulfill configured range");
 }
 
-std::auto_ptr<theta::Distribution> gauss1d::clone() const{
-    return auto_ptr<Distribution>(new gauss1d(*this));
-}
 
 double gauss1d::evalNL(const ParValues & values) const{
     double value = values.get_unchecked(*par_ids.begin());
@@ -460,7 +445,7 @@ void product_distribution::add_distributions(const Configuration & cfg, const th
             add_distributions(cfg, dist_setting["distributions"], depth-1);
         }
         else{
-            distributions.push_back(PluginManager<Distribution>::instance().build(Configuration(cfg, dist_setting)));
+            distributions.push_back(PluginManager<Distribution>::build(Configuration(cfg, dist_setting)));
             ParIds new_pids = distributions.back().getParameters();
             par_ids.insert(new_pids.begin(), new_pids.end());
             for(ParIds::const_iterator it=new_pids.begin(); it!=new_pids.end(); ++it){
@@ -472,17 +457,6 @@ void product_distribution::add_distributions(const Configuration & cfg, const th
 
 product_distribution::product_distribution(const Configuration & cfg){
     add_distributions(cfg, cfg.setting["distributions"], 10);
-}
-
-product_distribution::product_distribution(const product_distribution & rhs): Distribution(rhs), parid_to_index(rhs.parid_to_index){
-    distributions.reserve(rhs.distributions.size());
-    for(size_t i=0;i < rhs.distributions.size(); ++i){
-        distributions.push_back(rhs.distributions[i].clone());
-    }
-}
-
-std::auto_ptr<theta::Distribution> product_distribution::clone() const{
-    return auto_ptr<Distribution>(new product_distribution(*this));
 }
 
 void product_distribution::sample(ParValues & result, Random & rnd) const{
@@ -526,11 +500,11 @@ const std::pair<double, double> & product_distribution::support(const ParId & p)
 
 model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, getName()), save_nll(false), dice_poisson(true),
   dice_template_uncertainties(true){
-    model = PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["model"]));
+    model = PluginManager<Model>::build(Configuration(cfg, cfg.setting["model"]));
     par_ids = model->getParameters();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     if(cfg.setting.exists("override-parameter-distribution")){
-        override_parameter_distribution = PluginManager<Distribution>::instance().build(Configuration(cfg, cfg.setting["override-parameter-distribution"]));
+        override_parameter_distribution = PluginManager<Distribution>::build(Configuration(cfg, cfg.setting["override-parameter-distribution"]));
     }
     if(cfg.setting.exists("dice_poisson")){
         dice_poisson = cfg.setting["dice_poisson"];
@@ -567,28 +541,6 @@ model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), R
     if(save_nll){
         c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
     }
-}
-
-model_source::model_source(const model_source & rhs, const theta::PropertyMap & pm): DataSource(rhs), RandomConsumer(rhs, pm, getName()),
-     parameters_for_nll(rhs.parameters_for_nll), save_nll(rhs.save_nll), par_ids(rhs.par_ids), dice_poisson(rhs.dice_poisson),
-     dice_template_uncertainties(rhs.dice_template_uncertainties){
-    
-    boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
-    for(ParIds::const_iterator p_it=par_ids.begin(); p_it!=par_ids.end(); ++p_it){
-        parameter_columns.push_back(products_sink->declare_product(*this, vm->getName(*p_it), theta::typeDouble));
-    }
-    if(save_nll){
-        c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
-    }
-    model = rhs.model->clone(pm);
-    if(rhs.override_parameter_distribution.get()){
-        override_parameter_distribution = override_parameter_distribution->clone();
-    }
-}
-
-
-std::auto_ptr<theta::DataSource> model_source::clone(const theta::PropertyMap & pm) const{
-    return auto_ptr<DataSource>(new model_source(*this, pm));
 }
 
 void model_source::fill(Data & dat){

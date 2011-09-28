@@ -94,7 +94,7 @@ ObsId VarIdManager::getObsId(const std::string & name) const {
     return ObsId(it->second);
 }
 
-size_t VarIdManager::get_nbins(const ObsId & id) const{
+size_t VarIdManager::getNbins(const ObsId & id) const{
     std::map<size_t, size_t>::const_iterator it = oid_to_nbins.find(id.id);
     if (it == oid_to_nbins.end()) {
         throw NotFoundException("VarIdManager::getNbins: did not find given variable id.");
@@ -102,7 +102,7 @@ size_t VarIdManager::get_nbins(const ObsId & id) const{
     return it->second;
 }
 
-const pair<double, double> & VarIdManager::get_range(const ObsId & id) const{
+const pair<double, double> & VarIdManager::getRange(const ObsId & id) const{
     std::map<size_t, pair<double, double> >::const_iterator it = oid_to_range.find(id.id);
     if (it == oid_to_range.end()) {
         throw NotFoundException("VarIdManager::getRange: did not find given variable id.");

@@ -13,7 +13,7 @@ class proxy_function: public Function{
 public:
     proxy_function(const Configuration & cfg){
          Configuration ctx2(cfg,cfg.setting["block"]);
-         f = PluginManager<Function>::instance().build(ctx2);
+         f = PluginManager<Function>::build(ctx2);
          par_ids = f->getParameters();
     }
     
@@ -25,10 +25,6 @@ public:
            ex.message = "exception caught by proxy_function: " + ex.message;
            throw;
        }
-    }
-    
-    virtual std::auto_ptr<Function> clone() const{
-        throw InvalidArgumentException("clone not supported");
     }
 private:
    auto_ptr<Function> f;

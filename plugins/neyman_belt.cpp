@@ -2,6 +2,7 @@
 #include "interface/database.hpp"
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
+#include "interface/distribution.hpp"
 #include "interface/redirect_stdio.hpp"
 
 #include <string>
@@ -611,17 +612,17 @@ neyman_belt::neyman_belt(const Configuration & cfg): force_increasing_belt(false
         force_increasing_belt = cfg.setting["force_increasing_belt"];
     }
     
-    toy_database = PluginManager<DatabaseInput>::instance().build(Configuration(cfg, cfg.setting["toy_database"]));
+    toy_database = PluginManager<DatabaseInput>::build(Configuration(cfg, cfg.setting["toy_database"]));
     truth_column = static_cast<string>(cfg.setting["truth_column"]);
     ts_column = static_cast<string>(cfg.setting["ts_column"]);
     
-    output_database = PluginManager<Database>::instance().build(Configuration(cfg, cfg.setting["output_database"]));
+    output_database = PluginManager<Database>::build(Configuration(cfg, cfg.setting["output_database"]));
     if(ordering_rule == "fclike"){
         save_double_products.reset(new SaveDoubleProducts());
         cfg.pm->set<ProductsSink>("default", save_double_products);
-        model = PluginManager<Model>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["model"]));
+        model = PluginManager<Model>::build(Configuration(cfg, cfg.setting["fclike_options"]["model"]));
         poi.reset(new ParId(vm->getParId(cfg.setting["fclike_options"]["truth"])));
-        ts_producer = PluginManager<Producer>::instance().build(Configuration(cfg, cfg.setting["fclike_options"]["ts_producer"]));
+        ts_producer = PluginManager<Producer>::build(Configuration(cfg, cfg.setting["fclike_options"]["ts_producer"]));
         //ts_name is the "module only" part of ts_column:
         size_t p = ts_column.find("__");
         if(p==string::npos){

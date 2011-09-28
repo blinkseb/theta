@@ -7,7 +7,7 @@ add_sources::add_sources(const theta::Configuration & cfg): DataSource(cfg){
     size_t n = s.size();
     if(n==0) ConfigurationException("have to specify at least one source in 'sources'");
     for(size_t i=0; i<n; ++i){
-        sources.push_back(PluginManager<DataSource>::instance().build(Configuration(cfg, s[i])));
+        sources.push_back(PluginManager<DataSource>::build(Configuration(cfg, s[i])));
     }
 }
 
@@ -31,16 +31,6 @@ void add_sources::fill(theta::Data & dat){
                dat[*it] = data_tmp[*it];
             }
         }
-    }
-}
-
-std::auto_ptr<theta::DataSource> add_sources::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::DataSource>(new add_sources(*this, pm));
-}
-
-add_sources::add_sources(const add_sources & rhs, const theta::PropertyMap & pm): DataSource(rhs){
-    for(size_t i=0; i<rhs.sources.size(); ++i){
-        sources.push_back(rhs.sources[i].clone(pm));
     }
 }
 

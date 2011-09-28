@@ -1,11 +1,8 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <sys/time.h>
-#include <algorithm>
 #include <cmath>
-
-#include <iostream>
+#include <string>
 
 #ifdef USE_CRLIBM
 #include "crlibm/crlibm.h"
@@ -19,7 +16,7 @@
 #include <emmintrin.h>
 #endif
 
-#include <boost/algorithm/string.hpp>
+
 
 namespace theta { namespace utils{
 
@@ -27,9 +24,7 @@ extern std::string theta_dir;
 void fill_theta_dir(char** argv);
 
 /// Replaces the string "$THETA_DIR" by the theta directory; to be used by plugins resolving filenames
-inline std::string replace_theta_dir(const std::string & path) {
-   return boost::algorithm::replace_all_copy(path, "$THETA_DIR", theta_dir);
-}
+std::string replace_theta_dir(const std::string & path);
 
 double phi_inverse(double p);
 
@@ -128,30 +123,6 @@ inline double exp(double x){
 #else
     return ::exp(x);
 #endif
-}
-
-/** \brief Equality check for floating point numbers using relative comparison
- *
- * This function checks whether a and b are "close" on the sense
- * that the relative difference is very small.
- * a and b must not both be zero.
- */
-inline bool close_to_relative(double a, double b){
-   return fabs(a-b) / std::max(fabs(a),fabs(b)) < 10e-15;
-}
-
-/** \brief Equality check for floating point numbers using comparison to an external scale
- *
- * This function checks whether a and b are "close"
- * compared to \c scale. Note that \c scale is not a
- * maximal tolerance, but a typical scale which was used to 
- * compute a and b which might be equal as result of this
- * computation, but round-off errors might tell you that a!=b.
- *
- * scale > 0 must hold.
- */
-inline bool close_to(double a, double b, double scale){
-   return fabs(a-b) / scale < 10e-15;
 }
 
 

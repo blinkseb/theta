@@ -3,16 +3,11 @@
 
 #include "interface/decls.hpp"
 #include "interface/variables.hpp"
-#include "interface/plugin.hpp"
-#include "interface/distribution.hpp" 
 #include "interface/histogram.hpp"
 #include "interface/producer.hpp"
 
 #include <vector>
-#include <string>
-#include <limits>
-#include <set>
-#include <map>
+
 
 namespace theta {
     
@@ -62,12 +57,9 @@ namespace theta {
             return par_ids;
         }
         
-        virtual std::auto_ptr<Function> clone() const = 0;
-        
         /// Declare destructor virtual as polymorphic access to derived classes will happen.
         virtual ~Function(){}
         
-        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
     protected:
         /** \brief The parameters this function depends on
          *
@@ -160,12 +152,9 @@ namespace theta {
         /// Declare destructor virtual as polymorphic access to derived classes will happen.
         virtual ~DataSource(){}
         
-        virtual std::auto_ptr<DataSource> clone(const theta::PropertyMap & pm) const = 0;
-        
     protected:
         /// proxy to ProductsTableWriter constructor for derived classes
         DataSource(const theta::Configuration & cfg): ProductsSource(cfg){}
-        DataSource(const DataSource & rhs, const theta::PropertyMap & pm): ProductsSource(rhs, pm){}
     };
     
 

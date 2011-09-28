@@ -50,25 +50,4 @@ double exp_function::operator()(const theta::ParValues & values) const{
     return exp(exponent_total);
 }
 
-void exp_function::codegen(std::ostream & out, const std::string & prefix, const theta::PropertyMap & pm) const{
-    boost::shared_ptr<VarIdManager> vm = pm.get<VarIdManager>();
-    out << "double " << prefix << "_evaluate(const double * par_values){" << endl
-        << "    double exponent_total = 0.0, val;" << endl;
-        for(size_t i=0; i<v_pids.size(); ++i){
-            out << "    val = par_values[pindex_" << vm->getName(v_pids[i]) << "];" << endl;
-            if(lambdas_minus[i]==lambdas_plus[i]){
-                out << "    exponent_total += " << codegen::dtos(lambdas_minus[i]) << " * val;" << endl;
-            }
-            else{
-                out << "    exponent_total += (val < 0 ? " << codegen::dtos(lambdas_minus[i]) << ":" << codegen::dtos(lambdas_plus[i]) << ") * val;" << endl;
-            }
-        }
-    out << "    return utils::exp(exponent_total);" << endl;
-    out << "}" << endl << endl;
-}
-
-std::auto_ptr<theta::Function> exp_function::clone() const{
-    return std::auto_ptr<theta::Function>(new exp_function(*this));
-}
-
 REGISTER_PLUGIN(exp_function)

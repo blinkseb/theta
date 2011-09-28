@@ -30,7 +30,9 @@ def get_histo_cfg(histogram):
 
 # signal_processes is a list of process names (strings) to consider *simultaneously* as signal
 # It can also be an empty list.
-def write_cfg(model, signal_processes, method, input, id = None, additional_settings = {}):
+#
+# options are passed to model.get_cfg
+def write_cfg(model, signal_processes, method, input, id = None, additional_settings = {}, **options):
     for sp in signal_processes:
         assert sp in model.signal_processes, "invalid signal process '%s'" % sp
     model_parameters = sorted(list(model.get_parameters(signal_processes)))
@@ -43,7 +45,7 @@ def write_cfg(model, signal_processes, method, input, id = None, additional_sett
         xmin, xmax, nbins = model.observables[o]
         obs[o] = {'range': [xmin, xmax], 'nbins': nbins}
     config += "observables = " + settingvalue_to_cfg(obs, 0, ['observables']) + ";\n"
-    cfg_model = model.get_cfg(signal_processes)
+    cfg_model = model.get_cfg(signal_processes, **options)
     if 'beta_signal' in model_parameters:
         cfg_model['parameter-distribution'] = product_distribution("@model-distribution-signal", model.distribution.get_cfg(model_parameters))
     else:
@@ -83,7 +85,7 @@ def sqlite_database(fname = ''):
 
 # cfg_names is a list of filenames (without ".cfg") which are expected to be located in the working directory
 # valid options:
-#  * model: if True, do not delete the db file in case of failure
+#  * debug: if True, do not delete the db file in case of failure and do not redirect theta stdio
 def run_theta(cfg_names, **options):
     cache_dir = os.path.join(global_config.workdir, 'cache')
     if not os.path.exists(cache_dir): os.mkdir(cache_dir)

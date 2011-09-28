@@ -34,7 +34,7 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
     for p in processes:
         if p in model.signal_processes: print >> f, '<li>%s</li>' % p
     print >> f, "</ul>"
-    print >> f, '<p>Nuisance parameters:</p>\n<ul>'
+    print >> f, '<p>Nuisance parameters (includes only those which apply to the background-only model):</p>\n<ul>'
     parameters = sorted(list(model.get_parameters([])))
     rc_pars, sc_pars = model.get_rate_shape_parameters()
     for par in parameters:
@@ -96,10 +96,12 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
     f = open(os.path.join(config.workdir, "model_summary_rate_impacts.thtml"), 'w')
     print >> f, """<p>The table below summarises the impact of an nuisance parameter on the rate prediction of a process.</p>
     <p>For a nuisance parameter, (gauss) indicates that this nuisance parameter has a gaussian prior, (gamma) that it has a gamma prior.</p>
-    <p>For the individual cells, (r) indicates the 'rate only' part of the uncertainty, (s) indicates the effect on the rate of an uncertainty treated via template morphing (i.e., the rate
-    effect of an uncertainty with template morphing).<br/>
+    <p>For the individual cells, (r) indicates the 'rate only' part of the uncertainty, (s) indicates the effect on the rate of an uncertainty
+    treated via template morphing (i.e., the <em>rate</em> effect of an uncertainty treated as part of the
+    template morphing; even if this is zero, the shape effect is still taken into account). Note that both effects are applied seperatly, so
+    the total rate change is about the linear sum of these two.<br/>
     The rate change in 'plus' direction of the uncertainty is written as superscript,
-    the 'minus' direction as subscript.<br/>All numbers are in per cent.</p>"""
+    the 'minus' direction as subscript.<br/>All numbers are in percent.</p>"""
     for o in observables:
         print >> f, "<h2>Observable '%s'</h2>" % o
         rate_impact_table = table()
@@ -118,7 +120,8 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
             for par in parameters:
                 splus, sminus = None, None
                 if par in hf.syst_histos:
-                    splus, sminus = map(lambda h: sum(h[2]) / histo_nominal_integral - 1.0, hf.syst_histos[par])
+                    if hf.normalize_to_nominal: splus, sminus = 0, 0
+                    else: splus, sminus = map(lambda h: sum(h[2]) / histo_nominal_integral - 1.0, hf.syst_histos[par])
                 rplus, rminus = 0.0, 0.0
                 if par in coeff.factors:
                     if type(coeff.factors[par])==dict and coeff.factors[par]['type'] == 'exp_function':
@@ -129,10 +132,10 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
                        rminus = -model.distribution.get_distribution(par)['width']
                 cell = ''
                 if splus is not None:
-                    cell += '<sup>%+.4g</sup><sub>%+.4g</sub> (s) ' % (splus * 100, sminus * 100)
+                    cell += '<sup>%+.f</sup><sub>%+.f</sub> (s) ' % (splus * 100, sminus * 100)
                 if (rplus, rminus) != (0.0, 0.0):
-                    if rplus==-rminus:  cell += '&#xb1;%.4g (r)' % (rplus * 100)
-                    else: cell += '<sup>%+.4g</sup><sub>%+.4g</sub> (r) ' % (rplus * 100, rminus * 100)
+                    if rplus==-rminus:  cell += '&#xb1;%.f (r)' % (rplus * 100)
+                    else: cell += '<sup>%+.f</sup><sub>%+.f</sub> (r) ' % (rplus * 100, rminus * 100)
                 if cell == '': cell = '---'
                 rate_impact_table.set_column(par, cell)
             rate_impact_table.add_row()

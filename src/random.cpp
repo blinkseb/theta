@@ -220,10 +220,6 @@ void RandomSourceTaus::fill(vector<unsigned int> & buffer) {
     }
 }
 
-std::auto_ptr<RandomSource> RandomSourceTaus::clone() const{
-    return std::auto_ptr<RandomSource>(new RandomSourceTaus(*this));
-}
-
 void RandomSourceMersenneTwister::set_seed(unsigned int seed){
     mt[0]= seed & 0xffffffffU;
     for (mti=1; mti<N; mti++) {
@@ -263,11 +259,6 @@ void RandomSourceMersenneTwister::fill(vector<unsigned int> & buffer) {
         y ^= (y >> 18);
         *it = y;
     }
-}
-
-std::auto_ptr<RandomSource> RandomSourceMersenneTwister::clone() const{
-    return std::auto_ptr<RandomSource>(new RandomSourceMersenneTwister(*this));
-    
 }
 
 

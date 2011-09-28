@@ -4,12 +4,16 @@
 #include <limits>
 
 #include <boost/math/special_functions/gamma.hpp>
-
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
 
 namespace theta{ namespace utils{
+
+std::string replace_theta_dir(const std::string & path) {
+   return boost::algorithm::replace_all_copy(path, "$THETA_DIR", theta_dir);
+}
 
 void fill_theta_dir(char** argv){
     if(argv!=0){

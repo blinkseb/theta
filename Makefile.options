@@ -8,13 +8,11 @@
 OPTIONS_BUILD_TESTS := yes
 
 # whether or not to use the log function from crlibm (which is faster than the standard log)
-OPTIONS_USE_CRLIBM := yes
+OPTIONS_USE_CRLIBM := no
 
-OPTIONS_USE_AMDLIBM := no
+OPTIONS_USE_AMDLIBM := yes
 
-# If set to yes, define the NDEBUG macro which omits some checks / asserts. Usually, this optimization
-# only has little impact on the overall runtime (2-4%).
-OPTIONS_NODEBUG := no
+OPTIONS_BUILD_LLVM := no
 
 # if you installed boost or sqlite not system-wide but in a special location, set the installation
 # directory here. It is assumed that "include" and "lib" subdirectories exist there:

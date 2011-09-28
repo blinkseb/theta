@@ -40,10 +40,7 @@ public:
      */
     virtual void fill(theta::Data & dat);
     
-    virtual std::auto_ptr<DataSource> clone(const theta::PropertyMap & pm) const;
-    
 private:
-    histo_source(const histo_source & rhs, const theta::PropertyMap & pm);
     theta::Data data;
 };
 

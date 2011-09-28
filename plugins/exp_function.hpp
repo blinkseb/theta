@@ -35,8 +35,6 @@ public:
     exp_function(const theta::Configuration & cfg);
     /// overloaded evaluation operator of theta::Function
     virtual double operator()(const theta::ParValues & v) const;
-    virtual std::auto_ptr<theta::Function> clone() const;
-    virtual void codegen(std::ostream & out, const std::string & prefix, const theta::PropertyMap & pm) const;
 };
 
 

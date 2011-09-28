@@ -15,8 +15,4 @@ double nl_one_over_sqrt::operator()(const theta::ParValues & values) const{
     return 0.5 * val;
 }
 
-std::auto_ptr<theta::Function> nl_one_over_sqrt::clone() const{
-    return std::auto_ptr<theta::Function>(new nl_one_over_sqrt(*this));
-}
-
 REGISTER_PLUGIN(nl_one_over_sqrt)

@@ -77,15 +77,6 @@ void mcmc_quantiles::produce(const Data & data, const Model & model) {
     }
 }
 
-std::auto_ptr<theta::Producer> mcmc_quantiles::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::Producer>(new mcmc_quantiles(*this, pm));
-}
-
-mcmc_quantiles::mcmc_quantiles(const mcmc_quantiles & rhs, const theta::PropertyMap & pm): Producer(rhs, pm), RandomConsumer(rhs, pm, getName()),
- init(rhs.init), quantiles(rhs.quantiles), par_id(rhs.par_id), ipar(rhs.ipar), iterations(rhs.iterations), burn_in(rhs.burn_in),
- sqrt_cov(rhs.sqrt_cov), startvalues(rhs.startvalues){
-    declare_products();
-}
 
 void mcmc_quantiles::declare_products(){
     for(size_t i=0; i<quantiles.size(); ++i){

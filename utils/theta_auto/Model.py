@@ -8,11 +8,16 @@ class rootfile:
         assert os.path.isfile(filename), "File %s not found (cwd: %s)" % (filename, os.getcwd())
         self.filename = filename
         self.tfile = ROOT.TFile(filename, "read")
-        self.tfile_dirs = []
+        
+    @staticmethod
+    def th1_to_histo(th1):
+        xmin, xmax, nbins = th1.GetXaxis().GetXmin(), th1.GetXaxis().GetXmax(), th1.GetNbinsX()
+        data = [th1.GetBinContent(i) for i in range(1, nbins+1)]
+        return xmin, xmax, data
   
     # get all templates as dictionary (histogram name) --> (float xmin, float xmax, list float data)
     # only checks type of histogram, not naming convention
-    def get_templates(self):
+    def get_all_templates(self):
         result = {}
         l = self.tfile.GetListOfKeys()
         for key in l:
@@ -22,32 +27,13 @@ class rootfile:
                 print "WARNING: ignoring key %s in input file %s because it is of ROOT class %s, not TH1F / TH1D" % (key.GetName(), self.filename, clas)
                 continue
             th1 = key.ReadObj()
-            xmin, xmax, nbins = th1.GetXaxis().GetXmin(), th1.GetXaxis().GetXmax(), th1.GetNbinsX()
-            data = [th1.GetBinContent(i) for i in range(1, nbins+1)]
-            result[str(key.GetName())] = xmin, xmax, data
+            result[str(key.GetName())] = roofile.th1_to_histo(th1)
         return result
-    
-    # returns a dictionary of the 'rate_uncertainties' directory (i.e., str keys, str or float values)
-    # only checks type, not naming convention
-    # in case the 'rate_uncertainties' directory does not exist, returns None (note that this is different from
-    # the case where is exists, but has no contents: in the latter case, a dictionary with no exntries is returned!)
-    def get_rate_uncertainties(self):
-        dirkey = self.tfile.FindKey('rate_uncertainties')
-        if type(dirkey) != ROOT.TKey: return None
-        try:
-            if dirkey.GetClassName() != 'TDirectoryFile': return None
-        except ReferenceError: return None # referenceerror in case dirkey is 'null'
-        result = {}
-        d = dirkey.ReadObj()
-        l = d.GetListOfKeys()
-        for key in l:
-            name = key.GetName()
-            if key.GetClassName() == 'TObjString':
-                result[name] = str(key.ReadObj().String())
-            else:
-                print "WARNING: ignoring key %s in dir 'rate_uncertainties' because it is not of expected ROOT class type" % s
-        return result
-
+        
+    def get_histogram(self, hname):
+        th1 = self.tfile.Get(hname)
+        if th1 is None or type(th1) not in (ROOT.TH1F, ROOT.TH1D): return None
+        return rootfile.th1_to_histo(th1)
 
 # represents a model as in theta, plus
 # * data histograms, if any
@@ -71,6 +57,10 @@ class Model:
         self.distribution = Distribution()
         # data histograms: dictionary str obs -> histo
         self.data_histos = {}
+    
+    def reset_binning(self, obs, xmin, xmax, nbins):
+        assert obs in self.observables
+        self.observables[obs] = (xmin, xmax, nbins)
     
     # combines the current with the other_model by including the observables and processes from the other_model.
     # Note that:
@@ -103,11 +93,13 @@ class Model:
         
         
        
-    def set_data_histogram(self, obsname, histo):
+    def set_data_histogram(self, obsname, histo, reset_binning = False):
         xmin, xmax, nbins = histo[0], histo[1], len(histo[2])
         if obsname not in self.observables:
             self.observables[obsname] = xmin, xmax, nbins
             self.observable_to_pred[obsname] = {}
+        if reset_binning:
+            self.observables[obsname] = xmin, xmax, nbins
         xmin2, xmax2, nbins2 = self.observables[obsname]
         assert (xmin, xmax, nbins) == (xmin2, xmax2, nbins2)
         self.data_histos[obsname] = histo
@@ -223,8 +215,10 @@ class Model:
                 rc.update(pred[proc]['coefficient-function'].get_parameters())
         return rc, sc
     
-    def get_cfg(self, signal_processes = []):
+    # options supported: use_llvm (default: False)
+    def get_cfg(self, signal_processes = [], **options):
         result = {}
+        if options.get('use_llvm', False): result['type'] = 'llvm_model'
         for sp in signal_processes:
             assert sp in self.signal_processes
         for o in self.observable_to_pred:
@@ -307,19 +301,26 @@ class HistogramFunction:
         self.typ = typ
         self.parameters = set()
         self.nominal_histo = None
+        self.factors = {} # parameter -> factor
+        self.normalize_to_nominal = False
         self.syst_histos = {} # map par_name -> (plus histo, minus_histo)
         self.histrb = None # xmin, xmax nbins
         
     def get_nominal_histo(self): return self.nominal_histo
     
-    def set_nominal_histo(self, nominal_histo):
+    # nominal_histo is a triple (xmin, xmax, data)
+    def set_nominal_histo(self, nominal_histo, reset_binning = False):
+        if reset_binning:
+            self.histrb = None
+            assert len(self.syst_histos) == 0
         histrb = nominal_histo[0], nominal_histo[1], len(nominal_histo[2])
         if self.histrb is None: self.histrb = histrb
         assert histrb == self.histrb, "histogram range / binning inconsistent!"
         self.nominal_histo = nominal_histo
     
-    def set_syst_histos(self, par_name, plus_histo, minus_histo):
+    def set_syst_histos(self, par_name, plus_histo, minus_histo, factor = 1.0):
         self.parameters.add(par_name)
+        self.factors[par_name] = factor
         histrb_plus = plus_histo[0], plus_histo[1], len(plus_histo[2])
         histrb_minus = minus_histo[0], minus_histo[1], len(minus_histo[2])
         assert histrb_plus == histrb_minus, "histogram range / binning inconsistent between plus / minus histo"
@@ -338,7 +339,12 @@ class HistogramFunction:
     def get_cfg(self):
         if len(self.syst_histos) == 0:
             return get_histo_cfg(self.nominal_histo)
-        result = {'type': 'cubiclinear_histomorph', 'parameters': sorted(list(self.parameters)), 'nominal-histogram': get_histo_cfg(self.nominal_histo)}
+        result = {'type': 'cubiclinear_histomorph', 'parameters': sorted(list(self.parameters)),
+           'nominal-histogram': get_histo_cfg(self.nominal_histo), 'normalize_to_nominal': self.normalize_to_nominal}
+        if set(self.factors.values()) != set([1.0]):
+            result['factors'] = []
+            for p in result['parameters']:
+                result['factors'].append(self.factors[p])
         for p in self.parameters:
             result['%s-plus-histogram' % p] = get_histo_cfg(self.syst_histos[p][0])
             result['%s-minus-histogram' % p] = get_histo_cfg(self.syst_histos[p][1])
@@ -475,7 +481,7 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
 
     for fname in filenames:
         rf = rootfile(fname)
-        templates = rf.get_templates()
+        templates = rf.get_all_templates()
         for hexternal in templates:
             if not histogram_filter(hexternal): continue
             hinternal = root_hname_to_convention(hexternal)

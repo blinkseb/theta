@@ -1,12 +1,10 @@
 #ifndef RUN_HPP
 #define RUN_HPP
 
-#include "interface/database.hpp"
+#include "interface/decls.hpp"
 #include "interface/main.hpp"
 
 #include <string>
-#include <sstream>
-
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -95,6 +93,8 @@ public:
     /** \brief Construct a Run from the given configuration
      */
     Run(const Configuration & cfg);
+    
+    virtual ~Run();
     
 private:
 

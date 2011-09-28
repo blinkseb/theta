@@ -382,8 +382,6 @@ def prepare_belts(model, ts = 'lr', signal_prior='flat', nuisance_prior = 'shape
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'n-events': beta_scan_n * n_toys_per_beta, 'model': '@model', 'producers': ('@ts_producer',),
         'output_database': sqlite_database(), 'log-report': False}
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
-
     minimizer = {'type': 'root_minuit'}
     if ts == 'mle':
         ts_producer = {'type': 'mle', 'name': 'mle', 'minimizer': minimizer, 'parameter': 'beta_signal',
@@ -395,7 +393,8 @@ def prepare_belts(model, ts = 'lr', signal_prior='flat', nuisance_prior = 'shape
         'background-only-distribution': product_distribution(delta_distribution(beta_signal = 0.0), "@nuisance_prior")}
         ts_colname = 'lr__nll_diff'
     else: raise RuntimeError, 'unknown ts "%s"' % ts
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer}    
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer}    
+    toplevel_settings.update(get_common_toplevel_settings(**options))
     seed = 1
     if 'toydata_seed' in options: seed = int(options['toydata_seed'])
     main['data_source'] = {'type': 'model_source', 'name': 'source', 'model': '@model', 'rnd_gen': {'seed': seed}}
@@ -406,7 +405,7 @@ def prepare_belts(model, ts = 'lr', signal_prior='flat', nuisance_prior = 'shape
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
         toplevel_settings['model-distribution-signal'] = equidistant_deltas('beta_signal', beta_signal_range, beta_scan_n)
-        name = write_cfg(model, sp, 'prepare_belts', 'scan%g' % beta_max, additional_settings = toplevel_settings)
+        name = write_cfg(model, sp, 'prepare_belts', 'scan%g' % beta_max, additional_settings = toplevel_settings, **options)
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run)
@@ -448,8 +447,6 @@ def cls_limits(model, input = 'toys:0', n = 1000, cl = 0.95, ts = 'lr', signal_p
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'n-events': n, 'model': '@model', 'producers': ('@ts_producer',),
         'output_database': sqlite_database(), 'log-report': False}
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
-
     minimizer = {'type': 'root_minuit'}
     if ts == 'mle':
         ts_producer = {'type': 'mle', 'name': 'mle', 'minimizer': minimizer, 'parameter': 'beta_signal',
@@ -461,13 +458,14 @@ def cls_limits(model, input = 'toys:0', n = 1000, cl = 0.95, ts = 'lr', signal_p
         'background-only-distribution': product_distribution(delta_distribution(beta_signal = 0.0), "@nuisance_prior")}
         ts_colname = 'lr__nll_diff'
     else: raise RuntimeError, 'unknown ts "%s"' % ts
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer}
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer}
+    toplevel_settings.update(get_common_toplevel_settings(**options))
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, input, **options)
     cfg_names_to_run = []
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
-        name = write_cfg(model, sp, 'cls_limits', '', additional_settings = toplevel_settings)
+        name = write_cfg(model, sp, 'cls_limits', '', additional_settings = toplevel_settings, **options)
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run)

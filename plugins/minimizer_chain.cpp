@@ -33,18 +33,6 @@ MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues
     return res;
 }
 
-std::auto_ptr<theta::Minimizer> minimizer_chain::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::Minimizer>(new minimizer_chain(*this, pm));
-}
-
-minimizer_chain::minimizer_chain(const minimizer_chain & rhs, const theta::PropertyMap & pm){
-    minimizers.reserve(rhs.minimizers.size());
-    for(size_t i=0; i<rhs.minimizers.size(); ++i){
-        minimizers.push_back(rhs.minimizers[i].clone(pm));
-    }
-    if(rhs.last_minimizer.get())
-       last_minimizer = rhs.last_minimizer->clone(pm);
-}
 
 minimizer_chain::minimizer_chain(const theta::Configuration & cfg){
     SettingWrapper s = cfg.setting;
@@ -52,11 +40,11 @@ minimizer_chain::minimizer_chain(const theta::Configuration & cfg){
     minimizers.reserve(n);
     size_t n_minimizers = 0;
     for(size_t i=0; i<n; ++i){
-        minimizers.push_back(PluginManager<Minimizer>::instance().build(Configuration(cfg, s["minimizers"][i])));
+        minimizers.push_back(PluginManager<Minimizer>::build(Configuration(cfg, s["minimizers"][i])));
         ++n_minimizers;
     }
     if(s.exists("last_minimizer")){
-        last_minimizer = PluginManager<Minimizer>::instance().build(Configuration(cfg, s["last_minimizer"]));
+        last_minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["last_minimizer"]));
         ++n_minimizers;
     }
     if(n_minimizers==0) throw ConfigurationException("no minimizers specified; required is at least one (counting last_minimizer)");

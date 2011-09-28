@@ -3,14 +3,7 @@
 
 #include "interface/decls.hpp"
 #include "interface/variables.hpp"
-#include "interface/plugin.hpp"
 #include "interface/phys.hpp"
-#include "interface/histogram-function.hpp"
-
-#include <vector>
-#include <string>
-#include <set>
-#include <map>
 
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
@@ -121,15 +114,6 @@ namespace theta {
          */
         virtual const Distribution & get_parameter_distribution() const = 0;
         
-        /** \brief Clone the Model
-         * 
-         * Clone the model, using the same setting as the current model was created with,
-         * but with all shared properties from the given theta::PropertyMap.
-         */
-        virtual std::auto_ptr<Model> clone(const theta::PropertyMap & pm) const = 0;
-        
-        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const = 0;
-        
         virtual ~Model(){}
 
     protected:
@@ -137,17 +121,13 @@ namespace theta {
         ParIds parameters;
         ObsIds observables;
 
-        // pseudo copy constructor:
-        Model(const Model & model, const boost::shared_ptr<VarIdManager> & vm);
         Model(const boost::shared_ptr<VarIdManager> & vm_): vm(vm_){}
     };
     
     
-    class compiled_model_nll;
     /** \brief The default model in theta
      */
     class default_model: public Model{
-    friend class compiled_model_nll;
     private:
         //The problem of std::map<ObsId, ptr_vector<Function> > is that
         // this requires ptr_vector to be copy-constructible which in turn
@@ -158,43 +138,24 @@ namespace theta {
         histos_type histos;
         coeffs_type coeffs;
         std::auto_ptr<Distribution> parameter_distribution;
-        mutable codegen::t_model_get_prediction model_get_prediction;
         
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
         
         default_model(const default_model & model, const theta::PropertyMap & pm);
         
      public:
-        virtual void codegen(std::ostream & out, const std::string & prefix, const PropertyMap & pm) const;
-     
         default_model(const Configuration & cfg);
         //the pure virtual functions:
         virtual void get_prediction_randomized(Random & rnd, Data & result, const ParValues & parameters) const;
         virtual void get_prediction(Data & result, const ParValues & parameters) const;
         virtual std::auto_ptr<NLLikelihood> getNLLikelihood(const Data & data) const;
         
-        std::auto_ptr<NLLikelihood> getCompiledNLLikelihood(const Data & data) const;
-        
         virtual const Distribution & get_parameter_distribution() const {
            return *parameter_distribution;
         }
-        virtual std::auto_ptr<Model> clone(const theta::PropertyMap & pm) const;
         
+        virtual ~default_model();  
     };
-    
-    //delete_clone is required by the destructor of boost::ptr_vector.
-    //The default implementations does not seem to work on pure abstract
-    // classes, which is a real shame.
-    namespace{
-        inline void delete_clone(const HistogramFunction * r){
-            delete r;
-        }
-
-        inline void delete_clone(const Function * r){
-            delete r;
-        }
-    }
-
 
     /** \brief Function object of a negative log likelihood of a model, given data.
      *
@@ -248,11 +209,6 @@ namespace theta {
         ///Make destructor virtual as this is an abstract base class
         virtual ~NLLikelihood(){}
         
-        /// Likelihood functions are not to be cloned.
-        virtual std::auto_ptr<Function> clone() const{
-            throw InvalidArgumentException("default_model_nll is not clonable");
-        }
-        
         size_t getnpar() const{
             return par_ids.size();
         }
@@ -282,41 +238,11 @@ namespace theta {
         boost::shared_ptr<Function> additional_term;
         boost::shared_ptr<Distribution> override_distribution;
 
-        std::map<ParId, std::pair<double, double> > ranges;
-
         //cached predictions:
         mutable Data predictions;
         
         default_model_nll(const default_model & m, const Data & data, const ObsIds & obs);
      };
-     
-    class compiled_model_nll: public NLLikelihood{
-    friend class default_model;
-    public:
-        using Function::operator();
-        virtual double operator()(const ParValues & values) const;
-        
-        virtual void set_additional_term(const boost::shared_ptr<Function> & term);
-        virtual void set_override_distribution(const boost::shared_ptr<Distribution> & d);
-        virtual const Distribution & get_parameter_distribution() const{
-            if(override_distribution) return *override_distribution;
-            else return model.get_parameter_distribution();
-        }        
-    private:
-        const default_model & model;
-        
-        boost::shared_ptr<Function> additional_term;
-        boost::shared_ptr<Distribution> override_distribution;
-
-        Histogram1D data_concatenated;
-        codegen::t_model_get_prediction model_get_prediction;
-        //cached predictions:
-        mutable Histogram1D pred_concatenated;
-        mutable std::vector<double> parameter_values;
-        
-        compiled_model_nll(const default_model & m, const Data & data, codegen::t_model_get_prediction model_get_prediction);
-     };
-    
 }
 
 #endif

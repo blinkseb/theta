@@ -25,6 +25,20 @@ def get_x_to_sp(spgids, **options):
     return x_to_sp
 
 
+# options: booleans load_root_ plugins  (default: True)
+# use_llvm (default: False)
+def get_common_toplevel_settings(**options):
+    cfg_options = {'plugin_files': ['$THETA_DIR/lib/core-plugins.so']}
+    if options.get('use_llvm', False):
+        cfg_options['plugin_files'].append('$THETA_DIR/lib/llvm-plugins.so')
+    if options.get('load_root_plugins', True):
+        cfg_options['plugin_files'].append('$THETA_DIR/lib/root.so')
+    toplevel_settings = {'options': cfg_options}
+    return toplevel_settings
+
+def reldiff(d1, d2):
+    return abs(d1 - d2) / max(abs(d1), abs(d2))
+
 # returns a default minimizer specification which should be pretty robust
 def minimizer(need_error = True):
     #return {'type': 'root_minuit'}
@@ -37,6 +51,11 @@ def minimizer(need_error = True):
     result = {'type': 'minimizer_chain', 'minimizers': minimizers}
     if need_error: result['last_minimizer'] = {'type': 'root_minuit'}
     return result
+
+
+def mul_list(l, c):
+    for i in range(len(l)):
+        l[i] *= c
 
 # returns a Distribution object, given the model, signal process and nuisance_prior specification ('shape:X;rate:Y'...)
 def nuisance_prior_distribution(model, spec):

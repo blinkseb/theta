@@ -37,8 +37,4 @@ const std::pair<double, double> & equidistant_deltas::support(const theta::ParId
     return support_;
 }
 
-std::auto_ptr<theta::Distribution> equidistant_deltas::clone() const{
-    return std::auto_ptr<theta::Distribution>(new equidistant_deltas(*this));
-}
-
 REGISTER_PLUGIN(equidistant_deltas)

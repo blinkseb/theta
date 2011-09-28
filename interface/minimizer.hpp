@@ -1,9 +1,9 @@
 #ifndef MINIMIZER_HPP
 #define MINIMIZER_HPP
 
+#include "interface/decls.hpp"
 #include "interface/variables.hpp"
 #include "interface/matrix.hpp"
-#include "interface/phys.hpp"
 
 #include <map>
 
@@ -99,9 +99,6 @@ namespace theta{
         virtual MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
                 const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges) = 0;
         
-        // note: usually, pm is not required for cloning. However, some methods might be RandomConsumers
-        // and in that case, the random state is saved to the RndInfoTable in pm.
-        virtual std::auto_ptr<Minimizer> clone(const theta::PropertyMap & pm) const = 0;
     };
     
 }

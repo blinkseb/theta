@@ -32,14 +32,14 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'model': '@model', 'n-events': 1, 'producers': ('@ts_producer',), 'output_database': sqlite_database(), 'log-report': False}
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)    
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
+    toplevel_settings.update(get_common_toplevel_settings(**options))
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, 'data')
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
-        name = write_cfg(model, sp, 'ts_data', '', additional_settings = toplevel_settings)
+        name = write_cfg(model, sp, 'ts_data', '', additional_settings = toplevel_settings, **options)
         cfg_names_to_run = []
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
@@ -64,9 +64,9 @@ def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuis
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'model': '@model', 'n-events': n, 'producers': ('@ts_producer',), 'output_database': sqlite_database(), 'log-report': False}
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
+    toplevel_settings.update(get_common_toplevel_settings(**options))
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, 'toys:0', **options)
     #print toplevel_settings
     cfg_names_to_run = []
@@ -75,10 +75,10 @@ def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuis
             model_parameters = model.get_parameters(sp)
             toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
             toplevel_settings['model-distribution-signal']['beta_signal'] = beta_signal_value
-            name = write_cfg(model, sp, 'ts_toys', '%f' % beta_signal_value, additional_settings = toplevel_settings)
+            name = write_cfg(model, sp, 'ts_toys', '%f' % beta_signal_value, additional_settings = toplevel_settings, **options)
             cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
-        run_theta(cfg_names_to_run)
+        run_theta(cfg_names_to_run, **options)
     else: return None
     cachedir = os.path.join(config.workdir, 'cache')
     result = {}
@@ -196,7 +196,6 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what
     if what in ('observed', 'all'):
         main['ts_values'], dummy = data_source_dict(model, 'data')
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     if ts == 'mle':
         ts_producer = {'type': 'mle', 'name': 'mle', 'minimizer': minimizer(need_error = False), 'parameter': 'beta_signal',
            'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior")}
@@ -207,13 +206,14 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
         'background-only-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior")}
         main['ts_column'] = ts_sign + 'lr__nll_diff'
     else: raise RuntimeError, 'unknown ts "%s"' % ts
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options, 'ts_producer': ts_producer,
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer,
        'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
+    toplevel_settings.update(get_common_toplevel_settings(**options))
     cfg_names_to_run = []
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
-        name = write_cfg(model, sp, 'cls_limits', '', additional_settings = toplevel_settings)
+        name = write_cfg(model, sp, 'cls_limits', '', additional_settings = toplevel_settings, **options)
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run, **options)

@@ -1,7 +1,17 @@
 #include "interface/exception.hpp"
+
 #include <sstream>
+#include <typeinfo>
+
 
 using namespace theta;
+
+const char* Exception::what() const throw(){
+    std::stringstream ss;
+    ss << typeid(*this).name() << ": " << message;
+    whatstring = ss.str();
+    return whatstring.c_str();
+}
 
 InvalidArgumentException::InvalidArgumentException(const std::string & m) : FatalException(m) {}
 Exception::Exception(const std::string & m):message(m){}

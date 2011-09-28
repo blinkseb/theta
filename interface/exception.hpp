@@ -2,8 +2,6 @@
 #define EXCEPTION_H
 
 #include <string>
-#include <sstream>
-#include <typeinfo>
 
 void fail_assert(const char * filename, int lineno, const char * expression);
 
@@ -29,12 +27,8 @@ public:
     virtual ~Exception() throw(){}
     
     /// override std::exception::what to print out the message
-    virtual const char* what() const throw(){
-         std::stringstream ss;
-         ss << typeid(*this).name() << ": " << message;
-         whatstring = ss.str();
-         return whatstring.c_str();
-    }
+    virtual const char* what() const throw();
+    
 protected:
     /// buffer for the const char * returned by what()
     mutable std::string whatstring;
@@ -128,3 +122,4 @@ public:
 }
 
 #endif
+

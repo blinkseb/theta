@@ -99,7 +99,7 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
 deltanll_intervals::deltanll_intervals(const theta::Configuration & cfg): Producer(cfg),
    pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])), re_minimize(true), start_step_ranges_init(false){
     SettingWrapper s = cfg.setting;
-    minimizer = theta::PluginManager<Minimizer>::instance().build(theta::Configuration(cfg, s["minimizer"]));
+    minimizer = theta::PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));
     size_t ic = s["clevels"].size();
     if (ic == 0) {
         throw ConfigurationException("deltanll_intervals: empty clevels.");
@@ -131,17 +131,6 @@ void deltanll_intervals::declare_products(){
         upper_columns.push_back(products_sink->declare_product(*this, ss.str(), theta::typeDouble));
     }
     
-}
-
-std::auto_ptr<theta::Producer> deltanll_intervals::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::Producer>(new deltanll_intervals(*this, pm));
-}
-
-deltanll_intervals::deltanll_intervals(const deltanll_intervals & rhs, const theta::PropertyMap & pm): Producer(rhs, pm), pid(rhs.pid),
-  clevels(rhs.clevels), re_minimize(rhs.re_minimize), deltanll_levels(rhs.deltanll_levels), start_step_ranges_init(rhs.start_step_ranges_init),
-  start(rhs.start), step(rhs.step), ranges(rhs.ranges){
-    minimizer = rhs.minimizer->clone(pm);
-    declare_products();
 }
 
 REGISTER_PLUGIN(deltanll_intervals)

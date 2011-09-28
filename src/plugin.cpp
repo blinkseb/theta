@@ -1,9 +1,10 @@
 #include "interface/plugin.hpp"
+#include "interface/utils.hpp"
+
+#include <dlfcn.h>
 
 using namespace std;
 using namespace theta;
-
-int theta::plugin_build_depth=0;
 
 void PluginLoader::execute(const Configuration & cfg) {
     SettingWrapper files = cfg.setting["plugin_files"];

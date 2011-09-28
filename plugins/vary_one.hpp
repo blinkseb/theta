@@ -64,8 +64,6 @@ public:
     }
     vary_one(const theta::Configuration & cfg);
     
-    virtual std::auto_ptr<theta::Distribution> clone() const;
-    
 private:
 
     theta::ParValues default_values;

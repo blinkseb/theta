@@ -100,9 +100,6 @@ public:
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
     ///@}
-    
-    virtual std::auto_ptr<theta::Distribution> clone() const;
-    
 private:
     
     double mu, sigma;
@@ -142,7 +139,6 @@ public:
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
     
-    virtual std::auto_ptr<theta::Distribution> clone() const;
 private:
     theta::ParValues values;
     std::map<theta::ParId, std::pair<double, double> > supports;
@@ -201,7 +197,6 @@ public:
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
     ///@}
     
-    std::auto_ptr<theta::Distribution> clone() const;
     
 private:
     theta::ParValues fix_sample_values;
@@ -261,7 +256,6 @@ class gauss: public theta::Distribution{
         virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
         virtual const std::pair<double, double> & support(const theta::ParId&) const;
         
-        virtual std::auto_ptr<theta::Distribution> clone() const;
 
     private:
         
@@ -305,7 +299,6 @@ class gauss1d: public theta::Distribution{
         virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
         virtual const std::pair<double, double> & support(const theta::ParId&) const;
         
-        virtual std::auto_ptr<theta::Distribution> clone() const;
     private:
         double mu;
         double sigma;
@@ -342,10 +335,8 @@ public:
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId & p) const;
     
-    virtual std::auto_ptr<theta::Distribution> clone() const;
 
 private:
-    product_distribution(const product_distribution & rhs);
     void add_distributions(const theta::Configuration & cfg, const theta::SettingWrapper & s, int depth);
     
     boost::ptr_vector<theta::Distribution> distributions;
@@ -421,10 +412,7 @@ public:
      */
     virtual void fill(theta::Data & dat);
     
-    virtual std::auto_ptr<theta::DataSource> clone(const theta::PropertyMap & pm) const;
-    
 private:
-    model_source(const model_source & rhs, const theta::PropertyMap & pm);
     theta::ParValues parameters_for_nll;
     
     bool save_nll;

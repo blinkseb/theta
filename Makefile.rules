@@ -97,15 +97,8 @@ EXTRA_COMPILE :=
 EXTRA_LINK_EXE :=
 EXTRA_LINK_SO :=
 
-FLAGSCPP := -Wall -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
-FLAGSC := -Wall
-
-ifeq ($(OPTIONS_NODEBUG),yes)
-   DEFINES += -DNDEBUG
-else
-   FLAGSCPP += -g
-   FLAGSC += -g
-endif
+FLAGSCPP := -g -Wall -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
+FLAGSC := -g -Wall
 
 LIBS := -ldl -ltheta -lconfig
 ifeq ($(OPTIONS_USE_AMDLIBM),yes)
@@ -114,7 +107,7 @@ ifeq ($(OPTIONS_USE_AMDLIBM),yes)
 endif
 
 #lazy evaluation of compile and link command to allow subdirectory-Makefiles to override the value of EXTRA_* ...
-COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -c -fPIC -O3 $(INCLUDES) $(EXTRA_COMPILE)
+COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -c -fPIC -rdynamic -O3 $(INCLUDES) $(EXTRA_COMPILE)
 LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LIBS) $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
 LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO) $(BOOST_LIBS)
 

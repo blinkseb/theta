@@ -23,10 +23,6 @@ sys_rate_function::sys_rate_function(const theta::Configuration & cfg){
     }
 }
 
-std::auto_ptr<theta::Function> sys_rate_function::clone() const{
-    return std::auto_ptr<theta::Function>(new sys_rate_function(*this));
-}
-
 double sys_rate_function::operator()(const theta::ParValues & values) const{
     double result = 1.0;
     for(size_t i=0; i<s_pids.size(); ++i){

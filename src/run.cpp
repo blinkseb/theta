@@ -1,4 +1,5 @@
 #include "interface/run.hpp"
+#include "interface/database.hpp"
 #include "interface/histogram.hpp"
 #include "interface/phys.hpp"
 #include "interface/model.hpp"
@@ -6,9 +7,10 @@
 
 #include <iomanip>
 
-
 using namespace theta;
 using namespace std;
+
+Run::~Run(){}
 
 
 void Run::run(){
@@ -83,7 +85,7 @@ Run::Run(const Configuration & cfg){
     n_event = s["n-events"];
     
     //1. setup database and tables:
-    db = PluginManager<Database>::instance().build(Configuration(cfg, s["output_database"]));
+    db = PluginManager<Database>::build(Configuration(cfg, s["output_database"]));
 
     std::auto_ptr<Table> logtable_underlying = db->create_table("log");
     logtable.reset(new LogTable(logtable_underlying));
@@ -100,8 +102,8 @@ Run::Run(const Configuration & cfg){
     cfg.pm->set("runid", ptr_runid);
         
     //2. model and data_source
-    model = PluginManager<Model>::instance().build(Configuration(cfg, s["model"]));
-    data_source = PluginManager<DataSource>::instance().build(Configuration(cfg, s["data_source"]));
+    model = PluginManager<Model>::build(Configuration(cfg, s["model"]));
+    data_source = PluginManager<DataSource>::build(Configuration(cfg, s["data_source"]));
     
     //3. logging stuff
     LogTable::e_severity level = LogTable::warning;
@@ -128,7 +130,7 @@ Run::Run(const Configuration & cfg){
     if (n_p == 0)
         throw ConfigurationException("no producers specified!");
     for (size_t i = 0; i < n_p; i++) {
-         producers.push_back(PluginManager<Producer>::instance().build(Configuration(cfg, s["producers"][i])));
+         producers.push_back(PluginManager<Producer>::build(Configuration(cfg, s["producers"][i])));
     }
 }
 

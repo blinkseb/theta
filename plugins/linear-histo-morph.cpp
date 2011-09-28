@@ -79,12 +79,8 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
     h0 *= h0exp / h0.get_sum();
 }
 
-std::auto_ptr<theta::HistogramFunction> linear_histo_morph::clone() const{
-    return std::auto_ptr<theta::HistogramFunction>(new linear_histo_morph(*this));
-}
-
 Histogram1D linear_histo_morph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
-    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, s));
+    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, s));
     if(hf->getParameters().size()!=0){
         stringstream ss;
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";

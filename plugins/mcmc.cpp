@@ -16,6 +16,14 @@
 
 using namespace std;
 
+namespace{
+
+bool close_to(double a, double b, double scale){
+   return fabs(a-b) / scale < 1e-15;
+}
+
+}
+
 namespace theta{
 
 void get_cholesky(const Matrix & cov, Matrix & result, int expect_reduced){
@@ -29,7 +37,7 @@ void get_cholesky(const Matrix & cov, Matrix & result, int expect_reduced){
     }
     bool par_has_zero_cov[npar];
     for (size_t i = 0; i < npar; i++) {
-       if((par_has_zero_cov[i] = utils::close_to(cov(i,i), 0, m)))
+       if((par_has_zero_cov[i] = close_to(cov(i,i), 0, m)))
             npar_reduced--;
     }
     if(npar_reduced==0){

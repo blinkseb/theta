@@ -5,10 +5,38 @@
 #include "interface/cfg-utils.hpp"
 #include "libconfig/libconfig.h++"
 
+#include <cmath>
+
 void load_core_plugins();
 
 //returns false if loading root plugins was not successful
 bool load_root_plugins();
+bool load_llvm_plugins();
+
+
+/** \brief Equality check for floating point numbers using relative comparison
+ *
+ * This function checks whether a and b are "close" on the sense
+ * that the relative difference is very small.
+ * a and b must not both be zero.
+ */
+inline bool close_to_relative(double a, double b){
+   return fabs(a-b) / std::max(fabs(a),fabs(b)) < 1e-15;
+}
+
+/** \brief Equality check for floating point numbers using comparison to an external scale
+ *
+ * This function checks whether a and b are "close"
+ * compared to \c scale. Note that \c scale is not a
+ * maximal tolerance, but a typical scale which was used to 
+ * compute a and b which might be equal as result of this
+ * computation, but round-off errors might tell you that a!=b.
+ *
+ * scale > 0 must hold.
+ */
+inline bool close_to(double a, double b, double scale){
+   return fabs(a-b) / scale < 1e-15;
+}
 
 class ConfigCreator{
 public:

@@ -2,15 +2,12 @@
 #define PRODUCER_HPP
 
 #include "interface/decls.hpp"
-#include "interface/plugin.hpp"
-
-#include <vector>
-#include <string>
-#include <sstream>
-
-#include <boost/ptr_container/ptr_vector.hpp>
-#include "interface/plugin.hpp"
 #include "interface/data_type.hpp"
+
+#include <string>
+#include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/utility.hpp>
 
 namespace theta {
 
@@ -47,9 +44,6 @@ protected:
     ProductsSource(const Configuration & cfg);
     ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink);
     
-    // pseudo copy-constructor for clone method of derived classes
-    ProductsSource(const ProductsSource & rhs, const theta::PropertyMap & pm);
-    
     std::string name;
     boost::shared_ptr<ProductsSink> products_sink;
 };
@@ -73,7 +67,7 @@ public:
     /** Declare the destructor as virtual, as we expect polymorphic
      *  access to derived classes.
      */
-    virtual ~Producer(){}
+    virtual ~Producer();
     
     /** \brief Run a statistical algorithm on the data and model and write out the results
      *
@@ -87,8 +81,6 @@ public:
      */
     virtual void produce(const Data & data, const Model & model) = 0;
     
-    virtual std::auto_ptr<Producer> clone(const theta::PropertyMap & pm) const = 0;
-        
 protected:
     /** \brief Construct from a Configuration instance
      *
@@ -103,9 +95,6 @@ protected:
      */
     std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data, const Model & model);
     
-    // for derived classes to implement clone:
-    Producer(const Producer & rhs, const theta::PropertyMap & pm);
-
     boost::shared_ptr<theta::Distribution> override_parameter_distribution;
     boost::shared_ptr<theta::Function> additional_nll_term;
 };

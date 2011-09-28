@@ -54,7 +54,6 @@ public:
         return h0;
     }
 
-    virtual std::auto_ptr<theta::HistogramFunction> clone() const;
 private:
     /** \brief Build a (constant) Histogram from a Setting block.
     *

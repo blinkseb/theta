@@ -32,22 +32,11 @@ void nll_scan::produce(const Data & data, const Model & model) {
     products_sink->set_product(c_nll, result);
 }
 
-std::auto_ptr<theta::Producer> nll_scan::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::Producer>(new nll_scan(*this, pm));
-}
-
-nll_scan::nll_scan(const nll_scan & rhs, const theta::PropertyMap & pm): Producer(rhs, pm), pid(rhs.pid), start(rhs.start),
-  stop(rhs.stop), step(rhs.step), n_steps(rhs.n_steps), re_minimize(rhs.re_minimize), start_step_ranges_init(rhs.start_step_ranges_init),
-  m_start(rhs.m_start), m_step(rhs.m_step), m_ranges(rhs.m_ranges){
-    minimizer = rhs.minimizer->clone(pm);
-    c_nll = products_sink->declare_product(*this, "nll", theta::typeHisto);
-    c_maxl = products_sink->declare_product(*this, "maxl", theta::typeDouble);
-}
 
 nll_scan::nll_scan(const theta::Configuration & cfg): Producer(cfg), pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])),
    re_minimize(true), start_step_ranges_init(false){
     SettingWrapper s = cfg.setting;
-    minimizer = PluginManager<Minimizer>::instance().build(theta::Configuration(cfg, s["minimizer"]));
+    minimizer = PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));
     if(s.exists("re-minimize")){
         re_minimize = s["re-minimize"];
     }

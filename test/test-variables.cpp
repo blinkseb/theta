@@ -73,9 +73,9 @@ BOOST_AUTO_TEST_CASE(basic_obs){
     BOOST_REQUIRE(not vm.obsNameExists("obs0"));
     ObsId obs0 = vm.createObsId("obs0", 100, -0.2, 0.8);
     BOOST_CHECK(vm.getObsId("obs0")==obs0);
-    BOOST_CHECK(vm.get_nbins(obs0)==100);
-    BOOST_CHECK(vm.get_range(obs0).first==-0.2);
-    BOOST_CHECK(vm.get_range(obs0).second==0.8);
+    BOOST_CHECK(vm.getNbins(obs0)==100);
+    BOOST_CHECK(vm.getRange(obs0).first==-0.2);
+    BOOST_CHECK(vm.getRange(obs0).second==0.8);
 }
 
 BOOST_AUTO_TEST_CASE(all_obs){

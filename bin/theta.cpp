@@ -154,7 +154,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
         //populate VarIdManager from config:
         apply_vm_settings(config);
         //build run:
-        main = PluginManager<Main>::instance().build(Configuration(config, root["main"]));
+        main = PluginManager<Main>::build(Configuration(config, root["main"]));
         init_complete = true;
     }
     catch (SettingNotFoundException & ex) {

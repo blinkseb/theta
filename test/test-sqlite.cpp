@@ -28,7 +28,7 @@ BOOST_AUTO_TEST_CASE(largefile){
    boost::shared_ptr<VarIdManager> vm(new VarIdManager());
    ConfigCreator cc(config, vm);
    Configuration cfg = cc.get();
-   std::auto_ptr<Database> db = PluginManager<Database>::instance().build(cfg);
+   std::auto_ptr<Database> db = PluginManager<Database>::build(cfg);
    std::auto_ptr<Table> table = db->create_table("test_table");
    Column c = table->add_column("col1", theta::typeHisto);
    Histogram1D h(1000, 0.0, 1.0);

@@ -2,7 +2,6 @@
 #include "interface/plugin.hpp"
 #include "interface/histogram.hpp"
 #include "interface/variables-utils.hpp"
-#include "interface/variables.hpp"
 #include "interface/minimizer.hpp"
 #include "interface/random.hpp"
 #include "interface/database.hpp"
@@ -10,11 +9,9 @@
 #include "interface/redirect_stdio.hpp"
 #include "interface/phys.hpp"
 #include "interface/model.hpp"
-#include "interface/matrix.hpp"
+#include "interface/distribution.hpp"
 #include "interface/random-utils.hpp"
 #include "plugins/asimov_likelihood_widths.hpp"
-
-#include "libconfig/libconfig.h++"
 
 #include <fstream>
 #include <iomanip>
@@ -615,7 +612,7 @@ ts_background_bands(true), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.0
     SettingWrapper s = cfg.setting;
     
     //1. setup database and tables:
-    db = PluginManager<Database>::instance().build(Configuration(cfg, s["output_database"]));
+    db = PluginManager<Database>::build(Configuration(cfg, s["output_database"]));
 
     std::auto_ptr<Table> logtable_underlying = db->create_table("log");
     logtable.reset(new LogTable(logtable_underlying));
@@ -648,8 +645,8 @@ ts_background_bands(true), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.0
     cls_limits__limit_uncertainty = cls_limits_table->add_column("limit_uncertainty", typeDouble);
             
     //2. model, data_source and minimizer
-    model = PluginManager<Model>::instance().build(Configuration(cfg, s["model"]));
-    minimizer = PluginManager<Minimizer>::instance().build(Configuration(cfg, s["minimizer"]));
+    model = PluginManager<Model>::build(Configuration(cfg, s["model"]));
+    minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));
     source.reset(new data_filler(cfg, model));
     
     //3. logging stuff
@@ -660,7 +657,7 @@ ts_background_bands(true), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.0
     if (n_p == 0)
         throw ConfigurationException("list of producers is empty");
     for (size_t i = 0; i < n_p; i++) {
-         producers.push_back(PluginManager<Producer>::instance().build(Configuration(cfg, s["producers"][i])));
+         producers.push_back(PluginManager<Producer>::build(Configuration(cfg, s["producers"][i])));
     }
     
     //5. ts_values
@@ -677,7 +674,7 @@ ts_background_bands(true), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.0
             }
         }
         else if(type==libconfig::Setting::TypeGroup){
-            ts_data_source = PluginManager<DataSource>::instance().build(Configuration(cfg, s["ts_values"]));
+            ts_data_source = PluginManager<DataSource>::build(Configuration(cfg, s["ts_values"]));
         }
         else{
             throw ConfigurationException("invalid type for 'ts_values': must be either a list/array or a setting group");

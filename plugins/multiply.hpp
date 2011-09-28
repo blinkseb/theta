@@ -31,10 +31,7 @@ public:
      */
     multiply(const theta::Configuration & cfg);
     virtual double operator()(const theta::ParValues & v) const;
-    virtual std::auto_ptr<theta::Function> clone() const;
-    virtual void codegen(std::ostream & out, const std::string & prefix, const theta::PropertyMap & pm) const;
 private:
-    multiply(const multiply & rhs);
     std::vector<theta::ParId> v_pids;
     double literal_factor;
     boost::ptr_vector<theta::Function> functions;

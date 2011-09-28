@@ -2,8 +2,11 @@
 #define PLUGINS_MINIMIZER_CHAIN_HPP
 
 #include "interface/decls.hpp"
-#include "interface/variables.hpp"
 #include "interface/minimizer.hpp"
+
+#include <boost/ptr_container/ptr_vector.hpp>
+
+#include <memory>
 
 /** \brief Run a sequence of minimizers, until the first succeeds
  *
@@ -48,11 +51,7 @@ public:
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
                 const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
     
-    virtual std::auto_ptr<theta::Minimizer> clone(const theta::PropertyMap & pm) const;
-    
 private:
-    minimizer_chain(const minimizer_chain & rhs, const theta::PropertyMap & pm);
-    
     std::auto_ptr<theta::Minimizer> last_minimizer;
     boost::ptr_vector<theta::Minimizer> minimizers;
 };

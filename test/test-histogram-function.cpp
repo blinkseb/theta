@@ -4,6 +4,7 @@
 #include "interface/variables.hpp"
 #include "test/utils.hpp"
 #include <vector>
+#include <iostream>
 
 #include <boost/test/unit_test.hpp>
 
@@ -43,13 +44,13 @@ BOOST_AUTO_TEST_CASE(root_histogram_range){
             , vm);
     const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building hf");
-    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo1"]));
+    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo1"]));
     ParValues pv;
     Histogram1D h1 = (*hf)(pv);
     BOOST_REQUIRE(h1.get_nbins()==24);
     BOOST_REQUIRE(h1.get_xmin()==-4);
     BOOST_REQUIRE(h1.get_xmax()==20);
-    hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo2"]));
+    hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo2"]));
     Histogram1D h2 = (*hf)(pv);
     BOOST_REQUIRE(h2.get_nbins()==24);
     BOOST_REQUIRE(h2.get_xmin()==-4);
@@ -58,7 +59,7 @@ BOOST_AUTO_TEST_CASE(root_histogram_range){
         BOOST_CHECK(h1.get(i) == i+13.0);
         BOOST_CHECK(h1.get(i) == h2.get(i));
     }
-    hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo3"]));
+    hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo3"]));
     Histogram1D h3 = (*hf)(pv);
     BOOST_REQUIRE(h3.get_nbins()==4);
     BOOST_REQUIRE(h3.get_xmin()==-2);
@@ -67,7 +68,7 @@ BOOST_AUTO_TEST_CASE(root_histogram_range){
        BOOST_CHECK(h3.get(i) == i+15.0);
     }
     BOOST_CHECKPOINT("building h4");
-    hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo4"]));
+    hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo4"]));
     Histogram1D h4 = (*hf)(pv);
     BOOST_REQUIRE(h4.get_nbins()==26);
     BOOST_REQUIRE(h4.get_xmin()==-5);
@@ -78,7 +79,7 @@ BOOST_AUTO_TEST_CASE(root_histogram_range){
     
     bool except = false;
     try{
-        hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo5"]));
+        hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo5"]));
     }
     catch(ConfigurationException & ex){
        except = true;
@@ -101,7 +102,7 @@ BOOST_AUTO_TEST_CASE(root_histogram){
             , vm);
     const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building hf");
-    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo1"]));
+    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo1"]));
     ParValues pv;
     Histogram1D h = (*hf)(pv);
     BOOST_REQUIRE(h.get_nbins()==24);
@@ -109,7 +110,7 @@ BOOST_AUTO_TEST_CASE(root_histogram){
         BOOST_ASSERT(h.get(i)==i+13);
     }
     //2D histogram:
-    hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo2"]));
+    hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo2"]));
     h = (*hf)(pv);
     BOOST_REQUIRE(h.get_nbins()==10*11);
     //calculate the expected integral (excluding overflow / underflow!!);
@@ -120,9 +121,9 @@ BOOST_AUTO_TEST_CASE(root_histogram){
           expected_integral += (i + 0.78) * (j + 3.02);
        }
     }
-    BOOST_ASSERT(utils::close_to_relative(h.get_sum(),expected_integral));
+    BOOST_ASSERT(close_to_relative(h.get_sum(),expected_integral));
     //3D histogram, same as 2D:
-    hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["root-histo3"]));
+    hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["root-histo3"]));
     h = (*hf)(pv);
     BOOST_REQUIRE(h.get_nbins()==10*11*12);
     //calculate the expected integral (excluding overflow / underflow!!);
@@ -135,7 +136,7 @@ BOOST_AUTO_TEST_CASE(root_histogram){
           }
        }
     }
-    BOOST_ASSERT(utils::close_to_relative(h.get_sum(),expected_integral));
+    BOOST_ASSERT(close_to_relative(h.get_sum(),expected_integral));
 }
 
 
@@ -157,9 +158,9 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
             
     const theta::Configuration & cfg = cc.get();
     BOOST_CHECKPOINT("building hf");
-    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["histo"]));
+    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["histo"]));
     BOOST_CHECKPOINT("hf built");
-    std::auto_ptr<HistogramFunction> hf_nominal = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, cfg.setting["flat-histo0"]));
+    std::auto_ptr<HistogramFunction> hf_nominal = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["flat-histo0"]));
     ParValues pv;
     Histogram1D flat0 = (*hf_nominal)(pv);
     BOOST_CHECK(flat0.get_nbins()==1);
@@ -170,20 +171,20 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
     BOOST_REQUIRE(h.get_nbins()==1);
     BOOST_REQUIRE(h.get_xmin()==-1);
     BOOST_REQUIRE(h.get_xmax()==1);
-    BOOST_ASSERT(utils::close_to_relative(h.get(0), 1.0));
+    BOOST_ASSERT(close_to_relative(h.get(0), 1.0));
     pv.set(delta, 1.0);
     h = (*hf)(pv);
-    BOOST_ASSERT(utils::close_to_relative(h.get(0), 1.12));
+    BOOST_ASSERT(close_to_relative(h.get(0), 1.12));
     pv.set(delta, -1.0);
     h = (*hf)(pv);
-    BOOST_ASSERT(utils::close_to_relative(h.get(0), 0.83));
+    BOOST_ASSERT(close_to_relative(h.get(0), 0.83));
     //+- 2 sigma values, should be interpolated linearly:
     pv.set(delta, 2.0);
     h = (*hf)(pv);
-    BOOST_ASSERT(utils::close_to_relative(h.get(0), 1.24));
+    BOOST_ASSERT(close_to_relative(h.get(0), 1.24));
     pv.set(delta, -2.0);
     h = (*hf)(pv);
-    BOOST_ASSERT(utils::close_to_relative(h.get(0), 0.66));
+    BOOST_ASSERT(close_to_relative(h.get(0), 0.66));
     //cutoff at zero:
     pv.set(delta, -10.0);
     h = (*hf)(pv);
@@ -195,7 +196,7 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
     pv.set(delta, -1e-8);
     h = (*hf)(pv);
     double eps_minus = h.get(0);
-    BOOST_ASSERT(utils::close_to(eps - 1, 1 - eps_minus, 1000.0));
+    BOOST_ASSERT(close_to(eps - 1, 1 - eps_minus, 1000.0));
     //derivative at zero should be (0.12 + 0.17) / 2.
     double der = (eps - eps_minus) / (2e-8);
     BOOST_ASSERT(fabs(der - (0.12 + 0.17)/2) < 1e-8);

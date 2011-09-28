@@ -1,5 +1,11 @@
+include ./Makefile.options
+
 #order matters
 DIRS = src libconfig liblbfgs plugins root bin test
+
+ifeq ($(OPTIONS_BUILD_LLVM),yes)
+   DIRS += llvm
+endif
 
 all:
 	@for d in $(DIRS); do ( cd $$d; $(MAKE) ) || break; done

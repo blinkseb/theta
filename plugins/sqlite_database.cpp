@@ -1,6 +1,7 @@
 #include "plugins/sqlite_database.hpp"
 #include "interface/plugin.hpp"
 #include "interface/histogram.hpp"
+#include "interface/redirect_stdio.hpp"
 
 #include <sstream>
 
@@ -75,7 +76,7 @@ sqlite_database::~sqlite_database() {
     try {
         close();
     } catch (Exception & e) {
-        cerr << "Exception while closing database in destructor: " << e.message << endl << "Ingoring." << endl;
+        theta::cerr << "Exception while closing database in destructor: " << e.message << endl << "Ingoring." << endl;
     }
 }
 

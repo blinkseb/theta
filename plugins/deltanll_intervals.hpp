@@ -78,11 +78,7 @@ public:
     deltanll_intervals(const theta::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
-    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
-    
 private:
-    deltanll_intervals(const deltanll_intervals & rhs, const theta::PropertyMap & pm);
-    
     void declare_products();
     
     theta::ParId pid;

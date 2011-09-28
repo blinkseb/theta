@@ -55,11 +55,7 @@ public:
     nll_scan(const theta::Configuration & cfg);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
-    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
-    
 private:
-    nll_scan(const nll_scan & rhs, const theta::PropertyMap & pm);
-    
     //boost::shared_ptr<theta::VarIdManager> vm;
     theta::ParId pid;
     double start, stop, step;

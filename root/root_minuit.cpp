@@ -1,4 +1,6 @@
 #include "root/root_minuit.hpp"
+#include "interface/plugin.hpp"
+#include "interface/phys.hpp"
 
 using namespace theta;
 using namespace std;

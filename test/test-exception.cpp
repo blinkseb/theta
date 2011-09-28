@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(etest_plugin) {
     ConfigCreator cc2("type = \"test_exception\";", vm);
     BOOST_REQUIRE(true); // create checkpoint
     std::auto_ptr<Function> f;
-    f = PluginManager<Function>::instance().build(cc2.get());
+    f = PluginManager<Function>::build(cc2.get());
     ParValues values;
     bool exception = false;
     try{
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(etest_plugin_build) {
     BOOST_REQUIRE(true); // create checkpoint
     bool exception = false;
     try{
-        PluginManager<Function>::instance().build(cfg);
+        PluginManager<Function>::build(cfg);
     }
     catch(Exception & ex){
        //does not have to be equal, but original message must appear somewhere:
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(etest_plugin_plugin) {
     ConfigCreator cc("type = \"proxy_function\"; block = { type = \"test_exception\"; };", vm);
     Configuration cfg = cc.get();
     BOOST_REQUIRE(true); // create checkpoint
-    auto_ptr<Function> proxy_function = PluginManager<Function>::instance().build(cfg);
+    auto_ptr<Function> proxy_function = PluginManager<Function>::build(cfg);
     
     ParValues values;
     bool exception = false;

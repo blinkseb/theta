@@ -7,7 +7,7 @@ const Histogram1D & cubiclinear_histomorph::operator()(const ParValues & values)
     h = h0;
     const size_t n_sys = hplus_diff.size();
     for (size_t isys = 0; isys < n_sys; isys++) {
-        const double delta = values.get(vid[isys]);
+        const double delta = values.get(vid[isys]) * parameter_factors[isys];
         if(delta==0.0) continue;
         //linear extrpolation beyond 1 sigma:
         if(fabs(delta) > 1){
@@ -25,15 +25,23 @@ const Histogram1D & cubiclinear_histomorph::operator()(const ParValues & values)
     for(size_t i=0; i<h.get_nbins(); ++i){
        h.set(i, max(h.get(i), 0.0));
     }
+    if(normalize_to_nominal){
+       h *= h0_sum / h.get_sum();
+    }
     return h;
 }
 
-cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx){
+cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx): normalize_to_nominal(false){
     SettingWrapper psetting = ctx.setting["parameters"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     //build nominal histogram:
     h0 = getConstantHistogram(ctx, ctx.setting["nominal-histogram"]);
+    if(ctx.setting.exists("normalize_to_nominal")){
+        normalize_to_nominal = ctx.setting["normalize_to_nominal"];
+    }
     size_t n = psetting.size();
+    parameter_factors.resize(n, 1.0);
+    bool have_parameter_factors = ctx.setting.exists("parameter_factors");
     for(size_t i=0; i<n; i++){
         string par_name = psetting[i];
         ParId pid = vm->getParId(par_name);
@@ -55,16 +63,17 @@ cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx){
         sum.back() += hminus_diff.back();
         diff.push_back(hplus_diff.back());
         diff.back().add_with_coeff(-1, hminus_diff.back());
+        
+        if(have_parameter_factors){
+            parameter_factors[i] = ctx.setting["parameter_factors"][i];
+        }
     }
     h = h0;
-}
-
-std::auto_ptr<theta::HistogramFunction> cubiclinear_histomorph::clone() const{
-    return auto_ptr<HistogramFunction>(new cubiclinear_histomorph(*this));
+    h0_sum = h0.get_sum();
 }
 
 Histogram1D cubiclinear_histomorph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
-    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, s));
+    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, s));
     if(hf->getParameters().size()!=0){
         stringstream ss;
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";

@@ -12,27 +12,15 @@
 
 namespace theta{
 
-/** \brief Container for arbitrary configuration data passed between modules
+/** \brief Container for string-based properties of arbitrary type
  *
+ * Main use of this class is as member of theta::Configuration. See there for standard
+ * properties plugins can access.
+ * 
  * Elements in the container are indexed by both a supplied instance name and the type
  * passed to the get and set function templates, i.e., both the name and the type have to be the same.
  *
- * Setting a property to a NULL pointer is in effect deleting the element: the associated internal shared_ptr
- * instance is released and a subsequent call to \c get will throw an exception. There is no way to
- * distinguish whether a NULL pointer has been set for an instance name or nothing has been set at all.
- * 
- * Standard properties in a theta::PropertyMap are:
- * <ul>
- *    <li>a default VarIdManager</li>
- *    <li>for ProductSources: a default ProductsSink</li>
- *    <li>for RandomConsumers: a default RndInfoTable, an int "runid", and (optionanlly) an int "seed_offset"</li>
- * </ul>
- * 
- * Policy of clone and parameters in theta::PropertyMap:
- * <ul>
- *   <li>VarIdManager is the same or compatible, i.e., old ParIds and ObsIds remain valid.</li>
- *   <li>Everything else, in particular Columns for ProductsSink, should be redeclared.</li>
- * </ul>
+ * Setting a property to a NULL pointer deletes the property.
  */
 class PropertyMap{
 public:

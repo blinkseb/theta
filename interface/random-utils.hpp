@@ -1,14 +1,16 @@
 #ifndef RANDOM_UTILS_HPP
 #define RANDOM_UTILS_HPP
 
-#include "interface/plugin.hpp"
-#include "interface/random.hpp"
+#include "interface/decls.hpp"
 #include <string>
+#include <memory>
 
 namespace theta{
 
 /// \brief Base class for plugins using a random number generator.
 class RandomConsumer{
+public:
+   virtual ~RandomConsumer();
 protected:
    /** \brief Constructor to be used by derived classes
     *
@@ -21,9 +23,6 @@ protected:
    
    /// random number generator instance to be used by derived classes
    std::auto_ptr<Random> rnd_gen;
-   
-   // pseudo copy-constructor for clones
-   RandomConsumer(const RandomConsumer & rhs, const theta::PropertyMap & pm, const std::string & name);
 };
 
 

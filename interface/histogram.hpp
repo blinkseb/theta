@@ -26,7 +26,7 @@ private:
     
 public:
     
-    /// Create a new DoubleVector with \c n entries.
+    /// Create a new DoubleVector with \c n entries, all set to zero.
     explicit DoubleVector(size_t n=0);
     
     /// Copy constructor

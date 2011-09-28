@@ -1,4 +1,5 @@
 #include "root/root_ntuple_source.hpp"
+#include "interface/random.hpp"
 #include <string>
 #include <vector>
 

@@ -12,7 +12,7 @@ histo_source::histo_source(const Configuration & cfg): DataSource(cfg){
         if(not s.exists("type")) continue;
         string obs_name = s.getName();
         ObsId obs_id = vm->getObsId(obs_name);
-        std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::instance().build(Configuration(cfg, s));
+        std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, s));
         if(hf->getParameters().size() > 0){
             throw ConfigurationException("histo_source: given histogram depends on parameters, which is not allowed");
         }
@@ -22,13 +22,6 @@ histo_source::histo_source(const Configuration & cfg): DataSource(cfg){
 
 void histo_source::fill(Data & dat){
     dat = data;
-}
-
-std::auto_ptr<DataSource> histo_source::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<DataSource>(new histo_source(*this, pm));
-}
-
-histo_source::histo_source(const histo_source & rhs, const theta::PropertyMap & pm): DataSource(rhs, pm), data(rhs.data){
 }
 
 REGISTER_PLUGIN(histo_source)

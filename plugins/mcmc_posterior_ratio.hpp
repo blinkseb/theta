@@ -60,10 +60,8 @@ public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     mcmc_posterior_ratio(const theta::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
-    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
     
 private:
-    mcmc_posterior_ratio(const mcmc_posterior_ratio & rhs, const theta::PropertyMap & pm);
     
     //whether sqrt_cov* and startvalues* have been initialized:
     bool init;

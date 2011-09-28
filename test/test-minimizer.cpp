@@ -4,6 +4,8 @@
 #include "interface/minimizer.hpp"
 #include "test/utils.hpp"
 
+#include <iostream>
+
 #include <boost/test/unit_test.hpp> 
 
 using namespace std;
@@ -36,7 +38,8 @@ public:
 BOOST_AUTO_TEST_CASE(minuit){
     boost::shared_ptr<VarIdManager> vm(new VarIdManager);
     if(!load_root_plugins()){
-      cout << "In test minuit: root plugin could not be loaded, not executing root tests";
+      std::cout << "In test minuit: root plugin could not be loaded, not executing root tests";
+      return;
     }
     
     ParId p0 = vm->createParId("p0");
@@ -47,7 +50,7 @@ BOOST_AUTO_TEST_CASE(minuit){
     
     ConfigCreator cc2("type = \"root_minuit\";", vm);
     BOOST_REQUIRE(true);//create checkpoint
-    std::auto_ptr<Minimizer> min = PluginManager<Minimizer>::instance().build(cc2.get());
+    std::auto_ptr<Minimizer> min = PluginManager<Minimizer>::build(cc2.get());
     BOOST_REQUIRE(min.get());
     ImpossibleFunction f(pars);
     bool exception;
@@ -65,7 +68,7 @@ BOOST_AUTO_TEST_CASE(minuit){
         exception = true;
     }
     catch(std::exception & ex){ //should not happen ...
-        cout << ex.what() << endl;
+        std::cout << ex.what() << endl;
         BOOST_REQUIRE(false);
     }
     BOOST_REQUIRE(exception);

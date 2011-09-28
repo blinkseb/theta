@@ -58,10 +58,7 @@ public:
     mcmc_quantiles(const theta::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
-    virtual std::auto_ptr<theta::Producer> clone(const theta::PropertyMap & pm) const;
-    
 private:
-    mcmc_quantiles(const mcmc_quantiles & rhs, const theta::PropertyMap & pm);
     void declare_products();
     
     //whether sqrt_cov* and startvalues* have been initialized:

@@ -73,16 +73,6 @@ MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues 
     }
 }
 
-std::auto_ptr<theta::Minimizer> mcmc_minimizer::clone(const theta::PropertyMap & pm) const{
-    //throw InvalidArgumentException("mcmc_minimizer does not support clone");
-    return std::auto_ptr<theta::Minimizer>(new mcmc_minimizer(*this, pm));
-}
-
-mcmc_minimizer::mcmc_minimizer(const mcmc_minimizer & rhs, const theta::PropertyMap & pm): RandomConsumer(rhs, pm, rhs.name), name(rhs.name),
-        iterations(rhs.iterations), burn_in(rhs.burn_in), stepsize_factor(rhs.stepsize_factor){
-    after_minimizer = rhs.after_minimizer->clone(pm);
-}
-
 mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer(cfg, cfg.setting["name"]), name(cfg.setting["name"]),
   stepsize_factor(1.0){
     SettingWrapper s = cfg.setting;
@@ -94,7 +84,7 @@ mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer
         burn_in = iterations / 10;
     }
     if(s.exists("after_minimizer")){
-        after_minimizer = PluginManager<Minimizer>::instance().build(Configuration(cfg, s["after_minimizer"]));
+        after_minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["after_minimizer"]));
     }
     if(s.exists("stepsize_factor")){
         stepsize_factor = s["stepsize_factor"];

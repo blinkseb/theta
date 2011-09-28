@@ -1,6 +1,8 @@
 #include "interface/producer.hpp"
 #include "interface/model.hpp"
+#include "interface/plugin.hpp"
 #include "interface/phys.hpp"
+#include "interface/distribution.hpp"
 
 using namespace theta;
 
@@ -27,8 +29,6 @@ const std::string & ProductsSource::getName() const{
    return name;
 }
 
-ProductsSource::ProductsSource(const ProductsSource & rhs, const theta::PropertyMap & pm): name(rhs.name), products_sink(pm.get<ProductsSink>()){}
-
 ProductsSource::ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink): name(name_), products_sink(sink){}
 
 ProductsSource::ProductsSource(const Configuration & cfg): name(cfg.setting["name"]){
@@ -41,21 +41,14 @@ ProductsSource::ProductsSource(const Configuration & cfg): name(cfg.setting["nam
 
 Producer::Producer(const Configuration & cfg): ProductsSource(cfg){
     if(cfg.setting.exists("override-parameter-distribution")){
-        override_parameter_distribution = PluginManager<Distribution>::instance().build(Configuration(cfg, cfg.setting["override-parameter-distribution"]));
+        override_parameter_distribution = PluginManager<Distribution>::build(Configuration(cfg, cfg.setting["override-parameter-distribution"]));
     }
     if(cfg.setting.exists("additional-nll-term")){
-        additional_nll_term = PluginManager<Function>::instance().build(Configuration(cfg, cfg.setting["additional-nll-term"]));
+        additional_nll_term = PluginManager<Function>::build(Configuration(cfg, cfg.setting["additional-nll-term"]));
     }
 }
 
-Producer::Producer(const Producer & rhs, const theta::PropertyMap & pm): ProductsSource(rhs, pm){
-    if(rhs.override_parameter_distribution){
-        override_parameter_distribution = rhs.override_parameter_distribution->clone();
-    }
-    if(rhs.additional_nll_term){
-        additional_nll_term = rhs.additional_nll_term->clone();
-    }
-}
+Producer::~Producer(){}
 
 std::auto_ptr<NLLikelihood> Producer::get_nllikelihood(const Data & data, const Model & model){
     std::auto_ptr<NLLikelihood> nll = model.getNLLikelihood(data);

@@ -37,7 +37,6 @@ public:
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
     
-    virtual std::auto_ptr<theta::Distribution> clone() const;
 private:
     unsigned int n;
     double low, width_;

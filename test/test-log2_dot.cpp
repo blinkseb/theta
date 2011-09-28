@@ -5,7 +5,7 @@
 #include <math.h>
 
 #include "interface/log2_dot.hpp"
-#include "interface/utils.hpp"
+#include "test/utils.hpp"
 
 using namespace std;
 using namespace theta;
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(tl){
     }
     double ref = template_nllikelihood_reference(data, pred, N);
     double res = template_nllikelihood(data, pred, N);
-    BOOST_CHECK(utils::close_to(ref, res, 1.0));
+    BOOST_CHECK(close_to(ref, res, 1.0));
     
     //check that inf is returned if pred is 0.0:
     pred[N/2] = 0.0;
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(tl){
     ref = template_nllikelihood_reference(data, pred, N);
     res = template_nllikelihood(data, pred, N);
     BOOST_REQUIRE(!isinf(res) && !isinf(ref));
-    BOOST_CHECK(utils::close_to_relative(ref, res));
+    BOOST_CHECK(close_to_relative(ref, res));
 }
 
 

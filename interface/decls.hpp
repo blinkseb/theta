@@ -21,10 +21,11 @@ namespace theta{
     class Table;
     class Column;
     class ProductsTable;
+    class LogTable;
+    class RndInfoTable;
         
     class Configuration;
     class Random;
-    class Run;
     class VarIdManager;
     template<typename tag> class VarId;
     struct ParIdTag;
@@ -45,7 +46,5 @@ namespace theta{
     
     class SettingWrapper;
 }
-
-namespace codegen{}
 
 #endif

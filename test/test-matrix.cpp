@@ -1,6 +1,6 @@
 #include "interface/random.hpp"
 #include "interface/matrix.hpp"
-#include "interface/utils.hpp"
+#include "test/utils.hpp"
 #include "interface/exception.hpp"
 
 #include <boost/test/unit_test.hpp>
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(matrix1){
 	 for(size_t k=0; k<N; k++){
 	    n_ij += l(i,k) * lt(k,j);
 	 }
-	 BOOST_REQUIRE(utils::close_to(n_ij, n_old(i,j), 1));
+	 BOOST_REQUIRE(close_to(n_ij, n_old(i,j), 1));
       }
    }
    //test errors:
@@ -121,8 +121,8 @@ BOOST_AUTO_TEST_CASE(matrix2){
    //test matrix for unity:
    for(size_t i=0; i<N; i++){
        for(size_t j=0; j<N; j++){
-           if(i==j) BOOST_CHECK(utils::close_to(unity(i,j), 1, 10));
-           else BOOST_CHECK(utils::close_to(unity(i,j), 0, 10));
+           if(i==j) BOOST_CHECK(close_to(unity(i,j), 1, 100));
+           else BOOST_CHECK(close_to(unity(i,j), 0, 100));
        }
    }
 }

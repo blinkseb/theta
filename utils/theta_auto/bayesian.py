@@ -38,8 +38,9 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
     bayes_interval = {'type': 'mcmc_quantiles', 'name': 'bayes', 'parameter': 'beta_signal',
        'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior"), 'quantiles': [quantile], 'iterations': 20000 }
     if 'mcmc_iterations' in options: bayes_interval['iterations'] = options['mcmc_iterations']
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so',)}
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'options': cfg_options}
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main}
+    options['load_root_plugins'] = False
+    toplevel_settings.update(get_common_toplevel_settings(**options))
     for i in range(mcmc_nproducers):
         if 'mcmc_seed' in options: bayes_interval['rnd_gen'] = {'seed': options['mcmc_seed'] + i }
         bayes_interval['name'] = 'bayes%d' % i
@@ -49,7 +50,7 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
-        name = write_cfg(model, sp, 'bayesian_quantiles', input, additional_settings = toplevel_settings)
+        name = write_cfg(model, sp, 'bayesian_quantiles', input, additional_settings = toplevel_settings, **options)
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run)
@@ -200,15 +201,16 @@ def posteriors(model, histogram_specs, input = 'data', n = 3, signal_prior = 'fl
         posteriors['parameters'].append(par)
         nbins, xmin, xmax = histogram_specs[par]
         posteriors['histo_%s' % par] = {'range': [float(xmin), float(xmax)], 'nbins': nbins}
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so',)}
-    toplevel_settings = {'signal_prior': signal_prior, 'posteriors': posteriors, 'main': main, 'options': cfg_options}
+    toplevel_settings = {'signal_prior': signal_prior, 'posteriors': posteriors, 'main': main}
+    options['load_root_plugins'] = False
+    toplevel_settings.update(get_common_toplevel_settings(**options))
     cfg_names_to_run = []
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, input)
     cfg_names_to_run = []
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
-        name = write_cfg(model, sp, 'posteriors', input, additional_settings = toplevel_settings)
+        name = write_cfg(model, sp, 'posteriors', input, additional_settings = toplevel_settings, **options)
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run)

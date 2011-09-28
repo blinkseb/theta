@@ -23,7 +23,7 @@ int ConfigCreator::setup_config(const std::string & cfg_string){
         config.readString(cfg_string);
     }
     catch(libconfig::ParseException & ex){
-        cerr << "ConfigCreator: parse Exception: " << ex.getError() << " on line " << ex.getLine() << endl;
+        std::cerr << "ConfigCreator: parse Exception: " << ex.getError() << " on line " << ex.getLine() << ":\n" << cfg_string << endl;
     }
     return 0;
 }
@@ -36,7 +36,7 @@ void load_core_plugins(){
     try{
         PluginLoader::load("lib/core-plugins.so");
     }
-    catch(Exception & ex){
+    catch(FatalException & ex){
       std::cout << ex.message << std::endl;
       throw;
     }
@@ -51,11 +51,27 @@ bool load_root_plugins(){
     try{
         PluginLoader::load("lib/root.so");
     }
-    catch(Exception & ex){
+    catch(FatalException & ex){
         return false;
     }
     BOOST_TEST_CHECKPOINT("loaded root plugin");
     loaded = true;
     return true;
 }
+
+bool load_llvm_plugins(){
+    static bool loaded(false);
+    if(loaded) return true;
+    BOOST_TEST_CHECKPOINT("loading llvm plugins");
+    try{
+        PluginLoader::load("lib/llvm-plugins.so");
+    }
+    catch(FatalException & ex){
+        return false;
+    }
+    BOOST_TEST_CHECKPOINT("loaded llvm plugin");
+    loaded = true;
+    return true;
+}
+
 

@@ -1,4 +1,5 @@
 #include "plugins/vary_one.hpp"
+#include "interface/plugin.hpp"
 
 using namespace std;
 using namespace theta;
@@ -22,10 +23,6 @@ void vary_one::sample(ParValues & result, Random &) const{
        }
     }
     throw FatalException("logic error in vary_one::sample");
-}
-
-std::auto_ptr<theta::Distribution> vary_one::clone() const{
-    return std::auto_ptr<theta::Distribution>(new vary_one(*this));
 }
 
 vary_one::vary_one(const theta::Configuration & cfg): next_index(0), n_total(1){
