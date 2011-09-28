@@ -67,6 +67,7 @@ bool load_llvm_plugins(){
         PluginLoader::load("lib/llvm-plugins.so");
     }
     catch(FatalException & ex){
+        std::cout << "error loagin llvm plugins: " << ex.message << endl;
         return false;
     }
     BOOST_TEST_CHECKPOINT("loaded llvm plugin");

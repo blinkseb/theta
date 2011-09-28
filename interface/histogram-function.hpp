@@ -86,26 +86,13 @@ namespace theta {
      */
     class ConstantHistogramFunction: public HistogramFunction{
     public:
-        /** \brief A \c HistogramFunction which does not depend on any parameters and always returns \c histo.
-         *
-         * \param histo is the Histogram to return on operator()(...).
-         *
-         *  \sa HistogramFunction getRandomFluctuation
-         */
-        ConstantHistogramFunction(const Histogram1D & histo){
-            set_histo(histo);
-        }
 
-        /** \brief Returns the Histogram \c h set at construction time.
+        /** \brief Returns the Histogram \c h set via set_histo
          */
-        virtual const Histogram1D & operator()(const ParValues & values) const{
-            return h;
-        }
+        virtual const Histogram1D & operator()(const ParValues & values) const;
         
         /// Return a Histogram of the same dimensions as the one returned by operator()
-        virtual Histogram1D get_histogram_dimensions() const{
-            return h;
-        }
+        virtual Histogram1D get_histogram_dimensions() const;
 
     protected:
         /** \brief Set the constant Histogram to return
@@ -113,12 +100,11 @@ namespace theta {
          * This method is meant for derived classes which can use it to set the constant Histogram to
          * be returned by operator()
          */
-        void set_histo(const Histogram1D & h_){
-           h = h_;
-        }
+        void set_histo(const Histogram1D & h_);
+        
         /** \brief Default constructor to be used by derived classes
          */
-        ConstantHistogramFunction(){}
+        ConstantHistogramFunction();
      private:
         Histogram1D h;
     };
@@ -131,30 +117,10 @@ namespace theta {
      */
     class ConstantHistogramFunctionError: public HistogramFunction{
     public:
-        /** \brief Construct from a Histogram and an error Histogram
-         *
-         * \param histo is the Histogram to return on operator()(...).
-         * \param error is a Histogram containing relative errors on the bin entries of histo.
-         *
-         * If bin j of error contains 0.2, it means that the bin content of bin j of histo is affected
-         * by a 20% relative uncertainty.
-         *
-         * Note that all errors must be >= 0. Otherwise, an InvalidArgumentException
-         * will be thrown. Also, the \c error and \c histo Histograms must be
-         * compatible, i.e., have the same range and number of bins. If not,
-         * an InvalidArgumentException is thrown.
-         *
-         *  \sa HistogramFunction getRandomFluctuation Histogram::check_compatibility
-         */
-        ConstantHistogramFunctionError(const Histogram1D & histo, const Histogram1D & error){
-            set_histos(histo, error);
-        }
 
         /** \brief Returns the Histogram \c h set at construction time.
          */
-        virtual const Histogram1D & operator()(const ParValues & values) const{
-            return h;
-        }
+        virtual const Histogram1D & operator()(const ParValues & values) const;
 
         /** \brief Returns the bin-by-bin fluctuated Histogram.
          *
@@ -173,9 +139,7 @@ namespace theta {
         virtual const Histogram1D & getRandomFluctuation(Random & rnd, const ParValues & values) const;
         
         /// Return a Histogram of the same dimensions as the one returned by operator()
-        virtual Histogram1D get_histogram_dimensions() const{
-            return h;
-        }
+        virtual Histogram1D get_histogram_dimensions() const;
         
     protected:
         /** \brief Set the Histogram and the errors to to return
@@ -185,20 +149,11 @@ namespace theta {
          * in ConstantHistogramFunctionError::ConstantHistogramFunctionError, the \c error Histogram
          * contains bin-by-bin relative errors which are assumed to be independent.
          */
-        void set_histos(const Histogram1D & histo, const Histogram1D & error){
-            histo.check_compatibility(error); //throws if not compatible
-            h = histo;
-            err = error;
-            fluc = h;
-            //check that errors are positive:
-            for(size_t i=0; i<h.get_nbins(); ++i){
-                if(error.get(i)<0.0) throw InvalidArgumentException("ConstantHistogramFunctionError: error histogram contains negative entries");
-            }
-        }
+        void set_histos(const Histogram1D & histo, const Histogram1D & error);
 
         /** \brief Default constructor to be used by derived classes
          */
-        ConstantHistogramFunctionError(){}
+        ConstantHistogramFunctionError();
         
     private:
         Histogram1D h;

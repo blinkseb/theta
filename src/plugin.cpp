@@ -6,6 +6,10 @@
 using namespace std;
 using namespace theta;
 
+Configuration::Configuration(const SettingWrapper & setting_): pm(new theta::PropertyMap()), setting(setting_){}
+
+Configuration::Configuration(const Configuration & cfg, const SettingWrapper & setting_): pm(cfg.pm), setting(setting_){}
+
 void PluginLoader::execute(const Configuration & cfg) {
     SettingWrapper files = cfg.setting["plugin_files"];
     size_t n = files.size();
@@ -33,3 +37,7 @@ void PluginLoader::load(const std::string & soname) {
         throw InvalidArgumentException(s.str());
     }
 }
+
+
+
+

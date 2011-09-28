@@ -1,6 +1,6 @@
 #include "interface/producer.hpp"
 #include "interface/model.hpp"
-#include "interface/plugin.hpp"
+#include "interface/plugin.tcc"
 #include "interface/phys.hpp"
 #include "interface/distribution.hpp"
 

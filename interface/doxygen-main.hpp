@@ -218,10 +218,8 @@
  *   <li>\c optiontest (default: OFF) If enabled, will build test executables and shared objects.</li>
  *   <li>\c coverage (default: OFF) If enabled, switched off optimization and adds compiler options to for coverage tests
  *     with gcov. If enabled, the \c release option is ignored.</li>
- *   <li>\c crlibm (default: ON) If enabled, uses the logarithm function (included in %theta)
- *         from the <a href="http://lipforge.ens-lyon.fr/www/crlibm/">crlibm project</a> which is often faster than the
- *         standard log function.</li>
- *   <li>\c sse (default: OFF) If enabled, use SSE optimization for vector operations in the Histogram class. </li>
+ *   <li>\c amdlibm (default: ON) If enabled, uses some math functions from amdlibm (included in %theta)
+ *         instead of the standard libm.</li>
  * </ul>
  *
  * \subsection with_cmssw With CMSSW

@@ -1,17 +1,18 @@
 #ifndef DATABASE_HPP
 #define DATABASE_HPP
 
+#include "interface/decls.hpp"
+#include "interface/data_type.hpp"
+#include "interface/histogram.hpp"
+#include "interface/producer.hpp"
+
+
 #include <string>
+#include <map>
 #include <memory>
 
 #include <boost/utility.hpp>
 #include <boost/enable_shared_from_this.hpp>
-
-#include "interface/decls.hpp"
-#include "interface/plugin.hpp"
-#include "interface/data_type.hpp"
-#include "interface/histogram.hpp"
-#include "interface/producer.hpp"
 
 namespace theta {
 
@@ -48,7 +49,7 @@ public:
          */
         virtual bool has_data() = 0;
         
-        //@{
+        ///@{
         /** \brief Retrieve the column values of the current row
          *
          * Before calling any of these, make sure has_data() returns true.
@@ -62,9 +63,9 @@ public:
         virtual int get_int(size_t icol) = 0;
         virtual theta::Histogram1D get_histogram(size_t icol) = 0;
         virtual std::string get_string(size_t icol) = 0;
-        //@}
+        ///@}
         
-        virtual ~ResultIterator(){}
+        virtual ~ResultIterator();
     };
 
     /** \brief Select some columns from a table
@@ -75,7 +76,7 @@ public:
      * In case of an error, a DatabaseException is thrown.
      */
     virtual std::auto_ptr<ResultIterator> query(const std::string & table_name, const std::vector<std::string> & column_names) = 0;
-    virtual ~DatabaseInput(){}
+    virtual ~DatabaseInput();
 };
 
 
@@ -101,7 +102,7 @@ public:
      * Should do any cleanup work (like closing the database file for file-based databases,
      * closing the network connection for network-based, etc.).
      */
-    virtual ~Database(){}
+    virtual ~Database();
     
     /** \brief Create a new table instance within this database
      *
@@ -158,18 +159,10 @@ class Row{
 public:
     ///@{
     /// Setters for the row values, given a Column instance
-    void set_column(const Column & col, double d){
-        doubles[col] = d;
-    }
-    void set_column(const Column & col, int i){
-        ints[col] = i;
-    }
-    void set_column(const Column & col, const std::string & s){
-        strings[col] = s;
-    }
-    void set_column(const Column & col, const Histogram1D & h){
-        histos[col] = h;
-    }
+    void set_column(const Column & col, double d);
+    void set_column(const Column & col, int i);
+    void set_column(const Column & col, const std::string & s);
+    void set_column(const Column & col, const Histogram1D & h);
     ///@}
     
     ///@{ Getters for the row values, given a Column instance
@@ -178,26 +171,10 @@ public:
      * Will throw a DatabseException if the Column value asked for has not been
      * set previously by a (type-matching) setter method.
      */
-    double get_column_double(const Column & col) const{
-        std::map<Column, double>::const_iterator it = doubles.find(col);
-        if(it==doubles.end()) throw DatabaseException("Row: column not set");
-        return it->second;
-    }
-    int get_column_int(const Column & col) const{
-        std::map<Column, int>::const_iterator it = ints.find(col);
-        if(it==ints.end()) throw DatabaseException("Row: column not set");
-        return it->second;
-    }
-    const std::string & get_column_string(const Column & col) const{
-        std::map<Column, std::string>::const_iterator it = strings.find(col);
-        if(it==strings.end()) throw DatabaseException("Row: column not set");
-        return it->second;
-    }
-    const Histogram1D & get_column_histogram(const Column & col) const{
-        std::map<Column, Histogram1D>::const_iterator it = histos.find(col);
-        if(it==histos.end()) throw DatabaseException("Row: column not set");
-        return it->second;
-    }
+    double get_column_double(const Column & col) const;
+    int get_column_int(const Column & col) const;
+    const std::string & get_column_string(const Column & col) const;
+    const Histogram1D & get_column_histogram(const Column & col) const;
     ///@}
 private:
     std::map<Column, double> doubles;
@@ -255,7 +232,7 @@ protected:
     //the tables always hold a shared ptr to the database to prevent
     // the database being destroyed earlier than all its tables (!)
     boost::shared_ptr<Database> db;
-    Table(const boost::shared_ptr<Database> & db_): db(db_){}
+    Table(const boost::shared_ptr<Database> & db_);
 private:
     Table(); //not implemented
 };
@@ -284,21 +261,10 @@ public:
         ///@{
         /** \brief Forwards to Table::set_column
          */
-        virtual void set_product(const Column & c, double d){
-            current_row.set_column(c, d);
-        }
-        
-        virtual void set_product(const Column & c, int i){
-            current_row.set_column(c, i);
-        }
-        
-        virtual void set_product(const Column & c, const std::string & s){
-            current_row.set_column(c, s);
-        }
-        
-        virtual void set_product(const Column & c, const theta::Histogram1D & histo){
-            current_row.set_column(c, histo);
-        }
+        virtual void set_product(const Column & c, double d);
+        virtual void set_product(const Column & c, int i);
+        virtual void set_product(const Column & c, const std::string & s);
+        virtual void set_product(const Column & c, const theta::Histogram1D & histo);
         ///@}
         
         /** \brief Add a column to this table
@@ -308,7 +274,7 @@ public:
          *
          * The actual column name used in the table will be
          * \code
-         *   tw.getName() + "__" + column_name
+         *   source.getName() + "__" + column_name
          * \endcode
          */
         virtual Column declare_product(const theta::ProductsSource & source, const std::string & product_name, const data_type & type);

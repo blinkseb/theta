@@ -1,7 +1,7 @@
 #include "interface/model.hpp"
 #include "interface/histogram-function.hpp"
 #include "interface/distribution.hpp"
-#include "interface/plugin.hpp"
+#include "interface/plugin.tcc"
 #include "interface/log2_dot.hpp"
 
 using namespace std;

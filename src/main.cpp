@@ -1,5 +1,5 @@
 #include "interface/main.hpp"
-#include "interface/plugin.hpp"
+#include "interface/plugin.tcc"
 #include <signal.h>
 
 using namespace theta;
@@ -24,3 +24,10 @@ void theta::install_sigint_handler(){
 }
 
 
+ProgressListener::~ProgressListener(){}
+
+void Main::set_progress_listener(const boost::shared_ptr<ProgressListener> & l){
+    progress_listener = l;
+}
+
+Main::~Main(){}

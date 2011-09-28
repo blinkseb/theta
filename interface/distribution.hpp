@@ -98,7 +98,7 @@ namespace theta{
         }
         
         /// declare destructor as virtual, as polymorphic access will happen
-        virtual ~Distribution(){}
+        virtual ~Distribution();
         
     protected:
         ParIds par_ids;

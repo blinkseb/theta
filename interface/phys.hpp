@@ -109,7 +109,7 @@ namespace theta {
             if(id.id >= data.size() || data[id.id].get_nbins()==0) fail_get(id);
             return data[id.id];
         }
-        //@}
+        ///@}
         
         
         /// \brief reset all current Histograms, i.e., set to zero entry

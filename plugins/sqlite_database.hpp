@@ -8,6 +8,7 @@
 #include <sqlite3.h>
 #include <memory>
 #include <string>
+#include <sstream>
 #include <set>
 
 

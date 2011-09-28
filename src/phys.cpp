@@ -1,5 +1,5 @@
 #include "interface/phys.hpp"
-#include "interface/plugin.hpp"
+#include "interface/plugin.tcc"
 
 using namespace theta;
 
@@ -20,5 +20,4 @@ ObsIds Data::getObservables() const{
 void Data::fail_get(const ObsId & oid) const{
     throw NotFoundException("Data::operator[]() const: no data found for given ObsId");
 }
-
 

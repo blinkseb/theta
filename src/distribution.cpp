@@ -1,6 +1,6 @@
 #include "interface/distribution.hpp"
 #include "interface/exception.hpp"
-#include "interface/plugin.hpp"
+#include "interface/plugin.tcc"
 
 REGISTER_PLUGIN_BASETYPE(theta::Distribution);
 
@@ -13,3 +13,5 @@ void theta::DistributionUtils::fillModeSupport(theta::ParValues & mode,
         support[*p_it] = d.support(*p_it);
     }
 }
+
+theta::Distribution::~Distribution(){}

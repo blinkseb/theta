@@ -2,6 +2,7 @@
 #include "interface/random.hpp"
 #include "interface/histogram.hpp"
 #include "interface/database.hpp"
+#include "interface/plugin.hpp"
 
 #include <boost/date_time/local_time/local_time.hpp>
 #include <unistd.h>

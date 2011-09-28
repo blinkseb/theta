@@ -14,20 +14,6 @@ using namespace std;
 
 BOOST_AUTO_TEST_SUITE(histogram_function_tests)
 
-BOOST_AUTO_TEST_CASE(histofunction){
-    size_t nbins = 100;
-    Histogram1D h(nbins, -1, 1);
-    for(size_t i = 0; i<nbins; i++){
-        double x = 2.0 / 100 * i - 1;
-        h.set(i, exp(-0.5*x*x));
-    }
-    std::auto_ptr<HistogramFunction> hp(new ConstantHistogramFunction(h));
-    Histogram1D hh = (*hp)(ParValues());
-    for(size_t i = 0; i<nbins; i++){
-        BOOST_REQUIRE(h.get(i) == hh.get(i));
-    }
-}
-
 BOOST_AUTO_TEST_CASE(root_histogram_range){
     bool loaded =  load_root_plugins();
     if(!loaded){

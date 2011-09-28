@@ -62,7 +62,7 @@ public:
 class DatabaseException: public Exception{
 public:
     /// Constructor taking a message intended for the user which will be written to Exception::message
-    DatabaseException(const std::string & s): Exception(s){}
+    DatabaseException(const std::string & s);
 };
 
 /** \brief Thrown in case of minimization errors.
@@ -72,7 +72,7 @@ public:
 class MinimizationException: public Exception{
 public:
     /// Constructor taking a message intended for the user which will be written to Exception::message
-    MinimizationException(const std::string & s): Exception(s){}
+    MinimizationException(const std::string & s);
 };
 
 /** \brief Exception class to indicate an internal error
@@ -116,7 +116,7 @@ public:
    std::string message;
 
    /// Constructor taking a message intended for the user which will be written to Exception::message
-   ExitException(const std::string & message_): message(message_){}
+   ExitException(const std::string & message_);
 };
 
 }

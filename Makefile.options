@@ -1,17 +1,18 @@
 # You can edit this file to specify suitable options for your build.
 #
-# boolean-like switches should be either either "yes" or "no"
+# All option variables are boolean-like and should be either either set to
+# "yes" or "no".
 #
-# after modifying this file, make sure to "make clean"!
+# After modifying this file, make sure to "make clean" before the next
+# "make" to make sure all changes are picked up.
 
-# whether or not to build the tests in the test/ directory
+# If yes, build tests from the "test" subdirectory
 OPTIONS_BUILD_TESTS := yes
 
-# whether or not to use the log function from crlibm (which is faster than the standard log)
-OPTIONS_USE_CRLIBM := no
-
+# If yes, use amdlibm for some math functions instead of libm
 OPTIONS_USE_AMDLIBM := yes
 
+# If yes, build llvm plugins in "llvm" subdirectory. Requires working llvm installation (tested with 2.7 and 2.8)
 OPTIONS_BUILD_LLVM := no
 
 # if you installed boost or sqlite not system-wide but in a special location, set the installation
@@ -19,12 +20,14 @@ OPTIONS_BUILD_LLVM := no
 #OPTIONS_SQLITEDIR:=/wlcg/sw/cms/experimental/slc5_ia32_gcc434/external/sqlite/3.6.10
 #OPTIONS_BOOSTDIR:=/wlcg/sw/boost/current
 
-OPTIONS_CFLAGS := -I/usr/local/include
-OPTIONS_LDFLAGS := -L/usr/local/lib
+OPTIONS_CFLAGS :=
+OPTIONS_LDFLAGS :=
 
-# Usually, theta assumes building for 64-bit x86 cpus (and an assembler compatible with the one gcc uses).
+# Usually, theta assumes building for 64-bit x86 cpus (and an assembler compatible
+# with the one gcc uses).
 # Setting this flag to 'yes' disables some optimizations and replaces functions with generic ones.
-# Note that some platform-specific optimizations are controlled by compiler-defined defines such as __SSE2__ and ignore
+# Note that some platform-specific optimizations are controlled by
+# compiler-defined defines such as __SSE2__ and ignore
 # the value given here.
 OPTIONS_GENERIC_ARCH := no
 

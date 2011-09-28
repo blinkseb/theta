@@ -86,3 +86,63 @@ SettingWrapper::SettingWrapper(const libconfig::Setting & s, const libconfig::Se
     if(name) setting_name = name;
 }
 
+
+SettingWrapper::operator bool() const{
+    rec->markAsUsed(setting);
+    return setting;
+}
+
+SettingWrapper::operator std::string() const{
+    rec->markAsUsed(setting);
+    return setting;
+}
+
+SettingWrapper::operator int() const{
+    rec->markAsUsed(setting);
+    return setting;
+}
+
+SettingWrapper::operator unsigned int() const{
+    rec->markAsUsed(setting);
+    return setting;
+}
+
+SettingWrapper::operator double() const{
+    rec->markAsUsed(setting);
+    return setting;
+}
+
+size_t SettingWrapper::size() const{
+    rec->markAsUsed(setting);
+    return setting.getLength();
+}
+
+SettingWrapper SettingWrapper::operator[](int i) const{
+    rec->markAsUsed(setting);
+    return SettingWrapper(setting[i], rootsetting, rec);
+}
+
+SettingWrapper SettingWrapper::operator[](const std::string & name) const{
+    rec->markAsUsed(setting);
+    return SettingWrapper(setting[name], rootsetting, rec);
+}
+
+SettingWrapper SettingWrapper::operator[](const char * name) const{
+    return operator[](std::string(name));
+}
+
+bool SettingWrapper::exists(const std::string & path) const{
+    return setting.exists(path);
+}
+
+std::string SettingWrapper::getName() const{
+    return setting_name;
+}
+
+std::string SettingWrapper::getPath() const{
+    return setting.getPath();
+}
+
+libconfig::Setting::Type SettingWrapper::getType() const{
+    return setting.getType();
+}

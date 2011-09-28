@@ -47,7 +47,7 @@ public:
     virtual void progress(int done, int total, int errors) = 0;
     
     /// Make destructor virtual as we have polymorphic access
-    virtual ~ProgressListener(){}
+    virtual ~ProgressListener();
 };
 
 
@@ -65,9 +65,7 @@ public:
     * The registered progress listener will be informed about the current progress of the run during
     * execution of Run::run().
     */
-    void set_progress_listener(const boost::shared_ptr<ProgressListener> & l){
-        progress_listener = l;
-    }
+    void set_progress_listener(const boost::shared_ptr<ProgressListener> & l);
     
     /** \brief Perform the actual run
      *
@@ -77,16 +75,13 @@ public:
      
      
      /// Declare destructor virtual as we will have polymorphic access to derived classes
-     virtual ~Main(){}
+     virtual ~Main();
     
 protected:
     boost::shared_ptr<ProgressListener> progress_listener;
 
 };
 
-
 }
 
-
 #endif
-

@@ -9,7 +9,7 @@
 #include "TH1D.h"
 
 #include <string>
-
+#include <set>
 
 /** \brief Database which makes histograms of values instead of saving them all
  *

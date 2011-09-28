@@ -32,3 +32,8 @@ void fail_assert(const char * filename, int lineno, const char * expression){
     throw FatalException(ss.str());
 }
 
+DatabaseException::DatabaseException(const std::string & s): Exception(s){}
+
+MinimizationException::MinimizationException(const std::string & s): Exception(s){}
+
+ExitException::ExitException(const std::string & message_): message(message_){}

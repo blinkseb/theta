@@ -155,7 +155,9 @@ BOOST_AUTO_TEST_CASE(constant_histo){
 
 
 BOOST_AUTO_TEST_CASE(model){
-    load_core_plugins();
+    if(!load_llvm_plugins()){
+        return;
+    }
     utils::fill_theta_dir(0);
     boost::shared_ptr<VarIdManager> vm(new VarIdManager);
     PropertyMap pm;

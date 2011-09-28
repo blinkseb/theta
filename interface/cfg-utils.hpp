@@ -71,75 +71,45 @@ namespace theta{
         
         static const libconfig::Setting & resolve_link(const libconfig::Setting & setting, const libconfig::Setting & root, const boost::shared_ptr<SettingUsageRecorder> & rec);
     public:
-            //@{
+            ///@{
             /** \brief Convert the current setting to the given type
              *
              * If the setting has not the correct type, a SettingTypeException will be thrown.
              */
-            operator bool() const{
-                rec->markAsUsed(setting);
-                return setting;
-            }
-            
-            operator std::string() const{
-                rec->markAsUsed(setting);
-                return setting;
-            }
-            
-            operator int() const{
-                rec->markAsUsed(setting);
-                return setting;
-            }
-            
-            operator unsigned int() const{
-                rec->markAsUsed(setting);
-                return setting;
-            }            
-            
-            operator double() const{
-                rec->markAsUsed(setting);
-                return setting;
-            }
-            //@}
+            operator bool() const;
+            operator std::string() const;
+            operator int() const;
+            operator unsigned int() const;
+            operator double() const;
+            ///@}
             
             /** \brief Get number of entries in a setting group, list or array
              *
              * Returns 0 if the setting is not a group, list or array. Same
              * as libconfig::Setting::getLength()
              */
-            size_t size() const{
-                rec->markAsUsed(setting);
-                return setting.getLength();
-            }
+            size_t size() const;
             
             /** \brief Get entry by index in a setting group, list or array
              *
              * same as libconfig::Setting::operator[](int)
              */
-            SettingWrapper operator[](int i) const{
-                rec->markAsUsed(setting);
-                return SettingWrapper(setting[i], rootsetting, rec);
-            }
+            SettingWrapper operator[](int i) const;
             
             /** \brief Get entry by name in a setting group
              *
              * same as libconfig::Setting::operator[](string), with the only difference
              * that links of the form "@&lt;path&gt;" are followed
              */
-            //@{
-            SettingWrapper operator[](const std::string & name) const{
-                rec->markAsUsed(setting);
-                return SettingWrapper(setting[name], rootsetting, rec);
-            }
-            
+            ///@{
+            SettingWrapper operator[](const std::string & name) const;
+	    
             //This must be defined in addition to operator[](string). Otherwise,
             // an expression in SettingWrapper s; s["abc"]; could also be read as
             // (int)s ["abc"]  (which is the same as "abc"[(int)s]) and the compiler would not
             // have a clear priority ...
-            SettingWrapper operator[](const char * name) const{
-                return operator[](std::string(name));
-            }
-            //@}
+            SettingWrapper operator[](const char * name) const;
+            ///@}
             
            /** \brief Return a double, but allow the special strings "inf", "-inf" for infinity
             *
@@ -152,34 +122,26 @@ namespace theta{
              *
              * same as libconfig::Setting::exists
              */
-            bool exists(const std::string & path) const{
-                return setting.exists(path);
-            }
+            bool exists(const std::string & path) const;
             
             /** \brief Returns the name of the current setting within its parent setting
              *
              * same as libconfig::Setting::getName. In case the setting has no name,
              * the special string "&lt;noname&gt;" is returned.
              */
-            std::string getName() const{
-                return setting_name;
-            }
+            std::string getName() const;
             
             /** \brief Returns the configuration file path of the current setting
              *
              * same as libconfig::Setting::getPath
              */
-            std::string getPath() const{
-                return setting.getPath();
-            }
+            std::string getPath() const;
             
             /** \brief Returns the type of the setting
              *
              * See libconfig documentation for details.
              */
-            libconfig::Setting::Type getType() const{
-                return setting.getType();
-            }
+            libconfig::Setting::Type getType() const;
             
             /** \brief Construct a SettingWrapper from a Setting, the root Setting and a setting recorder
              *

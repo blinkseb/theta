@@ -59,13 +59,7 @@ namespace theta{
         Matrix covariance;
         
         /// Define explicitely as ParValues::operator= is private
-        void operator=(const MinimizationResult& rhs){
-            fval = rhs.fval;
-            values.set(rhs.values);
-            errors_plus.set(rhs.errors_plus);
-            errors_minus.set(rhs.errors_minus);
-            covariance = rhs.covariance;
-        }
+        void operator=(const MinimizationResult& rhs);
     };
 
 
@@ -80,7 +74,7 @@ namespace theta{
         typedef Minimizer base_type;
 
         /// declare destructor virtual as we expect polymorphic access to derived classes
-        virtual ~Minimizer(){}
+        virtual ~Minimizer();
 
         /** \brief Attempt to minimize the function.
          *

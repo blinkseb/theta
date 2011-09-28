@@ -3,6 +3,7 @@
 #include "interface/histogram.hpp"
 #include "interface/phys.hpp"
 #include "interface/model.hpp"
+#include "interface/plugin.hpp"
 #include "interface/redirect_stdio.hpp"
 
 #include <iomanip>

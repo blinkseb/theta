@@ -3,15 +3,11 @@
 
 #include "interface/decls.hpp"
 #include "interface/pm.hpp"
-#include "interface/exception.hpp"
 #include "interface/cfg-utils.hpp"
-
-// todo: delete:
-#include "interface/redirect_stdio.hpp"
-#include <typeinfo>
 
 #include <boost/shared_ptr.hpp>
 
+#include <typeinfo>
 #include <sstream>
 
 namespace theta {
@@ -43,13 +39,13 @@ namespace theta {
 
         /** \brief Construct Configuration by specifying all data members
          */
-        Configuration(const SettingWrapper & setting_): pm(new theta::PropertyMap()), setting(setting_){}
+        Configuration(const SettingWrapper & setting_);
 
         /** \brief Copy elements from another Configuration, but replace Configuration::setting
          *
          * Copy all from \c cfg but \c cfg.setting which is replaced by \c setting_.
          */
-        Configuration(const Configuration & cfg, const SettingWrapper & setting_): pm(cfg.pm), setting(setting_){}
+        Configuration(const Configuration & cfg, const SettingWrapper & setting_);
     };
 
 
@@ -97,13 +93,7 @@ namespace theta {
      }; CONCAT(factory,__LINE__) CONCAT(factory_instance,__LINE__);}
 
      #define REGISTER_PLUGIN(type) REGISTER_PLUGIN_NAME(type, type)
-     #define REGISTER_PLUGIN_DEFAULT(type) REGISTER_PLUGIN_NAME(type, default)
-
-     //we need to make explicit template instantiations of the PluginManager registry,
-     // otherwise, the central registry associated to the PluginManager does not work reliably.
-     // This can happen if theta core does not instantiate the PluginManager class itself but some plugin does.
-     // The exact reason however is unknown ...
-     #define REGISTER_PLUGIN_BASETYPE(type) template class theta::PluginManager<type>; 
+     #define REGISTER_PLUGIN_DEFAULT(type) REGISTER_PLUGIN_NAME(type, default) 
      
      template<typename T>
      class PluginBuilder{
@@ -155,13 +145,10 @@ namespace theta {
         typedef factory<base_type> factory_type;
         friend class factory<base_type>;
 
-        static PluginManager & instance(){
-            static PluginManager pm;
-            return pm;
-        }
+        static PluginManager & instance();
 
         //prevent instance construction from "outside" by making constructor private:
-        PluginManager(): plugin_build_depth(0) {}
+        PluginManager();
         PluginManager(const PluginManager & rhs);// not implemented
 
         /** \brief Register a new factory.
@@ -178,77 +165,7 @@ namespace theta {
         
         // to prevent endless recursion within PluginManager::build, use a depth counter:
         int plugin_build_depth;
-
-        //to increase the plugin_build_depth in an exception-safe manner, use the build_depth_sentinel,
-        // which automatically decreaes depth count at destruction:
-        struct plugin_build_depth_sentinel{
-            int & i;
-            plugin_build_depth_sentinel(int & i_):i(i_){ ++i; }
-            ~plugin_build_depth_sentinel(){ --i; }
-        };
     };
-
-    template<typename product_type>
-    std::auto_ptr<product_type> PluginManager<product_type>::build(const Configuration & ctx, const std::string & type_){
-        PluginManager & pm = instance();
-        plugin_build_depth_sentinel b(pm.plugin_build_depth);
-        if(pm.plugin_build_depth > 15){
-            throw FatalException("PluginManager::build: detected too deep plugin building");
-        }
-        std::string type = type_;
-        if(type==""){
-            if(!ctx.setting.exists("type")) type = "default";
-            else type = static_cast<std::string>(ctx.setting["type"]);
-            if(type=="") throw ConfigurationException("Error while constructing plugin: empty 'type' setting given in path '" + ctx.setting.getPath() + "'");
-            if(pm.pb.get()){
-                return pm.pb->build(ctx, type);
-            }
-        }
-        for (size_t i = 0; i < pm.factories.size(); ++i) {
-            if (pm.factories[i]->get_typename() != type) continue;
-            try {
-                return pm.factories[i]->build(ctx);
-            }catch (Exception & ex) {
-                std::stringstream ss;
-                ss << "Error while constructing plugin according to configuration path '" << ctx.setting.getPath()
-                   << "' (type='" << type << "'): " << ex.message;
-                ex.message = ss.str();
-                throw;
-            }
-        }
-        std::stringstream ss;
-        ss << "Error while constructing plugin according to configuration path '" << ctx.setting.getPath()
-           << "': no plugin registered to create type='" << type << "'. Check spelling of the "
-           "type and make sure to load all necessary plugin files via the setting 'options.plugin_files'";
-        throw ConfigurationException(ss.str());
-    }
-
-    template<typename product_type>    
-    void PluginManager<product_type>::set_plugin_builder(std::auto_ptr<PluginBuilder<product_type> > & b){
-        PluginManager & pm = instance();
-        pm.pb = b;
-    }
-        
-    
-    template<typename product_type>
-    void PluginManager<product_type>::reset_plugin_builder(){
-        PluginManager & pm = instance();
-        pm.pb.reset();
-    }
-
-    template<typename product_type>
-    void PluginManager<product_type>::register_factory(factory_type * new_factory) {
-        PluginManager & pm = instance();
-        for (size_t i = 0; i < pm.factories.size(); i++) {
-            if (pm.factories[i]->get_typename() == new_factory->get_typename()) {
-                std::stringstream ss;
-                ss << "PluginManager::register_factory: there is already a plugin registered for type '" << pm.factories[i]->get_typename() << "'";
-                throw InvalidArgumentException(ss.str());
-            }
-        }
-        pm.factories.push_back(new_factory);
-    }
-    
 
     /** \brief Class responsible to load the shared object files containing plugins
      */

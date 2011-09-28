@@ -4,10 +4,6 @@
 #include <cmath>
 #include <string>
 
-#ifdef USE_CRLIBM
-#include "crlibm/crlibm.h"
-#endif
-
 #ifdef USE_AMDLIBM
 #include "amdlibm/include/amdlibm.h"
 #endif
@@ -106,14 +102,10 @@ inline void add_fast_with_coeff(double * x, const double * y, double c, const si
  * use this log function.
  */
 inline double log(double x){
-#ifdef USE_CRLIBM
-    return log_rn(x);
-#else
 #ifdef USE_AMDLIBM
     return amd_log(x);
 #else
     return ::log(x);
-#endif
 #endif
 }
 
