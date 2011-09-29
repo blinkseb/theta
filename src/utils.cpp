@@ -3,9 +3,14 @@
 #include <cmath>
 #include <limits>
 
+#ifdef __clang__
+#include "/usr/include/fenv.h"
+#endif
+
 #include <boost/math/special_functions/gamma.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+
 
 namespace fs = boost::filesystem;
 

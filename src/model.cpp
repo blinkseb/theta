@@ -141,20 +141,8 @@ default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarId
     }
 }
 
-//delete_clone is required by the destructor of boost::ptr_vector.
-namespace{
-    inline void delete_clone(const HistogramFunction * r){
-        delete r;
-    }
-
-    inline void delete_clone(const Function * r){
-        delete r;
-    }
-}
-
 default_model::~default_model(){
 }
-
 
 /* default_model_nll */
 default_model_nll::default_model_nll(const default_model & m, const Data & dat, const ObsIds & obs): model(m),

@@ -74,13 +74,6 @@ ifneq ($(BUILD_ARCH),x86_64)
    endif
 endif
 
-ifeq ($(BUILD_ARCH),)
-   ifeq ($(OPTIONS_USE_CRLIBM),yes)
-      DUMMY := $(warning build platform unknown, setting OPTIONS_USE_CRLIBM to no)
-      OPTIONS_USE_CRLIBM:=no
-    endif
-endif
-
 
 DEFINES :=
 
@@ -97,8 +90,6 @@ EXTRA_COMPILE :=
 EXTRA_LINK_EXE :=
 EXTRA_LINK_SO :=
 
-FLAGSCPP := -g -Wall -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
-FLAGSC := -g -Wall
 
 LIBS := -ldl -ltheta -lconfig
 ifeq ($(OPTIONS_USE_AMDLIBM),yes)
@@ -106,8 +97,11 @@ ifeq ($(OPTIONS_USE_AMDLIBM),yes)
     DEFINES += -DUSE_AMDLIBM
 endif
 
+FLAGSC := -g -Wall -fPIC -O3 $(INCLUDES) $(DEFINES) $(OPTIONS_CFLAGS)
+FLAGSCPP := $(FLAGSC) -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo -fPIC -O3 $(INCLUDES) $(DEFINES)
+
 #lazy evaluation of compile and link command to allow subdirectory-Makefiles to override the value of EXTRA_* ...
-COMPILE = echo creating $@; $(CXX) $(DEFINES) $(OPTIONS_CFLAGS) -c -fPIC -rdynamic -O3 $(INCLUDES) $(EXTRA_COMPILE)
+COMPILE = echo creating $@; $(CXX) -c $(EXTRA_COMPILE)
 LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LIBS) $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
 LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO) $(BOOST_LIBS)
 
@@ -122,13 +116,13 @@ LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -s
 
 
 .bin/%.d: %.cpp
-	@$(COMPILE) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+	@$(CXX) $(FLAGSCPP) $(EXTRA_COMPILE) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
 
 .bin/%.d: %.cxx
-	@$(COMPILE) -MM -MT '$(patsubst %.cxx,.bin/%.o,$<)' $< > $@
+	@$(CXX) $(FLAGSCPP) $(EXTRA_COMPILE) -MM -MT '$(patsubst %.cxx,.bin/%.o,$<)' $< > $@
 
 .bin/%.d: %.c
-	@$(COMPILE) -x c -MM -MT '$(patsubst %.c,.bin/%.o,$<)' $< > $@
+	@$(CXX) $(FLAGSC) $(EXTRA_COMPILE) -x c -MM -MT '$(patsubst %.c,.bin/%.o,$<)' $< > $@
 
 
 #make clean rule depend on subdir-specific:
