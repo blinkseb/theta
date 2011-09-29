@@ -13,7 +13,7 @@ OPTIONS_BUILD_TESTS := yes
 OPTIONS_USE_AMDLIBM := yes
 
 # If yes, build llvm plugins in "llvm" subdirectory. Requires working llvm installation (tested with 2.7 and 2.8)
-OPTIONS_BUILD_LLVM := no
+OPTIONS_BUILD_LLVM := yes
 
 # if you installed boost or sqlite not system-wide but in a special location, set the installation
 # directory here. It is assumed that "include" and "lib" subdirectories exist there:

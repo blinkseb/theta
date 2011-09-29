@@ -27,7 +27,7 @@ class rootfile:
                 print "WARNING: ignoring key %s in input file %s because it is of ROOT class %s, not TH1F / TH1D" % (key.GetName(), self.filename, clas)
                 continue
             th1 = key.ReadObj()
-            result[str(key.GetName())] = roofile.th1_to_histo(th1)
+            result[str(key.GetName())] = rootfile.th1_to_histo(th1)
         return result
         
     def get_histogram(self, hname):

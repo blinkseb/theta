@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import os, os.path, datetime, re, sys, copy, traceback, shutil, hashlib
 
 from theta_auto import *
@@ -6,6 +7,7 @@ inf = float("inf")
 
 #TODO:
 # * support for studies using +-1sigma toy / asimov data as input and re-run the method --> input='toys:scan-nuisance[-asimov]'?
+
 
 ## \page theta_auto_intro Introduction to theta-auto
 # 
@@ -40,24 +42,32 @@ inf = float("inf")
 #       call theta, and analyze the result.</li>
 #  </ol>
 #
-# Each function usually writes html to a global report object called "report" which you can write out to a directory; this should be done at the very end of the
-# "analysis.py" script. Each function also returns the result as a return value. The type of returned object depends on the function, see the function documentation
-# for details.
+# Each function returns the result as a return value. The type of returned object depends on the function, see the function documentation
+# for details. Most functions also writes a summary of the result to a global object called "report" which you can instruct to write out
+# its content as html in a specified directory; this should be done at the very end of the "analysis.py" script.
 #
-# You do not have to call the script "analysis.py"; pass the name of the script as first argument to "theta-auto.py". In this case, also the created
+# Do not execute the "analysis.py" script directly. Instead pass the name of the script as first argument to "theta-auto.py". In this case, also the created
 # subdirectory, which contains the automatically produced theta configuration files and other intermediate output, will change to the
 # script name without trailing ".py".
+#
+# The created subdirectory contains intermediate results such as the generated theta configuration files and sqlite files with the result.
+# You can (and from time to time should!) delete it, everything will be re-generated. However, it makes sense to keep the cached result because
+# theta-auto does not run theta again if there is a result created by theta based on the same configuration file. While this does not
+# help when making changes to the model, it can be very helpful if the model and the method are set up and you mainly work on
+# the extraction of the result.
 #
 # The most important statistical methods are:
 # <ol>
 #  <li>\link theta_auto::ml_fit ml_fit \endlink: make a maximum likelihood fit for all model parameters</li>
-#  <li>pl_intervals: calculate profile likelihood intervals for the signal cross section; this includes a maximum likelihood fit</li>
-#  <li>discovery: calculate the distribution of a test statistic (usually likelihood ratio) for the background-only hypothesis to get the p-value /
+#  <li>\link theta_auto::pl_intervals pl_intervals \endlink: calculate profile likelihood intervals for the signal cross section; this includes a maximum likelihood fit</li>
+#  <li>\link theta_auto::discovery discovery\endlink: calculate the distribution of a test statistic (usually likelihood ratio) for the background-only hypothesis to get the p-value /
 #      number of standard deviations "sigma".</li>
-#  <li>bayesian_quantiles: calculate marginal posterior quantiles for the signal strength parameter = upper / lower Bayesian limits on the signal cross section</li>
-#  <li>posteriors: calculate the marginal posteriors for the given parameters (which can be either nuisance parameters or the signal cross section)</li>
-#  <li>cls_limits: calculate CLs limits, using a certain test statistic (usually a variant of profile likelihood ratio)</li>
-#  <li>ks_test: calculate the KS p-value by generating toys, running a maximum likelihood fit, and calculating the KS test statistic. This is useful to get KS p-values
+#  <li>\link theta_auto::bayesian_quantiles bayesian_quantiles\endlink: calculate marginal posterior quantiles for the signal
+#        strength parameter = upper / lower Bayesian limits on the signal cross section</li>
+#  <li>\link theta_auto::posteriors posteriors \endlink: calculate the marginal posteriors for the given parameters (which can be either nuisance parameters or the signal cross section)</li>
+#  <li>\link theta_auto::cls_limits cls_limits \endlink: calculate CLs limits, using a certain test statistic (usually a variant of profile likelihood ratio)</li>
+#  <li>\link theta_auto::ks_test ks_test \endlink: calculate the KS p-value by generating toys, running a maximum likelihood fit, and calculating the
+#    KS test statistic. This is useful to get KS p-values
 #    which both (i) are valid after fitting data, (ii) include the effect of systematic uncertainties (both shape and rate).</li>
 # </ol>
 #
@@ -73,8 +83,8 @@ inf = float("inf")
 # The signal is always added to the prediction of the background yields with a multiplicative signal strength factor called "beta_signal" which corresponds
 # to the cross section in units of the configured signal yield. All model parameters except "beta_signal" are called "nuisance parameters" throughout the documentation.
 #
-# Note that the python Model class in theta-auto is slightly different from the C++ theta::Model class: theta::Model does not contain any information about data, nor about
-# which process is considered as signal.
+# Note that the python Model class in theta-auto is slightly different from the C++ theta::Model class you spefify in the %theta
+# configuration files: theta::Model does not contain any information about data, nor about which process is considered as signal.
 #
 # The Model class also includes an instance of Distribution, model.distribution which is the prior distribution
 # for all nuisance parameters. Toy data generation is always based on this prior. It is also used to add additional terms to the likelihood function, although
@@ -147,36 +157,37 @@ inf = float("inf")
 #     "shape:fix" (=fix shape-changing parameter, leave other parameter unchanged), "shape:free" (=use a flat prior for shape-changing parameters). Similarly, there are
 #     "rate:fix", "rate:free", and combinations of "shape:..." and "rate:..." combinations, separated by semicolon, e.g., "shape:fixed;rate:free". For more complicated
 #     situations, you can pass here an instance of the Distribution class which will be merged with the model.distribution (see Distribution.merge).</li>
-#   <li>\c signal_processes: a list of signal process groups to consider together as signal. A signal process group is a list of strings of
+#   <li>\c signal_processes: a list of signal process groups to considered together as signal. A signal process group is a list of strings of
 #       the names of the signal processes. They all must have been declared as signal processes (via Model.set_signal_processes) in the model. The default (None)
-#       will use all possible trivial (=consisting of only one process) signal process groups.</li>
+#       will use all signals individually as a 'trivial' signal process group consisting of only this signal.</li>
 # </ul>
-
-
-"""
-named options:
-* 'toydata_seed' (only relevant for input!='data'): the random seed to use for toy data generation; for reproducibility. default is to use 1, i.e. always the same (!).
-
-theta config file convention:
- - the toplevel setting 'model-distribution-signal' is used as signal distribution in model.parameter-distribution
- - model.parameter-distribution (which in case of signal always refers to the global 'model-distribution-signal') is used for toy data generation
- - the model is at the path 'model'
- - the name of a config file is '<method>-<sp>-<input>-<id>-<hash>.cfg' where '<method>' is the method name of the creating function, '<input>' is the input specification string
-   '<id>' is some optional; it is some string chosen by the calling method, '<hash>' is a unique hash calculated by theta_interface.write_cfg.
-"""
+#
+# \section Some Internals
+#
+# This section describes some internals of theta-auto which are useful to know even if you do not want to modify theta-auto but only use it.
+#
+# The generated configuration file name follows the convention: <method>-<signal process group id>-<input>[-<id>]-<hash>.cfg
+# where <method> is the python function name of the function generating the configuration file, <input>
+# is the 'input' parameter as explained in the previous section, the optional <id> depends on the function, and <hash>
+# is (part of a md5-)hash of the configuration file, in order to avoid clashes where otherwise the same values apply.
+#
+# Each configuration file creates one sqlite output file with the same name in the current directory; the suffix ".cfg"
+# is replaced by ".db".
 
 
 ## \file theta-auto.py
 #
 # Main executable for the theta-auto scripts. See \ref theta_auto_intro for details.
 
-
+## \namespace theta_auto
+# \brief Python scripts of theta-auto
+#
 
 
 ## \brief Perform a maximum likelihood fit
 #
 # Finds the parameter values for all model parameters at the maximum of the likelihood, using
-# the theta mle plugin.
+# the theta plugin opf type 'mle'
 #
 # The parameters \c input, \c signal_prior, \c nuisance_constraint, and \c signal_processes are documented in more detail
 # in \ref theta_auto_params.
@@ -188,7 +199,7 @@ theta config file convention:
 # The value is a dictionary with the parameter name as key and a list of length n with two-tuple of floats, (parameter value, uncertainty) as value.
 # Note that in case the maximization does not converge, these toys will be omitted from the result and the lists of two-tuples have length
 # smaller than \c n.
-def ml_fit(model, input = 'data', n = 1, signal_prior = 'flat', nuisance_constraint = 'shape:fix', signal_processes = None, **options):
+def ml_fit(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 'shape:fix', signal_processes = None, n = 1, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     beta_signal_value = 0.0
     nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
@@ -258,13 +269,16 @@ def ml_fit(model, input = 'data', n = 1, signal_prior = 'flat', nuisance_constra
     config.report.add_html(result_table.html())
     return result
     
-# makes a maximum likelihood fit to data using the model and evaluates the values of the coefficient functions for all
-# pairs of observable / process.
+## \brief Perfoem a maximum likelihood fit and get the coefficient function values for all processes / channels
+#
+# 
 #
 # options: see ml_fit
 #
 # returns a dictionary
 # (signal process) --> (observable name) --> (process name) --> (factor)
+#
+# Does not write anything to the report.
 def ml_fit_coefficiencts(model, **options):
     result = {}
     res = ml_fit(model, **options)
@@ -282,10 +296,17 @@ def ml_fit_coefficiencts(model, **options):
     return result
             
 
-# make a KS-test by dicing toy data from the model (including nuisance according to config in the model),
-# make a maximum likelihood fit using nuisance_constraint, and determining the KS value after
-# the fit.
-# returns the p-value for data.
+## \brief Perform a KS-test on th whole model
+#
+# Perform a KS-test by (i) dicing toy data from the model (including nuisance parameters according to model.distribution),
+# (ii) performing a maximum likelihood fit using nuisance_constraint and (iii) calculating the Kolmogorov-Smirnov test-statistic value comparing the
+# prediction and data after the fit.
+#
+# This method always uses the background-only model. Therefore, it has no signal_priori or signal_processes parameters.
+# If you want to include signal in the KS-test, you have to define it as background (via Model.set_signal_processes) before calling\
+# this function.
+#
+# Returns the p-value for data. Does not write anything to the report.
 def ks_test(model, n = 5000, nuisance_constraint = 'shape:fix', **options):
     nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
     main = {'n-events': n, 'model': '@model', 'producers': ('@mle',), 'output_database': sqlite_database(), 'log-report': False}
@@ -320,14 +341,12 @@ def ks_test(model, n = 5000, nuisance_constraint = 'shape:fix', **options):
     data = sql(sqlfile, 'select mle__ks_ts from products')
     if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
     ks_values_bkg = [row[0] for row in data]
-    #print ks_values_bkg
     
     name_data = cfg_names_to_run[1]
     sqlfile = os.path.join(cachedir, '%s.db' % name_toys)
     data = sql(sqlfile, 'select mle__ks_ts from products')
     if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
     ks_value_data = data[0][0]
-    #print "KS value for data: %f" % ks_value_data
     p = len([x for x in ks_values_bkg if x >= ks_value_data]) * 1.0 / len(ks_values_bkg)
     return p
     
@@ -347,6 +366,8 @@ def ks_test(model, n = 5000, nuisance_constraint = 'shape:fix', **options):
 # Depending on the model, this can already mean that the yield is fitted.
 #
 # Returns a dictionary (channel name) --> (p-value).
+#
+# Does not write anything to the report.
 def ks_test_individual_channels(model, fit_yield = False, **options):
     observables = model.observables.keys()
     result = {}
@@ -491,6 +512,14 @@ def pl_coveragetest(model, beta_signal_values = [0.2*i for i in range(10)], n = 
             config.report.new_section("deltanll interval coverage test for signal process '%s'" % spid)
             config.report.add_html(result_tables[spid].html())
     return result
+    
+def clean_workdir():
+    shutil.rmtree(config.workdir, ignore_errors = True)
+    setup_workdir()
+    
+def setup_workdir():
+    if not os.path.exists(config.workdir): os.mkdir(config.workdir)
+    if not os.path.exists(os.path.join(config.workdir, 'plots')): os.mkdir(os.path.join(config.workdir, 'plots'))
             
 def main():
     scriptname = 'analysis.py'
@@ -498,13 +527,8 @@ def main():
         if '.py' in arg: scriptname = arg
     config.workdir = os.path.join(os.getcwd(), scriptname[:-3])
     config.workdir = os.path.realpath(config.workdir)    
-    if not os.path.exists(config.workdir): os.mkdir(config.workdir)
-    # also make plots dir:
-    if not os.path.exists(os.path.join(config.workdir, 'plots')): os.mkdir(os.path.join(config.workdir, 'plots'))
-    
-    #config.theta_dir = os.path.realpath(os.path.join(os.getcwd(), '..'))
-    config.theta_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
-    
+    setup_workdir()
+    config.theta_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))    
     config.report = html_report(os.path.join(config.workdir, 'index.html'))
     variables = globals()
     variables['report'] = config.report
@@ -517,4 +541,6 @@ def main():
         sys.exit(1)
         
 if __name__ == '__main__': main()
+
+
 

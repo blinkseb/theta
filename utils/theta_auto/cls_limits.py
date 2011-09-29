@@ -24,8 +24,9 @@ def ts_producer_dict(ts, signal_prior_bkg='flat'):
     else: raise RuntimeError, 'unknown ts "%s"' % ts
     return ts_producer, ts_colname
 
-
-# returns dictionary (spid0) -> ts value
+## \brief Calculate the test statistic value for data
+#
+# \return dictionary (spid) -> ts value
 def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     signal_prior = signal_prior_dict(signal_prior)
@@ -54,10 +55,13 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
         data = sql(sqlfile, 'select "%s" from products' % ts_colname)
         result[sp] = data[0][0]
     return result
-    
-
-# run toys at certain values of beta_signal to produce test statistic values; to be used later for cls_limits or discovery, etc.
-# returns a dictionary (spid, beta signal value) -> (list of ts values)
+ 
+## \brief Calculate the test statistic for toys with certain values of beta_signal
+#
+# The result can be used later for cls_limits, discovery, etc.
+# This function is usually not used directly but called internally, e.g., from \ref discovery.
+#
+# \return a dictionary (spid, beta signal value) -> (list of ts values)
 def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     signal_prior = signal_prior_dict(signal_prior)
@@ -108,10 +112,14 @@ def count_above(the_list, threshold):
         if e >= threshold: n+=1
     return n
 
-
-# returns a tuple (expected significance, observed significance). Each entry in the tuple is in turn a triple (central value, error_minus, error_plus)
+## \brief Determine p-value / "N sigma" from tail distribution of background-only test statistic
+#
+# The number of toys will be increased adaptively.
+#
+# \param Z_error_max The maximum error in the Z value
+#
+# \return A tuple (expected significance, observed significance). Each entry in the tuple is in turn a triple (central value, error_minus, error_plus)
 # where the error for the expected significance are the expected 1sigma spread and for the observed one the error from limited toy MC.
-# If you think that latter error is too large, decrease Z_error_max.
 def discovery(model, use_data = True, Z_error_max = 0.05, **options):
     options['signal_prior']='flat'
     options['signal_prior_bkg'] = 'fix:0'
@@ -177,8 +185,6 @@ def discovery(model, use_data = True, Z_error_max = 0.05, **options):
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
-#
-# TODO: return value of cls_limits and bayesian_limits not consistent
 def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     # if the signal+background distribution is more restrictive than the background only, there is a sign flip ...
@@ -281,14 +287,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
             pd_observed.y.append(observed)
             result_table.set_column('observed limit', '%.2f +- %.2f' % (observed, observed_unc))
         result_table.add_row()
-    config.report.new_section("CLs limits")
-    config.report.add_html(result_table.html())
-    plots = []
-    if pd_expected is not None and len(pd_expected.x) > 1: plots.append(pd_expected)
-    if pd_observed is not None and len(pd_observed.x) > 1: plots.append(pd_observed)
-    plotsdir = os.path.join(config.workdir, 'plots')
-    if len(plots) > 0:
-        plot(plots, 'signal process', '95% C.L. upper limit', os.path.join(plotsdir, 'cls_limit_band_plot.png'))
-        config.report.add_html('<p><img src="plots/cls_limit_band_plot.png" /></p>')
+    bayesian.report_limit_band_plot(pd_expected, pd_observed, 'CLs', 'cls')
     return pd_expected, pd_observed
+
 

@@ -1,6 +1,3 @@
-# make a Model form a datacard as described in 
-# https://twiki.cern.ch/twiki/bin/viewauth/CMS/SWGuideHiggsAnalysisCombinedLimit
-
 import math
 import utils
 from Model import *
@@ -36,7 +33,7 @@ def add_entry(d, *l):
     if l[0] not in d: d[l[0]] = {}
     add_entry(d[l[0]], *l[1:])
 
-# process a single 'shapes' line and add the corresponding histogram-functions to the model:
+# general remark on shape uncertainties:
 #
 # From https://twiki.cern.ch/twiki/bin/viewauth/CMS/SWGuideHiggsAnalysisCombinedLimit#Datacard_for_Shape_analyses:
 #
@@ -56,18 +53,29 @@ def add_entry(d, *l):
 #
 #  [end citation]
 #
-# Here, $MASS in NOT implemented.
-#
-# We allow to use some variants for $DIRECTION:
-# * $DIRECTION_updown
-# * $DIRECTION_plusminus
-# If one of these if given, 'Up' or 'Down' are not appended while replacing '$SYSTEMATIC' as decribed above. Instead,
-# '$DIRECTION_...' is replaced with the according direction strip ('up'/'down' or 'plus'/'minus', resp.)
-#
+# In theta, the same implementation is use with some variations:
+# * $MASS in NOT implemented.
+# * We allow to use some variants for $DIRECTION:
+#    - $DIRECTION_updown
+#    - $DIRECTION_plusminus
+#   If one of these if given, 'Up' or 'Down' are not appended while replacing '$SYSTEMATIC' as decribed above. Instead,
+#   '$DIRECTION_...' is replaced with the according direction strip ('up'/'down' or 'plus'/'minus', resp.)
+# * So far, each uncertainty specification line MUST be 'shape'. Some higgs datacards use 'shapeN2' which I don't know what it does ...
+#   'shape' will interpolate between the nominal and shifted templates using cubiclinear_histomorph using the templates as given
+#   in the input root file. After the interpolation, the interpolated histogram is re-normalized to the integral of the nominal one
+#   (which has to be identical to the 'rate' specification in the datacard). To treat the rate uncertainty, a seperate log-normal
+#   uncertainty is added as part of the coefficient-function. This effectively separates the rate and shape part of such uncertainties.
+# * For each channel/process pair to find a shape for, theta will go through the list of 'shapes' lines and pick the first matching one.
+#   Make sure that the ordering of these 'shapes' lines is Ok (i.e., put more specific ones first). This will be changed in a future version
+#   for better compatibility with "combine" (TODO).
+
+
+
+
 # This method replaces the one-bin data-histogram of the model predictions for the given
 # observable and process by a morphing histogram function using the root histogram from filename.
 # uncs is a dictionary from uncertainties to factors.
-# Models the rate uncertainty via a lognormal term in thye coefficient function.
+# Models the rate uncertainty via a lognormal term in the coefficient function.
 #
 # In case len(uncs) is zero, hname_with_systematics can be an empty string (but should be a str, not None)
 #
@@ -129,8 +137,21 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
         utils.mul_list(histo_minus[2], f_minus)
         hf.set_syst_histos(u, histo_plus, histo_minus, uncs[u])
         hf.normalize_to_nominal = True
-    
-# filter_channel is a function which, for each channel name (as given in the model configuration in fname), returns
+ 
+## \brief Build a Model from a datacard as used in LHC Higgs analyses
+# 
+# See https://twiki.cern.ch/twiki/bin/viewauth/CMS/SWGuideHiggsAnalysisCombinedLimit
+#
+# Note that not the complete set of features is supported, in particular no unbinned fits.
+# Supported uncertainties are: lnN (symmetric and asymmetric), gmM, gmN, shape
+#
+# The 'shape' uncertainty uses a slightly different interpolation: the Higgs tool uses a quadratic interpolation with linear extrapolation
+# whereas theta uses a cubic interpolation and linear extrapolation. It is expected that this has negligible impact
+# on the final result, but it might play a role in extreme cases (?)
+#
+# \param fname is the filename of the datacard to process.
+#
+# \param filter_channel is a function which, for each channel name (as given in the model configuration in fname), returns
 # True if this channel should be kept and False otherwise. The default is to keep all channels.
 def build_model(fname, filter_channel = lambda chan: True):
     model = Model()

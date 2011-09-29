@@ -21,13 +21,8 @@ def add_ylabel(axes, text, *args, **kwargs):
     label.set_position((-0.03, 1.0))
     return label
 
-#add secondary title:
-def add_stitle(ax, title):
-    return ax.text(0.0, 1.02, title, transform = ax.transAxes, ha='left', va='bottom')
-
 # plotdata represents the data of a single curve in a plot, including drawing options, legend, etc.
 class plotdata:
-    
     def __init__(self):
         self.x = []
         self.y = []
@@ -72,9 +67,25 @@ class plotdata:
                     ofile.write("%10.5g %10.5g" % (self.bands[k][0][i], self.bands[k][1][i]))
             ofile.write("\n")
 
-#histos is a list of tuples (label, histogram)
-def plot(histos, xlabel, ylabel, outname, logy = False, logx = False, legend_args = {}, ax_modifier=None, stitle=None,
- xmin = None, xmax=None, ymin=None, ymax=None, title_ur = None):
+## \brief Make a plot and write it to an output file
+#
+#
+# histos is a list / tuple of plotdata instances, xlabel and ylabel are lables for the axes, outname is the output filename.
+#
+# logx and logy control whether the x/y-scale should be logarithmic.
+#
+# If set, ax_modifier should be a function / callable. It will be called with the matplotlib Axes instance as only argument.
+# This can be used for arbitrary mainulation, such as adding other objects to the plot, etc.
+#
+# title_ul and title_ur are strings shown on the upper left and upper right of the plot, resp.
+#
+# extra_legend_items is a list of extra items to add to the legend, as tuple (handle, lable) where handle is a matplotlib Artist
+# and label the legend string. As special case, we also allow handle to be a string in which case it is assumed to encode a color.
+# For other cases, see matplotlib legend guide for details.
+#
+# xmin, xmax, ymin, ymax control the region shown in the plot. the default is to determine the region automatically (by matplotblib)
+def plot(histos, xlabel, ylabel, outname, logy = False, logx = False, ax_modifier=None, title_ul=None, title_ur = None,
+extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None):
     cm = 1.0/2.54
     fsize = 15*cm, 12*cm
     fp = fm.FontProperties(size=10)
@@ -85,7 +96,7 @@ def plot(histos, xlabel, ylabel, outname, logy = False, logx = False, legend_arg
     if logx: ax.set_xscale('log')
     add_xlabel(ax, xlabel, fontproperties=fp)
     add_ylabel(ax, ylabel, fontproperties=fp)
-    if stitle is not None: add_stitle(ax, stitle)
+    if title_ul is not None: ax.text(0.0, 1.02, title, transform = ax.transAxes, ha='left', va='bottom')
     if title_ur is not None: ax.text(1.0, 1.02, title_ur, transform = ax.transAxes, ha='right', va='bottom')
     draw_legend = False
     for histo in histos:
@@ -128,7 +139,16 @@ def plot(histos, xlabel, ylabel, outname, logy = False, logx = False, legend_arg
             else:
                 ax.plot(histo.x, histo.y, histo.fmt, lw=histo.lw, label=histo.legend, color=histo.color, marker=histo.marker)
 
-    if draw_legend: ax.legend(prop=fp,**legend_args)
+    if draw_legend:
+        handles, labels = ax.get_legend_handles_labels()
+        handles = handles[:]
+        labels = labels[:]
+        for h, l in extra_legend_items:
+            labels.append(l)
+            if type(h)==str:
+                h = matplotlib.patches.Rectangle((0, 0), 1, 1, fc=h)
+            handles.append(h)
+        ax.legend(handles, labels, prop = fp)
     if ax.get_legend() is not None:
         map(lambda line: line.set_lw(1.5), ax.get_legend().get_lines())
 

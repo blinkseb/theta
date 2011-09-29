@@ -21,7 +21,7 @@
  * For getting started with %theta quickly, make sure to install sqlite3, boost, root and cmake on your machine
  * and run
  * \code
- *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/stable theta
+ *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/testing theta
  *  cd theta
  *  # Option 1: you have cmake
  *  mkdir build
@@ -161,6 +161,12 @@
  * <pre>
  * svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/stable theta
  * </pre>
+ * there is also a testing branch available:
+ * <pre>
+ * svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/testing theta
+ * </pre>
+ * However, this is not guaranteed and well tested as the stable tag.
+ *
  * You can use CMSSW software to provide the necessary dependencies. If you want to do that, make sure
  * to issue \c cmsenv before you build %theta.
  *
@@ -201,9 +207,9 @@
  * only applies to cmake-type builds.
  *
  * For cmake, these options are switched on or off by passing the \c cmake command
- * a define parameter. For example, to build with experimental postgresql support, you would issue
+ * a define parameter. For example, to build without amdlibm, you would issue
  * <pre>
- *   cmake .. -Dpsql:bool=ON
+ *   cmake .. -Damdlibm:bool=OFF
  * </pre>
  * You can pass more than one \c -D option to cmake at a time. The \c -D option always specifies the parameter name,
  * the type of the parameter (always bool here) and the value (use \c ON and \c OFF for bools).
@@ -211,8 +217,6 @@
  *
  * The following options are currently supported (roughly ordered by probability that you want to change these):
  * <ul>
- *   <li>\c psql (default: OFF) If enabled, will build experimental postgresql plugin (to be used as output_database setting at theta::Run)
- *     which allows to write the output to a central postgresql server concurrently by many workers.</li>
  *   <li>\c release (default: ON) If enabled, will optimize for a release built with high optimization
  *      and without debug information. If disabled, debug information will be included; optimizations are still enabled to some level.</li>
  *   <li>\c optiontest (default: OFF) If enabled, will build test executables and shared objects.</li>
@@ -233,7 +237,7 @@
  *  cd CMSSW_3_8_4/src
  *  cmsenv
  *  cd ../..
- *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/stable theta
+ *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/{stable|testing} theta
  *  cd theta
  *  make
  *  bin/theta examples/gaussoverflat.cfg

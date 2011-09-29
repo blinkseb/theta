@@ -14,5 +14,12 @@ include them in the comparison. How such a KS-test including shape uncertainties
 performed with theta-auto is shown here.
 
 
-
+zprime:
+This is a search for Zprime -> ttbar and is a complete example of a more complex analysis
+which 
+ * uses more than just one channel
+ * uses template morphing to model shpae uncertainties
+ * has several independent signal hypotheses, the Zprimes at different masses
+The theta-auto script makes limit band plot for expected and observed limits
+for Bayesian and CLs limits.
 
