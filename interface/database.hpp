@@ -32,6 +32,19 @@ public:
     typedef DatabaseInput base_type;
     
     /** \brief Iterator-like class to step through the result of a Database query
+     *
+     * A typical use of the iterator is:
+     * \code
+     * DatabaseInput & db = ...;
+     * vector<string> cols;
+     * ... // fill cols
+     * std::auto_ptr<ResultIterator> it = db.query("some_table", cols);
+     * while(it->has_data()){
+     *    // use row data via it->get_* methods
+     *    ++(*it);
+     * }
+     * \endcode
+     * This works also correctly in case of zero rows.
      */
     class ResultIterator: private boost::noncopyable{
     public:
@@ -68,14 +81,19 @@ public:
         virtual ~ResultIterator();
     };
 
-    /** \brief Select some columns from a table
+    /** \brief create a row-iterator, retrieving some columns for all rows in a table
      *
-     * the returned ResultIterator points to the first result row (if any), i.e.,
-     * call has_data and get_* on it first to get the result of the first row and *then* ResultIterator::operator++().
-     *
-     * In case of an error, a DatabaseException is thrown.
+     * The returned ResultIterator points to the first result row.
+     * In case of an error, such as if the column is not found, a DatabaseException is thrown.
      */
     virtual std::auto_ptr<ResultIterator> query(const std::string & table_name, const std::vector<std::string> & column_names) = 0;
+
+    /// Get all table names in the database
+    virtual std::vector<std::string> get_all_tables() = 0;
+
+    /// Get all column names and types for the given table
+    virtual std::vector<std::pair<std::string, data_type> > get_all_columns(const std::string & table_name) = 0;
+
     virtual ~DatabaseInput();
 };
 

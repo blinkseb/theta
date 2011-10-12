@@ -32,6 +32,8 @@ public:
     ~sqlite_database_in();
     
     virtual std::auto_ptr<ResultIterator> query(const std::string & table_name, const std::vector<std::string> & column_names);
+    virtual std::vector<std::string> get_all_tables();
+    virtual std::vector<std::pair<std::string, theta::data_type> > get_all_columns(const std::string & table_name);
     
 private:
    class SqliteResultIterator: public DatabaseInput::ResultIterator{

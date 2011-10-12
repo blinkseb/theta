@@ -326,7 +326,7 @@ def build_model(fname, filter_channel = lambda chan: True):
                 #print cmds[0], obsname, procname, lambda_minus, lambda_plus
                 model.get_coeff(obsname, procname).add_factor('exp', parameter = uncertainty, lambda_minus = lambda_minus, lambda_plus = lambda_plus)
             if n_affected > 0:
-                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (-5.0, 5.0))
+                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (-7.0, 7.0))
         elif cmds[1] == 'gmM':
             values = cmds[2:]
             values_f = set([float(s) for s in values if float(s)!=0.0])
@@ -353,7 +353,7 @@ def build_model(fname, filter_channel = lambda chan: True):
                 n_affected += 1
                 add_entry(shape_systematics, channels_for_table[icol], processes_for_table[icol], cmds[0], factor)
             if n_affected > 0:
-                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (-5.0, 5.0))
+                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (-4.0, 4.0))
         else: raise RuntimeError, "Line %d: unknown uncertainty type %s" % (lines[0][1], cmds[1])
     # add shape systematics:
     if '*' in shape_observables: shape_observables = set(channel_labels)

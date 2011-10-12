@@ -528,7 +528,7 @@ def main():
     config.workdir = os.path.join(os.getcwd(), scriptname[:-3])
     config.workdir = os.path.realpath(config.workdir)    
     setup_workdir()
-    config.theta_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))    
+    config.theta_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
     config.report = html_report(os.path.join(config.workdir, 'index.html'))
     variables = globals()
     variables['report'] = config.report

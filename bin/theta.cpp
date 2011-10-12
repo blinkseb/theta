@@ -84,7 +84,8 @@ public:
         if (tcgetattr (stdout_fd, &settings) < 0) return; //ignore error
         settings.c_lflag |= ECHO;
         tcsetattr (stdout_fd, TCSANOW, &settings);
-        theta::cout << endl;
+        if(chars_written > 0)
+            theta::cout << endl;
     }
     
 private:

@@ -21,6 +21,7 @@ void Run::run(){
    
     Data data;
     int n_errors = 0;
+    if(progress_listener) progress_listener->progress(0, n_event, n_errors);
     //main event loop:
     for (int eventid = 1; eventid <= n_event; eventid++) {
         if(stop_execution)break;

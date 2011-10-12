@@ -70,7 +70,8 @@ class Model:
     #   For shared nuisance parameters, the prior for self.distribution and other.distribution must be identical.
     def combine(self, other_model, strict=True):
         assert len(set(self.observables.keys()).intersection(set(other_model.observables.keys())))==0, "models to be combined share observables, but they must not!"
-        if strict: assert self.signal_processes == other_model.signal_processes, "signal processes not equal: %s; %s" % (str(self.signal_processes), str(other_model.signal_processes))
+        if strict: assert self.signal_processes == other_model.signal_processes, "signal processes not equal: left-right=%s; right-left=%s;" \
+                       % (str(self.signal_processes.difference(other_model.signal_processes)), str(other_model.signal_processes.difference(self.signal_processes)))
         self.distribution = Distribution.merge(self.distribution, other_model.distribution, False)
         self.observables.update(other_model.observables)
         self.processes.update(other_model.processes)

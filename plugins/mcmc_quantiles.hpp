@@ -23,6 +23,8 @@
  *   quantiles = [0.025, 0.16, 0.5, 0.84, 0.975];
  *   iterations = 10000;
  *   burn-in = 100; //optional. default is iterations / 10
+ *   diag = true; //optional. Default is false
+ *   re-init = 1; //optional. Default is 0
  * };
  *
  * \endcode
@@ -41,8 +43,14 @@
  * \c iterations is the number of MCMC iterations. See additional comments about runtime and suggested robustness tests
  *     in the documentation of \link mcmc_posterior_ratio mcmc_posterior_ratio \endlink.
  *
- * \c burn_in is the number of MCMC iterations to do at the beginning and throw away. See additional comments in the
+ * \c burn-in is the number of MCMC iterations to do at the beginning and throw away. See additional comments in the
  *     documentation of \link mcmc_posterior_ratio mcmc_posterior_ratio \endlink
+ *
+ * \c diag is an optional boolean. If true, additional columns with some diagnostics are produced. In the moment, the only additional
+ * column is "accrate" which contains the acceptance rate for the chain.
+ *
+ * \c re-init is an optional integer which controls re-initialisation of the jumping kernel width. The deault of 0 never re-initialises. For a value N > 0, 
+ * re-initialisation is done every N toys.
  *
  * For each data given, one chain will be used to derive all requested quantiles given in the \c quantiles list, so their error
  * from limited chain length is correlated by construction. If you do not want that, use two independent producers of type
@@ -68,9 +76,13 @@ private:
     std::vector<double> quantiles;
     theta::ParId par_id;
     size_t ipar; //parameter of the requested index, as in NLLikelihood::operator()(const double*) index convention
+
+    int re_init, itoy;
     
     //result columns: one per requested quantile:
     std::vector<theta::Column> columns;
+    bool diag;
+    theta::Column c_accrate;
     
     //MCMC parameters:
     unsigned int iterations;

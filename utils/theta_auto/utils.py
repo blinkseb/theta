@@ -107,6 +107,7 @@ def nuisance_prior_distribution(model, spec):
     result = Model.Distribution.merge(model.distribution, result)
     return result
 
+# get mean and rms estimate from list l:
 def get_mean_width(l):
    n = len(l)
    assert n > 0
@@ -114,6 +115,16 @@ def get_mean_width(l):
    if n == 1: width = float('inf')
    else: width = math.sqrt(sum([(x - mean)**2 for x in l]) / (n-1))
    return mean, width
+
+# get truncated mean / width similar to MarkovChainMC method from combine:
+def get_trunc_mean_width(l):
+   n = len(l)
+   l_sorted = sorted(l)
+   assert n > 0
+   median = l_sorted[n/2]
+   width = l_sorted[3*n/4] - l_sorted[n/4]
+   l2 = [x for x in l if x >= median-width and x <= median+width]
+   return get_mean_width(l2)
 
 # returns the theta config dictionary, given a signal_prior specification ('flat' / 'fix:X')
 def signal_prior_dict(spec):

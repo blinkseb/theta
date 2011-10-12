@@ -21,9 +21,7 @@ from utils import *
 # the best estimate and uncertainty of the determined limit (the uncertainty is only available for n > 1). For input!='data',
 # the +-1sigma and +-2sigma (i.e., the centrgl 68% and central 84%) are given.
 #
-# \return
-#  a dictionary with signal process name as key. Value is an array with outcomes in the toy. For example
-#  result['zp1000'] is the array of the quantiles for the signal of name 'zp1000'.
+# \return A dictionary (signal process group id) --> 'quantiles' | 'accrates' --> (list of quantiles or acceptance rates).
 def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat', nuisance_prior = '', quantile = 0.95, write_report = True, signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     # allow n==0 to simplify some scripts ...
@@ -31,13 +29,13 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
     signal_prior = signal_prior_dict(signal_prior)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'n-events': n, 'model': '@model', 'producers': ['@bayes_interval'], 'output_database': sqlite_database(), 'log-report': False}
-    bayes_interval = {'type': 'mcmc_quantiles', 'name': 'bayes', 'parameter': 'beta_signal',
+    bayes_interval = {'type': 'mcmc_quantiles', 'name': 'bayes', 'parameter': 'beta_signal', 'diag': True, 're-init': 1,
        'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior"), 'quantiles': [quantile], 'iterations': 20000 }
     if 'mcmc_iterations' in options: bayes_interval['iterations'] = options['mcmc_iterations']
     toplevel_settings = {'signal_prior': signal_prior, 'main': main}
     options['load_root_plugins'] = False
     toplevel_settings.update(get_common_toplevel_settings(**options))
-    if 'mcmc_seed' in options: bayes_interval['rnd_gen'] = {'seed': options['mcmc_seed'] + i }
+    if 'mcmc_seed' in options: bayes_interval['rnd_gen'] = {'seed': options['mcmc_seed'] }
     bayes_interval['name'] = 'bayes'
     toplevel_settings['bayes_interval'] = bayes_interval
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, input)
@@ -64,10 +62,9 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
         method, sp_id, dummy = name.split('-',2)
         result_table.set_column('process', sp_id)
         sqlfile = os.path.join(cachedir, '%s.db' % name)
-        cols = ['bayes__quant%0.5d' % (quantile * 10000)]
-        data = sql(sqlfile, 'select %s from products' % ', '.join(cols))
-        result[sp_id] = [row[0] for row in data]
-        outcomes = result[sp_id]
+        data = sql(sqlfile, 'select bayes__quant%0.5d, bayes__accrate from products' % (quantile * 10000))
+        result[sp_id] = {'quantiles': [row[0] for row in data], 'accrates': [row[1] for row in data]}
+        outcomes = result[sp_id]['quantiles']
         n = len(outcomes)
         if n == 0:
            result_table.set_column('%f quantile' % quantile, 'N/A')
@@ -107,7 +104,7 @@ def limit_band_plot(quantiles, include_band, quantile = 0.95, **options):
         # ignore uncertainties or other special entries:
         if '__' in sp: continue
         signal_processes.add(sp)
-        data = sorted(quantiles[sp])
+        data = sorted(quantiles[sp]['quantiles'])
         n = len(data)
         if n!=0:
             results[sp] = (data[n / 2], (data[int(0.16 * n)], data[int(0.84 * n)]), (data[int(0.025 * n)], data[int(0.975 * n)]))
