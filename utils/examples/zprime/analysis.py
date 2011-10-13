@@ -71,16 +71,18 @@ model_summary(model)
 plot_exp, plot_obs = bayesian_limits(model, signal_processes = [['zp1000'], ['zp2000'], ['zp3000']])
 
 # plot_exp and plot_obs are instances of plotutil.plotdata. they contain x/y values and
-# bands. You can do anything with it such as inspect its data, pass it to plotutil.plot routine, ...
+# bands. You can do many things with these objects such as inspect the x/y/ban
+# data, pass then to plotutil.plot routine to make pdf plots, ...
 # Here, we will just create text files of the plot data. This is useful if you want
-# to apply your own plotting routines or present the result in a Table.
+# to apply your own plotting routines or present the result in a text Table.
 plot_exp.write_txt('bayesian_limits_expected.txt')
 plot_obs.write_txt('bayesian_limits_observed.txt')
 
 # 2.b. CLs limits
 # calculate cls limit plots. The interface is very similar to bayesian_limits. However, there are a few
-# more options such as the definition of the test statistic which is mainly drievn by which
-# parameters are minimized and how. For now we stay with the default which fixes beta_signal=0
+# more options such as the definition of the test statistic which is usually a likelihood ratio but can differ in
+# which parameters are minimized and which constraints / ranges are applied during minimization.
+# Here, we stay with the default which fixes beta_signal=0
 # for the background only hypothesis and lets it float freely for the signal+background hypothesis.
 # See cls_limits documentation for more options.
 plot_exp, plot_obs = cls_limits(model, signal_processes = [['zp1000'], ['zp2000'], ['zp3000']])

@@ -174,7 +174,14 @@ def discovery(model, use_data = True, Z_error_max = 0.05, **options):
 # prior to be used in the likelihood function definition and 'signal_prior' is the constraint for signal.
 #
 # In case of ts='lr', you can also set 'signal_prior_bkg' which is the constraint used for the evaluation of the
-# profiled likelihood in the background only case.
+# profiled likelihood in the background only case. Setting signal_prior_bkg to None chooses the default which is
+#  * 'flat' in case ts=='lhclike'
+#  * 'fix:0' otherwise
+#  
+#
+# For LHC-like test statistic, use ts = 'lhclike'. In this case, signal_prior has no effect: if fitting
+# the s+b model, beta_signal is always fixed to r. 'signal_prior_bkg' is applied. You would usually set it to 'flat' in this case
+# so that the b-only fit varies beta_signal on [0, r].
 #
 # For ts='mle', signal_prior_bkg has no meaning. The nuisance prior for the s+b / b only likelihood is always the same (so far).
 #
@@ -185,35 +192,43 @@ def discovery(model, use_data = True, Z_error_max = 0.05, **options):
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
-def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
+def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
-    # if the signal+background distribution is more restrictive than the background only, there is a sign flip ...
-    #if signal_prior_bkg.startswith('flat') and signal_prior.startswith('fix'): ts_sign = '-'
-    #else: ts_sign=''
-    ts_sign = ''
+    if signal_prior_bkg is None:
+        if ts == 'lhclike': signal_prior_bkg = 'flat'
+        else: signal_prior_bkg = 'fix:0'
     signal_prior = signal_prior_dict(signal_prior)
     if 'beta_signal' in signal_prior: signal_prior['beta_signal']['fix-sample-value'] = signal_prior['beta_signal']['range'][0]
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    main = {'type': 'cls_limits', 'model': '@model', 'producers': ('@ts_producer',),
-        'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True), 'debuglog': 'debug.txt'}
+    main = {'type': 'cls_limits', 'model': '@model', 'producer': '@ts_producer',
+        'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True),
+        'tol_cls': 0.02, 'debuglog': 'debug.txt'}
     if what in ('expected', 'all'):
-        main['ts_values_background_bands'] = True
+        main['expected_bands'] = True
     elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what
     if what in ('observed', 'all'):
-        main['ts_values'], dummy = data_source_dict(model, 'data')
+        main['data_source'], dummy = data_source_dict(model, 'data')
+
     if ts == 'mle':
         ts_producer = {'type': 'mle', 'name': 'mle', 'minimizer': minimizer(need_error = False), 'parameter': 'beta_signal',
            'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior")}
-        main['ts_column'] = ts_sign + 'mle__beta_signal'
+        main['ts_column'] = 'mle__beta_signal'
     elif ts == 'lr':
         ts_producer = {'type': 'deltanll_hypotest', 'name': 'lr', 'minimizer': minimizer(need_error = False),
         'signal-plus-background-distribution': product_distribution("@signal_prior", "@nuisance_prior"),
         'background-only-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior")}
-        main['ts_column'] = ts_sign + 'lr__nll_diff'
+        main['ts_column'] = 'lr__nll_diff'
+    elif ts == 'lhclike':
+        ts_producer = {'type': 'deltanll_hypotest', 'name': 'lr', 'minimizer': minimizer(need_error = False),
+        'signal-plus-background-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior"),
+        'background-only-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior"),
+        'restrict_poi': 'beta_signal'}
+        main['ts_column'] = 'lr__nll_diff'
     else: raise RuntimeError, 'unknown ts "%s"' % ts
     toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer,
        'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
+    if ts == 'lhclike': del toplevel_settings['signal_prior']
     toplevel_settings.update(get_common_toplevel_settings(**options))
     cfg_names_to_run = []
     for sp in signal_processes:
@@ -247,8 +262,6 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     x_to_sp = get_x_to_sp(spids, **options)
     
     pd_expected, pd_observed = None, None
-    result_table = Report.table()
-    result_table.add_column('process', 'signal process')
     if what in ('all', 'expected'):
         pd_expected = plotutil.plotdata()
         pd_expected.color = '#000000'
@@ -257,21 +270,17 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
         pd_expected.x = sorted(list(x_to_sp.keys()))
         pd_expected.y  = []
         pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
-        result_table.add_column('expected limit', 'expected limit (median)')
-        result_table.add_column('expected limit (1sigma band)')
-        result_table.add_column('expected limit (2sigma band)')
     if what in ('all', 'observed'):
         pd_observed = plotutil.plotdata()
         pd_observed.color = '#000000'
         pd_observed.as_function = True
         pd_observed.x = sorted(list(x_to_sp.keys()))
         pd_observed.y = []
+        pd_observed.yerrors = []
         pd_observed.legend = 'observed limit'
-        result_table.add_column('observed limit')
     
     for x in sorted(x_to_sp.keys()):
         sp = x_to_sp[x]
-        result_table.set_column('process', sp)
         if what in ('all', 'expected'):
             expected, band1, band2 = expected_results[sp]
             pd_expected.y.append(expected)
@@ -279,14 +288,10 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
             pd_expected.bands[1][1].append(band1[1])
             pd_expected.bands[0][0].append(band2[0])
             pd_expected.bands[0][1].append(band2[1])
-            result_table.set_column('expected limit', '%.2f' % expected)
-            result_table.set_column('expected limit (1sigma band)', '[%.2f, %.2f]' % band1)
-            result_table.set_column('expected limit (2sigma band)', '[%.2f, %.2f]' % band2)
         if what in ('all', 'observed'):
             observed, observed_unc = observed_results[sp]
             pd_observed.y.append(observed)
-            result_table.set_column('observed limit', '%.2f +- %.2f' % (observed, observed_unc))
-        result_table.add_row()
+            pd_observed.yerrors.append(observed_unc)
     bayesian.report_limit_band_plot(pd_expected, pd_observed, 'CLs', 'cls')
     return pd_expected, pd_observed
 

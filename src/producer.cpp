@@ -34,7 +34,7 @@ ProductsSource::ProductsSource(const std::string & name_, const boost::shared_pt
 ProductsSource::ProductsSource(const Configuration & cfg): name(cfg.setting["name"]){
     products_sink = cfg.pm->get<ProductsSink>();
     if(not nameOk(name)){
-       throw InvalidArgumentException("name '" + name + "' is not a valid product name. ");
+       throw InvalidArgumentException("name '" + name + "' is not a valid product name");
    }
 }
 
@@ -62,4 +62,5 @@ std::auto_ptr<NLLikelihood> Producer::get_nllikelihood(const Data & data, const 
     return nll;
 }
 
+ParameterDependentProducer::~ParameterDependentProducer(){}
 

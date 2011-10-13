@@ -2,6 +2,7 @@
 #define PRODUCER_HPP
 
 #include "interface/decls.hpp"
+#include "interface/variables.hpp"
 #include "interface/data_type.hpp"
 
 #include <string>
@@ -97,6 +98,28 @@ protected:
     
     boost::shared_ptr<theta::Distribution> override_parameter_distribution;
     boost::shared_ptr<theta::Function> additional_nll_term;
+};
+
+/** \brief Base class for Producers whose result depend on parameter values
+ *
+ * If a producer depends on the value of certain model parameters, it should inherit from this class
+ * instead of inheriting from Producer directly.
+ *
+ * Derived classes should fill par_ids to indicate which parameters the class depends on (which can also be
+ * an empty set).
+ */
+class ParameterDependentProducer: public Producer{
+public:
+    virtual ~ParameterDependentProducer();
+    virtual void setParameterValues(const ParValues & values) = 0;
+    ParIds getParameters() const {
+        return par_ids;
+    }
+protected:
+    theta::ParIds par_ids;
+
+    // forward to Producer(cfg)
+    ParameterDependentProducer(const Configuration & cfg): Producer(cfg){}
 };
 
 

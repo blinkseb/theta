@@ -53,34 +53,12 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
     if not os.path.exists(plotsdir): os.mkdir(plotsdir)
     
     result = {}
-    result_table = Report.table()
-    result_table.add_column('process', 'signal process')
-    if input=='data': header = '%f quantile' % quantile
-    else: header = '%f quantile (median; central 68%%; central 95%%)' % quantile
-    result_table.add_column('%f quantile' % quantile, header)
     for name in cfg_names_to_run:
         method, sp_id, dummy = name.split('-',2)
         result_table.set_column('process', sp_id)
         sqlfile = os.path.join(cachedir, '%s.db' % name)
         data = sql(sqlfile, 'select bayes__quant%0.5d, bayes__accrate from products' % (quantile * 10000))
         result[sp_id] = {'quantiles': [row[0] for row in data], 'accrates': [row[1] for row in data]}
-        outcomes = result[sp_id]['quantiles']
-        n = len(outcomes)
-        if n == 0:
-           result_table.set_column('%f quantile' % quantile, 'N/A')
-           continue
-        if input == 'data':
-            mean, width = get_mean_width(outcomes)
-            result_table.set_column('%f quantile' % quantile, '%.5g +- %.3g' % (mean, width / math.sqrt(n)))
-        else:
-            sorted_res = sorted(outcomes)
-            result_table.set_column('%f quantile' % quantile, '%.3g  (%.3g, %.3g; %.3g, %.3g)' % (sorted_res[n / 2], sorted_res[int(0.16 * n)], sorted_res[int(0.84 * n)],
-                sorted_res[int(0.025 * n)], sorted_res[int(0.975 * n)]))
-        result_table.add_row()
-    if write_report:
-        config.report.new_section("Bayesian Quantiles on ensemble '%s'" % input)
-        #config.report.add_p('input: %s, n: %d, signal prior: %s, nuisance prior: %s' % (input, n, str(signal_prior), str(nuisance_prior)))
-        config.report.add_html(result_table.html())
     return result
 
 
@@ -104,10 +82,6 @@ def limit_band_plot(quantiles, include_band, quantile = 0.95, **options):
         # ignore uncertainties or other special entries:
         if '__' in sp: continue
         signal_processes.add(sp)
-        data = sorted(quantiles[sp]['quantiles'])
-        n = len(data)
-        if n!=0:
-            results[sp] = (data[n / 2], (data[int(0.16 * n)], data[int(0.84 * n)]), (data[int(0.025 * n)], data[int(0.975 * n)]))
     # map process names and x values:
     x_to_sp = get_x_to_sp(signal_processes, **options)
     pd = plotdata()
@@ -118,11 +92,18 @@ def limit_band_plot(quantiles, include_band, quantile = 0.95, **options):
     pd.y = []
     if include_band:
         pd.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
+    else: pd.yerrors = []
     for x in pd.x:
         sp = x_to_sp[x]
-        median, band1, band2 = results[sp]
+        data = sorted(quantiles[sp]['quantiles'])
+        n = len(data)
+        median, band1, band2 = (data[n / 2], (data[int(0.16 * n)], data[int(0.84 * n)]), (data[int(0.025 * n)], data[int(0.975 * n)]))
+        if not include_band:
+            mean, error = get_trunc_median_width(data)
+            pd.y.append(mean)
+            pd.yerrors.append(error / math.sqrt(len(data)))
+            continue
         pd.y.append(median)
-        if not include_band: continue
         pd.bands[1][0].append(band1[0])
         pd.bands[1][1].append(band1[1])
         pd.bands[0][0].append(band2[0])
@@ -136,7 +117,7 @@ def limit_band_plot(quantiles, include_band, quantile = 0.95, **options):
 # name and shortname are used to distinguish different calls to this function. name is used ion the report
 # and should be the 'human-firendly' version, while shortname is used for filenames and should be the 'computer-friendly'
 # version.
-def report_limit_band_plot(expected_limits, observed_limits, name, shortname):
+def report_limit_band_plot(expected_limits, observed_limits, name, shortname, write_table = True):
     plotsdir = os.path.join(config.workdir, 'plots')
     plots = []
     extra_legend_items = []
@@ -149,9 +130,33 @@ def report_limit_band_plot(expected_limits, observed_limits, name, shortname):
         observed_limits.legend = 'observed limit'
         plots.append(observed_limits)
     if len(plots) == 0: return
+    if write_table:
+        result_table = Report.table()
+        result_table.add_column('process', 'signal process')
+        if expected_limits is not None:
+            result_table.add_column('exp', 'expected limit')
+            result_table.add_column('exp1', 'expected limit (central 1sigma)')
+            result_table.add_column('exp2', 'expected limit (central 2sigma)')
+        if observed_limits is not None:
+            result_table.add_column('obs', 'observed limit')
+        x_values = []
+        if expected_limits is not None: x_values = expected_limits.x
+        else: x_values = observed_limits.x
+        for i in range(len(x_values)):
+            result_table.set_column('process', '%g' % x_values[i])
+            if expected_limits is not None:
+                result_table.set_column('exp', '%.3g' % expected_limits.y[i])
+                result_table.set_column('exp1', '%.3g--%.3g' % (expected_limits.bands[1][0][i], expected_limits.bands[1][1][i]))
+                result_table.set_column('exp2', '%.3g--%.3g' % (expected_limits.bands[0][0][i], expected_limits.bands[0][1][i]))
+            if observed_limits is not None:
+                result_table.set_column('obs', '%.3g +- %.3g' % (observed_limits.y[i], observed_limits.yerrors[i]))
+            result_table.add_row()
+        config.report.add_html(result_table.html())
     plot(plots, 'signal process', 'upper limit', os.path.join(plotsdir, 'limit_band_plot-%s.png' % shortname), extra_legend_items=extra_legend_items)
-    config.report.new_section('Limit band Plot %s' % name)
+    plot(plots, 'signal process', 'upper limit', os.path.join(plotsdir, 'limit_band_plot-log-%s.png' % shortname), logy = True, extra_legend_items=extra_legend_items)
+    config.report.new_section('Limits %s' % name)
     config.report.add_html('<p><img src="plots/limit_band_plot-%s.png" /></p>' % shortname)
+    config.report.add_html('<p><img src="plots/limit_band_plot-log-%s.png" /></p>' % shortname)
     return plots
     
 
@@ -186,7 +191,7 @@ def bayesian_limits(model, what = 'all', **options):
         observed_limits = bayesian_quantiles(model, input = 'data', n = n, **options)
         plot_observed = limit_band_plot(observed_limits, False)
     # catch the case where the routines return None (e.g., if run_theta = False)
-    report_limit_band_plot(plot_expected, plot_observed, 'bayesian', 'bayesian')
+    report_limit_band_plot(plot_expected, plot_observed, 'Bayesian', 'bayesian')
     return (plot_expected, plot_observed)
 
 

@@ -6,6 +6,8 @@
 #include "interface/producer.hpp"
 #include "interface/variables.hpp"
 
+
+#include <boost/optional.hpp>
 #include <string>
 
 /** \brief A producer to create test statistics based on likelihood ratio in case of signal search.
@@ -21,6 +23,8 @@
  *   minimizer = "@myminuit";
  *   background-only-distribution = "@bkg-only-dist";
  *   signal-plus-background-distribution = "@default-dist";
+ *   //optional:
+ *   restrict_poi = "beta_signal";
  * };
  * 
  * myminuit = {...}; // minimizer definition
@@ -39,7 +43,11 @@
  * \c background-only-distribution and \c signal-plus-background-distribution define the Distributions which should be used
  *   in the two model variants. <b>Important:</b> the constraints will alter the likelihood function: instead
  *   of the parameter distribution specified in the likelihood function, these distributions will be used. Therefore,
- *   <em>all</em> model parameters have to be specified for these two cases.
+ *   <em>all</em> modl parameters have to be specified for these two cases.
+ *
+ * \c restrict_poi is the parameter of interest whose range is restricted during minimization of the
+ *  signal + background model. The allowed maximum value for thegiven parameter will be set to the current
+ *  poi value, as set via setParameterValues.
  *   
  * Note that the setting "override-parameter-distribution" is not allowed for this producer.
  *
@@ -61,17 +69,22 @@
  * Even if the asymptotic property is not fulfilled, this quantity can still be used as test statistic for the
  * hypothesis test which has the "background-only" case as null hypothesis.
  */
-class deltanll_hypotest: public theta::Producer{
+class deltanll_hypotest: public theta::ParameterDependentProducer{
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     deltanll_hypotest(const theta::Configuration & cfg);
     virtual void produce(const theta::Data &, const theta::Model&);
+
+    void setParameterValues(const theta::ParValues & values);
 private:
     
     boost::shared_ptr<theta::Distribution> s_plus_b;
     boost::shared_ptr<theta::Distribution> b_only;
     
     bool init;
+
+    boost::optional<theta::ParId> restrict_poi;
+    double poi_value;
     
     theta::ParValues s_plus_b_mode, b_only_mode;
     theta::ParValues s_plus_b_width, b_only_width;

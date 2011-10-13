@@ -1,4 +1,4 @@
-import numpy, os.path, hashlib, shutil, copy
+import numpy, os.path, hashlib, shutil, copy, threading
 
 import config as global_config
 import utils
@@ -83,27 +83,19 @@ def equidistant_deltas(parameter, range, n):
 def sqlite_database(fname = ''):
     return {'type': 'sqlite_database', 'filename': fname}
 
-# cfg_names is a list of filenames (without ".cfg") which are expected to be located in the working directory
-# valid options:
-#  * debug: if True, do not delete the db file in case of failure and do not redirect theta stdio
-def run_theta(cfg_names, **options):
+def _run_theta_single(name, debug):
     cache_dir = os.path.join(global_config.workdir, 'cache')
-    if not os.path.exists(cache_dir): os.mkdir(cache_dir)
+    cfgfile = name + '.cfg'
+    dbfile = name + '.db'
+    cfgfile_cache = os.path.join(cache_dir, cfgfile)
+    dbfile_cache = os.path.join(cache_dir, dbfile)
+    cfgfile_full = os.path.join(global_config.workdir, cfgfile)
+    already_done = False
     theta = os.path.realpath(os.path.join(global_config.theta_dir, 'bin', 'theta'))
-    debug = options.get('debug', False)
-    for name in cfg_names:
-        cfgfile = name + '.cfg'
-        dbfile = name + '.db'
-        cfgfile_cache = os.path.join(cache_dir, cfgfile)
-        dbfile_cache = os.path.join(cache_dir, dbfile)
-        cfgfile_full = os.path.join(global_config.workdir, cfgfile)
-        already_done = False
-        if os.path.exists(cfgfile_cache) and os.path.exists(os.path.join(cache_dir, dbfile)):
-            # compare the config files:
-            already_done = open(cfgfile_cache, 'r').read() == open(cfgfile_full, 'r').read()
-        if already_done:
-            #info("not running \"theta %s\": found up-to-date output in cache" % cfgfile)
-            continue
+    if os.path.exists(cfgfile_cache) and os.path.exists(os.path.join(cache_dir, dbfile)):
+        # compare the config files:
+        already_done = open(cfgfile_cache, 'r').read() == open(cfgfile_full, 'r').read()
+    if not already_done:
         utils.info("running 'theta %s'" % cfgfile)
         params = ""
         if debug: params += " --redirect-io=False"
@@ -114,4 +106,53 @@ def run_theta(cfg_names, **options):
         # move to cache, also the config file ...
         shutil.move(dbfile, dbfile_cache)
         shutil.copy(cfgfile_full, cfgfile_cache)
+"""
+def run_function_then_notify(f, condvar):
+    ex, result = None, None
+    try:
+        result = f()
+    except Exception, e:
+        ex = e
+    condvar.acquire()
+    condvar.notify()
+    condvar.release()
+    if ex is not None: raise ex
+    return result
+
+
+# like map(func, l), but run in threads.
+def parallel_map(func, l, n_threads):
+    done = [False] * len(l)
+    threads_current = []
+    condvar = threading.Condition()
+    while not all(done):
+        while len(threads_current) < n_threads and not all(done):
+            i=0
+            while done[i]: i+=1
+            done[i] = True
+            t = threading.Thread(target = lambda: run_function_then_notify(lambda: func(l[i]), condvar))
+            threads_current.append(t)
+            t.start()
+            print 'current threads: ', len(threads_current)
+        condvar.acquire()
+        condvar.wait(5.0)
+        # remove non-alive threads:
+        for i in range(len(threads_current)):
+            if not threads_current[i].isAlive():
+                threads_current[i].join()
+                del threads_current[i]
+"""
+
+# cfg_names is a list of filenames (without ".cfg") which are expected to be located in the working directory
+# valid options:
+#  * debug: if True, do not delete the db file in case of failure and do not redirect theta stdio
+#  * run_theta_parallel: number of concurrent theta processes to start (which run different config files). Default is 1
+def run_theta(cfg_names, **options):
+    cache_dir = os.path.join(global_config.workdir, 'cache')
+    if not os.path.exists(cache_dir): os.mkdir(cache_dir)
+    debug = options.get('debug', False)
+    #run_theta_parallel = options.get('run_theta_parallel', 1)
+    #parallel_map(lambda name: _run_theta_single(name, debug), cfg_names, run_theta_parallel)
+    for name in cfg_names:
+        _run_theta_single(name, debug)
 
