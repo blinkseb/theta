@@ -4,9 +4,8 @@ set(CMAKE_VERBOSE_MAKEFILE, 1)
 
 option(coverage "build for coverage tests" OFF)
 option(profile "build for profiling" OFF)
-option(optiontest "build tests" ON)
 option(release "build release version" ON)
-option(amdlibm "use amdlibm instead of libm in some places" ON)
+option(amdlibm "use amdlibm instead of libm in some places" OFF)
 option(llvm "Build llvm plugins" OFF)
 option(generic "use generic implementation of funtions; not optimized, platform-specific ones" OFF)
 
@@ -75,8 +74,4 @@ if(llvm)
    add_subdirectory(llvm)
 endif()
 
-if(optiontest)
-   message(STATUS "building tests")
-   add_subdirectory(test)
-endif()
 
