@@ -1,11 +1,5 @@
 #include "plugins/blackhole_database.hpp"
 #include "interface/plugin.hpp"
-#include "interface/histogram.hpp"
-
-#include <sstream>
-
-#include <boost/filesystem.hpp>
-#include <boost/scoped_array.hpp>
 
 using namespace std;
 using namespace theta;
@@ -21,8 +15,7 @@ std::auto_ptr<Table> blackhole_database::create_table(const string & table_name)
 
 blackhole_database::blackhole_table::~blackhole_table(){}
 
-Column blackhole_database::blackhole_table::add_column(const std::string & name,
-                                                                      const data_type & type){
+Column blackhole_database::blackhole_table::add_column(const std::string & name, const data_type & type){
     return Column();
 }
 

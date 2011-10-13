@@ -14,9 +14,9 @@
  *
  * Configured via a setting group like
  * \code
- * {
+ * output_database = {
  *   type = "blackhole_database";
- * }
+ * };
  * \endcode
  *
  * \c type must always be "blackhole_database" in order to select this plugin
@@ -29,9 +29,6 @@ public:
     blackhole_database(const theta::Configuration & cfg);
     
     virtual ~blackhole_database();
-    
-    /** \brief See documentation of Database::create_table
-     */
     virtual std::auto_ptr<theta::Table> create_table(const std::string & table_name);
         
 private:

@@ -35,18 +35,18 @@
  * 
  * \c width_factor control the MCMC jump kernel size, see below.
  * 
- * \c after_minimizer is a Minimizer specification for a minimizer to run after the MCMC chain, see below.
+ * \c after_minimizer is a Minimizer specification for a minimizer to run after the MCMC chain, using the MCMC result as starting point; see below.
  * 
  * The Markov-Chain Monte-Carlo method will be run first. As jump kernel, a diagonal
  * covariance matrix is used, based on the \c step parameter of the \c minimize() method. These
  * are scaled by \c stepsize_factor.
- * at the minimum are saved in MinimizationResult::values. The covariance
+ * The parameter values at the minimum are saved in MinimizationResult::values. The covariance
  * matrix for the whole chain (excluding burn-in) is used to set MinimizationResult::errors_plus
  * and errors_minus (to the same value).
  * 
  * Due to the randomness of the method (and the non-adaptiveness regarding the step size), the
- * result is not expected to be very accurate. Therefore, it is recommended to run another, more
- * precise Minimization method. This can be done in various ways, for example using \c last_minimizer in
+ * result is not expected to be very accurate. Therefore, it is recommended to use the value found here only as
+ * starting point for another, more precise Minimization method. This can be done in various ways, for example using \c last_minimizer in
  * \link minimizer_chain minimizer_chain \endlink or by setting \c after_minimizer. If set, this minimizer
  * will be run using the result of the MCMC method as starting point.
  */
