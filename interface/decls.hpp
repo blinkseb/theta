@@ -14,6 +14,7 @@ namespace theta{
     class HistogramFunction;
     class Minimizer;
     class Producer;
+    class ParameterDependentProducer;
     class ProductsSource;
     class Distribution;
     class Database;

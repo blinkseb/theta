@@ -252,7 +252,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
         method, sp, dummy = name.split('-',2)
         spids.add(sp)
         sqlfile = os.path.join(cachedir, '%s.db' % name)
-        data = sql(sqlfile, 'select "limit", limit_uncertainty from cls_limits order by "index"')
+        data = sql(sqlfile, 'select "limit", limit_uncertainty from cls_limits order by "q"')
         index = 0
         if what in ('all', 'observed'):
             observed_results[sp] = data[index][0], data[index][1]

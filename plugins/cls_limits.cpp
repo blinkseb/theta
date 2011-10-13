@@ -1,3 +1,5 @@
+#include "plugins/cls_limits.hpp"
+
 #include "interface/cfg-utils.hpp"
 #include "interface/plugin.hpp"
 #include "interface/histogram.hpp"
@@ -120,6 +122,16 @@ public:
     }
     
     explicit SaveDoubleColumn(const string & name): column_name(name), value(NAN){}
+};
+
+
+class data_filler: public theta::RandomConsumer, public theta::ProductsSource{
+ private:
+     boost::shared_ptr<Model> model;
+     Column truth_column;
+ public:
+     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_);
+     void fill(theta::Data & dat, const theta::ParId & truth_parameter, double truth_value);
 };
 
 // contains the (numerically derived) cls values and uncertainties as function of the truth value for a fixed ts value.
@@ -380,159 +392,24 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
 
 
 
-/** \brief Calculate CLs limits
- *
- *
- * \code
- * main = {
- *   type = "cls_limits";
- *
- *   // (almost) same as in type = "default" (theta::Run):
- *   producer = "@lr";
- *   model = "@model";
- *   output_database = {
- *      type = "sqlite_database";
- *      filename = "toys.db";
- *   };
- *
- *   // specific to cls_toys
- *   minimizer = { ... };
- *   ts_column = "lr__nll_diff"; // full column name, with optional '-'
- *   truth_parameter = "beta_signal";
- *
- *   // optional parameters
- *   cl = 0.90; // optional; default is 0.95
- *   data_source = { some datasource specification }; //optional
- *   expected_bands = true; //optional
- *   reltol_limit = 0.001; // optional; default is 0.05
- *   tol_cls = 0.005; //optional; default is 0.015
- *   limit_hint = (200.0, 240.0); //optional; default is finding out on its own ...
- *   reuse_toys = (
- *       {type = "sqlite_database_in"; filename = "toys0.db"; }
- *   ); //optional; default is the empty list (), i.e., not to reuse any toys
- *   debuglog = "debug.txt"; // optional, default is no debug output
- * };
- * \endcode
- * 
- * Toys are drawn from the \c model with different values for the signal parameter given in \c signal_parameter (all other
- * parameters are drawn randomly from the model's parameter distribution). For each toy, the \c ts_producer is run and the
- * value from the given \c ts_column uis used as test statistic for the construction of CLs limits.
- *
- * \c data_source and \c expected_bands control for which data / test statistic the limits are calculated. \c data_source
- * is a data source and used to caluclate the observed limit on actual data. If \c expected_bands is true, the central expected,
- * +-1sigma and +-2sigma bands of expected limits are calculated as well. \c expected_bands defaults to true if data_source is
- * given and to false otherwise.
- *
- * The calculation of CLs limits in general requires making a large number of toys at different truth values, to scan for the 
- * desired CLs value 1 - cl. How many toys are drawn and where is done automatically and is driven by \c reltol_limit:
- * this is the relative 1sigma uncertainty tolerance for the limit. \c tol_cls is an absolute accuracy for the CLs value. It is used
- * internally only and does not affect the accuracy of the result directly. However, it can affect robustness of the method. Set it
- * to a smaller value if you 
- *
- * If \c limit_hint is given, it should be an interval where the limits are probably contained.
- * It does not have to be exact, but wil be used for a starting point to make some toys which can make the
- * convergence considerably faster.
- *
- * Both, the toys used for the construction as well as the resulting limits are written to the
- * \c output_database. For the toys, the tables are the same as for theta::Run. In addition, the table
- * "cls_limits" is created which contains the columns "q", "limit", and "limit_uncertainty".
- * The column q is the quantile of the background-only distribution used as test statistic. It is
- * The values 0.025, 0.16, 0.5, 0.84, and 0.975 define the "expected" bands. the special value -1 is used
- * to indicate that data was used from the data_source.
- * 
- * (TODO: this is not implemented yet!) The optional setting \c reuse_toys is a list of theta::DatabaseInput
- * specifications. If present, it is assumed that these contain toys
- * from previous runs with the same model and ts definition (in particular, with the same truth_parameter and ts_column name ...).
- * Reusing toys can speed up the calculation substiantially.
- *
- * \c debuglog is the filename of the debug log. Debug output is only written if a filename is given here.
- *
- * The indicated progress and errors refer to the number of toys produced. It is hard to tell how many toys are
- * necessary; this also depends on the CLb value: a low CLb value requires much more toys to rech the desired accuracy.
- * (note that if calculating the expected limit band, low CLb values exist by construction).
- * In such a case (CLb around 0.03), about 20k to 50k toys are necessary. For a more typical case (CLb around 0.5),
- * usually 5-10k of toys are sufficient. This is also true in cases where the test statistic is degenerate (= has often the same value)
- * as in such a case, low CLb values do not occur.
- */
-class cls_limits: public Main{
-public:
-    cls_limits(const Configuration & cfg);
-    virtual void run();
-    
-private:
-    class data_filler: public theta::RandomConsumer, public theta::ProductsSource{
-    private:
-        boost::shared_ptr<Model> model;
-        Column truth_column;
-    public:
-        data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_): RandomConsumer(cfg, "source"), ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_){
-            truth_column = products_sink->declare_product(*this, "truth", theta::typeDouble);
-        }
-        void fill(Data & dat, const ParId & truth_parameter, double truth_value){
-            dat.reset();
-            Random & rnd = *rnd_gen;
-            ParValues values;
-            model->get_parameter_distribution().sample(values, rnd);
-            values.set(truth_parameter, truth_value);
-            products_sink->set_product(truth_column, truth_value);
-            model->get_prediction(dat, values);
-            ObsIds observables = dat.getObservables();
-            for (ObsIds::const_iterator it = observables.begin(); it != observables.end(); it++) {
-                 randomize_poisson(dat[*it], rnd);
-            }
-        }
-    };
-    
-    void run_single_truth(double truth, bool bkg_only, int n_event);
-    
-    // run toys at the given truth value (and at truth=0!) until either
-    // * the uncertainty on the CLs value is below tol_cls
-    //   or
-    // * the CLs value is found to be more than 3 sigma away from the target CLs 1-cl.
-    //void run_single_truth_adaptive(double ts_value, double truth);
-    void run_single_truth_adaptive(double q, map<double, double> & truth_to_ts, double ts_epsilon, double truth);
-    void update_truth_to_ts(map<double, double> & truth_to_ts, double q, double ts_epsilon);
+data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_): RandomConsumer(cfg, "source"),
+    ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_){
+    truth_column = products_sink->declare_product(*this, "truth", theta::typeDouble);
+}
 
-    boost::shared_ptr<VarIdManager> vm;
-    boost::shared_ptr<Model> model;
-    //note: the tables hold a shared_ptr to this database to ensure proper destruction order
-    boost::shared_ptr<Database> db;
-
-    std::auto_ptr<LogTable> logtable;
-    boost::shared_ptr<RndInfoTable> rndinfo_table;
-
-    //the producer to be run on the pseudo data which provides the test statistic:
-    std::auto_ptr<Producer> producer;
-    ParameterDependentProducer * pp_producer; // points to producer, if type matched. 0 otherwise.
-    boost::shared_ptr<MultiplexingProductsSink> mps;
-    boost::shared_ptr<SaveDoubleColumn> sdc;
-    boost::shared_ptr<ProductsTable> products_table;
-    
-    std::auto_ptr<Table> cls_limits_table;
-    Column cls_limits__ts_value, cls_limits__limit, cls_limits__limit_uncertainty;
-    
-    ParId truth_parameter;
-    std::auto_ptr<data_filler> source;
-    
-    // for fitting the CLs versus truth curve, we need a minimizer and some parameters:
-    std::auto_ptr<Minimizer> minimizer;
-    ParId pid_limit, pid_lambda;
-    
-    truth_ts_values tts;
-
-    int runid;
-    
-    bool expected_bands;
-    std::auto_ptr<theta::DataSource> data_source;
-    
-    pair<double, double> limit_hint;
-    double reltol_limit, tol_cls;
-    double cl;
-    
-    std::auto_ptr<std::ostream> debug_out;
-    
-    int n_toys, n_toy_errors;
-};
+void data_filler::fill(Data & dat, const ParId & truth_parameter, double truth_value){
+    dat.reset();
+    Random & rnd = *rnd_gen;
+    ParValues values;
+    model->get_parameter_distribution().sample(values, rnd);
+    values.set(truth_parameter, truth_value);
+    products_sink->set_product(truth_column, truth_value);
+    model->get_prediction(dat, values);
+    ObsIds observables = dat.getObservables();
+    for (ObsIds::const_iterator it = observables.begin(); it != observables.end(); it++) {
+         randomize_poisson(dat[*it], rnd);
+    }
+}
 
 
 void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
@@ -577,10 +454,10 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
         }
     }
     if(bkg_only){
-       tts.add_points_b(truth, ts_values.begin(), ts_values.end());
+       tts->add_points_b(truth, ts_values.begin(), ts_values.end());
     }
     else{
-       tts.add_points_sb(truth, ts_values.begin(), ts_values.end());
+       tts->add_points_sb(truth, ts_values.begin(), ts_values.end());
     }
     // check success rate and fail in case this is < 0.8. Do not check in case of stop_execution flag set:
     if(ts_values.size() * 1.0 / n_event < 0.8 && !stop_execution){
@@ -590,7 +467,7 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
 
 
 void cls_limits::run_single_truth_adaptive(double q, map<double, double> & truth_to_ts, double ts_epsilon, double truth){
-    if(!tts.contains_truth_value(truth)){
+    if(!tts->contains_truth_value(truth)){
         run_single_truth(truth, true, 100);
         run_single_truth(truth, false, 100);
         if(stop_execution) return;
@@ -599,7 +476,7 @@ void cls_limits::run_single_truth_adaptive(double q, map<double, double> & truth
         if(stop_execution) return;
         update_truth_to_ts(truth_to_ts, q, ts_epsilon);
         double ts_value = truth_to_ts[truth];
-        truth_ts_values::cls_info res = tts.get_cls(ts_value, truth);
+        truth_ts_values::cls_info res = tts->get_cls(ts_value, truth);
         double cls_uncertainty = sqrt(pow(res.cls_uncertainty_n0, 2) + pow(res.cls_uncertainty_n, 2));
         debug_out << "run_single_truth_adaptive (iteration " << kk << "; truth = " << truth << "; ts = " << ts_value << "):\n";
         debug_out << " clsb = " << res.clsb << " +- " << res.clsb_uncertainty << "\n";
@@ -609,7 +486,7 @@ void cls_limits::run_single_truth_adaptive(double q, map<double, double> & truth
         if(cls_uncertainty < tol_cls) return;
         double target_cls_uncertainty = max(tol_cls, fabs(res.cls - (1 - cl))/3) * 0.7;
         if(res.cls_uncertainty_n0 > target_cls_uncertainty){
-            size_t n0 = tts.get_n0(truth);
+            size_t n0 = tts->get_n0(truth);
             size_t n0_new = pow(res.cls_uncertainty_n0 / target_cls_uncertainty, 2) * n0;
             theta_assert(n0_new >= n0);
             size_t n_toys = max(50ul, min<size_t>(n0_new - n0, 500));
@@ -619,7 +496,7 @@ void cls_limits::run_single_truth_adaptive(double q, map<double, double> & truth
             if(stop_execution) return;
         }
         if(res.cls_uncertainty_n > target_cls_uncertainty){
-            size_t n = tts.get_n(truth);
+            size_t n = tts->get_n(truth);
             size_t n_new = pow(res.cls_uncertainty_n / target_cls_uncertainty, 2) * n;
             theta_assert(n_new >= n);
             size_t n_toys = max(50ul, min<size_t>(n_new - n, 500));
@@ -637,6 +514,7 @@ void cls_limits::run_single_truth_adaptive(double q, map<double, double> & truth
 cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->getParId(cfg.setting["truth_parameter"])),
   pid_limit(vm->createParId("__limit")), pid_lambda(vm->createParId("__lambda")), runid(1),
   expected_bands(true), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.015), cl(0.95), n_toys(0), n_toy_errors(0) {
+    tts.reset(new truth_ts_values());
     SettingWrapper s = cfg.setting;
     
     //1. setup database and tables:
@@ -663,7 +541,7 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
     cfg.pm->set("runid", ptr_runid);
     
     cls_limits_table = db->create_table("cls_limits");
-    cls_limits__ts_value = cls_limits_table->add_column("ts_value", typeDouble);
+    cls_limits__q = cls_limits_table->add_column("q", typeDouble);
     cls_limits__limit = cls_limits_table->add_column("limit", typeDouble);
     cls_limits__limit_uncertainty = cls_limits_table->add_column("limit_uncertainty", typeDouble);
             
@@ -735,13 +613,13 @@ bool cls_is_significantly_smaller(const cls_vs_truth_data & data, size_t i, doub
     return cls_values[i] < target_cls && fabs(cls_values[i] - target_cls) / sqrt(pow(cls_uncertainties_n[i], 2) + pow(cls_uncertainties_n0[i], 2)) > 3;
 }
 
-// update the truth_to_ts map to contain ts values for all truth_values in tts.
+// update the truth_to_ts map to contain ts values for all truth_values in tts->
 //
 // mode controls from where to take the ts value:
 // < 0: from data
 // 0 < q < 1: from the background-only distribution at that truth value
 void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double q, double ts_epsilon){
-    set<double> truth_values = tts.truth_values();
+    set<double> truth_values = tts->truth_values();
     Data data;
     bool data_filled = false;
     boost::optional<double> constant_ts; //filled only in case of constant, non-poi dependent ts, i.e., pp_producer == 0
@@ -779,7 +657,7 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double q,
         }
         else{
             theta_assert(q > 0 && q < 1);
-            double ts = tts.get_ts_b_quantile(*it, q);
+            double ts = tts->get_ts_b_quantile(*it, q);
             truth_to_ts[*it] = ts + ts_epsilon;
         }
     }
@@ -815,7 +693,7 @@ void cls_limits::run(){
     if(isfinite(limit_hint.second)) truth0 = max(truth0, limit_hint.second);
     run_single_truth(truth0, false, 200);
     run_single_truth(truth0, true, 200);
-    const double ts_epsilon = fabs(tts.get_ts_b_quantile(truth0, 0.975) - tts.get_ts_b_quantile(truth0, 0.025)) * 1e-3;
+    const double ts_epsilon = fabs(tts->get_ts_b_quantile(truth0, 0.975) - tts->get_ts_b_quantile(truth0, 0.025)) * 1e-3;
     debug_out << "ts_epsilon is " << ts_epsilon << "\n";
 
 
@@ -842,11 +720,11 @@ void cls_limits::run(){
         update_truth_to_ts(truth_to_ts, qs[iq], ts_epsilon);
         //3.a. find a seed:
         //3.a.i. make some adaptive toys at the highest current truth value:
-        cls_vs_truth_data data = tts.get_cls_vs_truth(truth_to_ts);
+        cls_vs_truth_data data = tts->get_cls_vs_truth(truth_to_ts);
         run_single_truth_adaptive(qs[iq], truth_to_ts, ts_epsilon, data.truth_values().back());
         if(stop_execution) return;
         update_truth_to_ts(truth_to_ts, qs[iq], ts_epsilon);
-        data = tts.get_cls_vs_truth(truth_to_ts);
+        data = tts->get_cls_vs_truth(truth_to_ts);
         while(not cls_is_significantly_smaller(data, data.cls_values().size()-1, 1 - cl)){
              double next_value = data.truth_values().back()*2.0;
              debug_out << "making toys at high truth values to find upper limit on limit; next is truth=" << next_value << "\n";
@@ -854,7 +732,7 @@ void cls_limits::run(){
              run_single_truth_adaptive(qs[iq], truth_to_ts, ts_epsilon, next_value);
              if(stop_execution) return;
              update_truth_to_ts(truth_to_ts, qs[iq], ts_epsilon);
-             data = tts.get_cls_vs_truth(truth_to_ts);
+             data = tts->get_cls_vs_truth(truth_to_ts);
         }
         size_t i_low, i_high;
         i_high = 0;
@@ -871,7 +749,7 @@ void cls_limits::run(){
             debug_out << iq << "." << i << "\n";
             if(debug_out.get()){
                 //debug_out << "tts:\n";
-                //tts.write_txt(*debug_out, 70, -2, 5);
+                //tts->write_txt(*debug_out, 70, -2, 5);
                 debug_out << "cls vs truth:\n";
                 data.write_txt(*debug_out);
                 flush(debug_out);
@@ -903,7 +781,7 @@ void cls_limits::run(){
             run_single_truth_adaptive(qs[iq], truth_to_ts, ts_epsilon, latest_res.limit);
             if(stop_execution) return;
             update_truth_to_ts(truth_to_ts, qs[iq], ts_epsilon);
-            data = tts.get_cls_vs_truth(truth_to_ts);
+            data = tts->get_cls_vs_truth(truth_to_ts);
             // make interval [truth_low, truth_high] smaller if (border is far away (>2sigma) from limit or border is 0) AND the next point can serve as new interval border
             i_low = find(data.truth_values().begin(), data.truth_values().end(), truth_low) - data.truth_values().begin();
             i_high = find(data.truth_values().begin(), data.truth_values().end(), truth_high) - data.truth_values().begin();
@@ -937,7 +815,7 @@ void cls_limits::run(){
             }
         }
         Row r;
-        r.set_column(cls_limits__ts_value, qs[iq]);
+        r.set_column(cls_limits__q, qs[iq]);
         r.set_column(cls_limits__limit, latest_res.limit);
         r.set_column(cls_limits__limit_uncertainty, latest_res.limit_error);
         all_limits.push_back(latest_res.limit);

@@ -2,6 +2,16 @@ This file summarizes changes relevant to users, i.e., changes in config file
 convention and output. It does not cover internal changes. New entries are added on
 top.
 
+within testing only:
+--------------------
+ * in r213:
+   some options for 'cls_limits' changed because of architectural modifications and for more consistency:
+     - instead of a list of producers in 'producers', specify a single producer in 'producer'
+     - use 'data_source' instead of 'ts_values'; it is now no longer possible to specify a list of ts values directly
+     - use 'expected_bands' instead of 'ts_values_background_bands'
+     - the result table is has no 'index' and 'ts' column any more. Instead, there is the 'q' column
+     See documentation of cls_limits for more details.
+
 since r188:
 -----------
  * The function plugin 'mult' has been removed; use 'multiply' instead which is much more general
