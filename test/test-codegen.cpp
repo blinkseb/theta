@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(llvm_multiply){
     utils::fill_theta_dir(0);
     PropertyMap pm;
     pm.set("default", vm);
-    ParId p0 = vm->createParId("p0");
+    vm->createParId("p0");
     ParId p1 = vm->createParId("p1");
     ParId p2 = vm->createParId("p2");
     ConfigCreator cc(
@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE(llvm_exp_function){
     utils::fill_theta_dir(0);
     PropertyMap pm;
     pm.set("default", vm);
-    ParId p0 = vm->createParId("p0");
+    vm->createParId("p0");
     ParId p1 = vm->createParId("p1");
     ParId p2 = vm->createParId("p2");
     ConfigCreator cc(

@@ -63,7 +63,7 @@ for mu in (2000.0, 3.0):
             if max(differences) > 0.015: events_hi += 1
             if min(differences_old) < -0.015: events_low_old += 1
             if max(differences_old) > 0.015: events_hi_old += 1
-        if events_low < 15 and events_hi < 15:
+        if events_low < 10 and events_hi < 10:
             passed("Theta = %f; mu = %f; events low / high: %d %d; events low / high old: %d %d" % (Theta, mu, events_low, events_hi, events_low_old, events_hi_old))
         else:
             fail("Theta = %f; ; mu = %f; events low / high: %d %d; events low / high old: %d %d" % (Theta, mu, events_low, events_hi, events_low_old, events_hi_old))

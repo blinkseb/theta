@@ -12,7 +12,8 @@ WFLAGSCPP := -Wall
 all: ../lib/libconfig.so
 
 ../lib/libconfig.so: $(objects)
-	@$(LINK_SO) -o $@ $+
+	@$(LINK_SO)
 
 clean-subdir:
 	@rm -f ../lib/libconfig.so
+

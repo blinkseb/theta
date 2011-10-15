@@ -87,11 +87,8 @@ endif
 
 INCLUDES := -I.. $(BOOST_INCLUDE) $(SQLITE_INCLUDE)
 EXTRA_COMPILE :=
-EXTRA_LINK_EXE :=
-EXTRA_LINK_SO :=
 
-
-LIBS := -ldl -ltheta -lconfig
+LIBS := -ltheta -ldl -lconfig
 ifeq ($(OPTIONS_USE_AMDLIBM),yes)
     LIBS += -lamdlibm
     DEFINES += -DUSE_AMDLIBM
@@ -100,10 +97,11 @@ endif
 FLAGSC := -g -Wall -fPIC -O3 $(INCLUDES) $(DEFINES) $(OPTIONS_CFLAGS)
 FLAGSCPP := $(FLAGSC) -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo -fPIC -O3 $(INCLUDES) $(DEFINES)
 
-#lazy evaluation of compile and link command to allow subdirectory-Makefiles to override the value of EXTRA_* ...
+#lazy evaluation because of $@, $+.
 COMPILE = echo creating $@; $(CXX) -c $(EXTRA_COMPILE)
-LINK_EXE = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LIBS) $(SQLITE_LIBS) $(BOOST_LIBS) $(EXTRA_LINK_EXE)
-LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(EXTRA_LINK_SO) $(BOOST_LIBS)
+LINK_EXE = echo linking $@; $(CXX) -o $@ $+ $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LIBS) $(SQLITE_LIBS) $(BOOST_LIBS)
+LINK_EXE_NOLIBS = echo linking $@; $(CXX) -o $@ $+ $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib
+LINK_SO = echo linking $@; $(CXX) -o $@ $+ $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(BOOST_LIBS)
 
 .bin/%.o: %.cpp
 	@$(COMPILE) $(FLAGSCPP) -o $@ $<
@@ -116,13 +114,13 @@ LINK_SO = echo linking $@; $(CXX) $(OPTIONS_LDFLAGS) -Wl,-R,'$$ORIGIN/../lib' -s
 
 
 .bin/%.d: %.cpp
-	@$(CXX) $(FLAGSCPP) $(EXTRA_COMPILE) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
+	@echo creating $@; $(CXX) $(FLAGSCPP) $(EXTRA_COMPILE) -MM -MT '$(patsubst %.cpp,.bin/%.o,$<)' $< > $@
 
 .bin/%.d: %.cxx
-	@$(CXX) $(FLAGSCPP) $(EXTRA_COMPILE) -MM -MT '$(patsubst %.cxx,.bin/%.o,$<)' $< > $@
+	@echo creating $@; $(CXX) $(FLAGSCPP) $(EXTRA_COMPILE) -MM -MT '$(patsubst %.cxx,.bin/%.o,$<)' $< > $@
 
 .bin/%.d: %.c
-	@$(CXX) $(FLAGSC) $(EXTRA_COMPILE) -x c -MM -MT '$(patsubst %.c,.bin/%.o,$<)' $< > $@
+	@echo creating $@; $(CXX) $(FLAGSC) $(EXTRA_COMPILE) -x c -MM -MT '$(patsubst %.c,.bin/%.o,$<)' $< > $@
 
 
 #make clean rule depend on subdir-specific:

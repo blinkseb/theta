@@ -21,10 +21,10 @@ include ../Makefile.rules
 all: ../bin/test ../lib/liblibtest.so
 
 ../bin/test: $(testobjects)
-	@$(LINK_EXE) -o $@ $+
+	@$(LINK_EXE)
 
 ../lib/liblibtest.so: $(libtestobjects)
-	@$(LINK_SO) -o $@ $+
+	@$(LINK_SO)
 
 else
 

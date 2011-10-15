@@ -102,7 +102,7 @@ void sqlite_database::exec(const string & query) {
         sqlite3_free(err);
         //database errors should not happen at all. If they do, we cannot use the log table, so write the error
         // to stderr, so the user knows what has happened:
-        cerr << "SQL error: " << ss.str() << endl;
+        theta::cerr << "SQL error: " << ss.str() << endl;
         throw DatabaseException(ss.str());
     }
 }

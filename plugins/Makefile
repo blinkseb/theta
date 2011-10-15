@@ -8,7 +8,7 @@ include ../Makefile.rules
 all: ../lib/core-plugins.so
 
 ../lib/core-plugins.so: $(libobjects)
-	@$(LINK_SO) -o $@ $+
+	@$(LINK_SO) $(SQLITE_LIBS)
 
 clean-subdir:
 	@rm -f ../lib/core-plugins.so

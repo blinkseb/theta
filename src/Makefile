@@ -10,13 +10,8 @@ include ../Makefile.rules
 
 all: ../lib/libtheta.so
 
-
 ../lib/libtheta.so: $(libobjects)
-	@$(LINK_SO) -o $@ $+
-
-.bin/%.o: ../crlibm/%.c
-	@$(COMPILE) -x c -o $@ $<
-
+	@$(LINK_SO)
 
 # switch between implementations of log2_dot
 ifeq ($(OPTIONS_GENERIC_ARCH),yes)

@@ -8,10 +8,10 @@ all: merge theta
 
 
 merge: .bin/merge.o
-	@$(LINK_EXE) -o $@ $<
+	@$(LINK_EXE)
 
 theta: .bin/theta.o
-	@$(LINK_EXE) -o $@ $<
+	@$(LINK_EXE)
 
 clean-subdir:
 	@rm -f merge theta

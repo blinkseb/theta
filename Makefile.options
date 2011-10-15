@@ -14,7 +14,7 @@ OPTIONS_USE_AMDLIBM := no
 
 # If yes, build llvm plugins in "llvm" subdirectory. Requires working
 # llvm installation (tested with 2.7 and 2.8)
-OPTIONS_BUILD_LLVM := no
+OPTIONS_BUILD_LLVM := yes
 
 # Additional flags for compilation / linking:
 OPTIONS_CFLAGS :=

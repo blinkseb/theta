@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
     
     const size_t nbins = 1;
     ParId delta = vm->createParId("delta");
-    ObsId obs = vm->createObsId("obs", nbins, -1, 1);
+    vm->createObsId("obs", nbins, -1, 1);
     BOOST_CHECKPOINT("parsing config");
     ConfigCreator cc("flat-histo0 = {type = \"direct_data_histo\"; nbins = 1; range = [-1.0, 1.0]; data = [1.0];};\n"
             "flat-histo1 = {type = \"direct_data_histo\"; nbins = 1; range = [-1.0, 1.0]; data = [1.12];};\n"

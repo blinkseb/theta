@@ -10,7 +10,7 @@ EXTRA_COMPILE += $(shell llvm-config --cppflags)
 all: ../lib/llvm-plugins.so
 
 ../lib/llvm-plugins.so: $(libobjects)
-	@$(LINK_SO) -o $@ $+ $(shell llvm-config --libfiles nativecodegen engine scalaropts ipo)
+	@$(LINK_SO) $(shell llvm-config --libfiles nativecodegen engine scalaropts ipo)
 
 clean-subdir:
 	@rm -f ../lib/llvm-plugins.so

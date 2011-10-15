@@ -18,8 +18,11 @@ include ../Makefile.rules
 # from root.
 WFLAGSCPP := -Wall
 EXTRA_COMPILE := $(shell root-config --cflags)
-EXTRA_LINK_SO := $(shell root-config --libs) -lMinuit2 $(shell root-config --ldflags)
-EXTRA_LINK_EXE := $(EXTRA_LINK_SO)
+EXTRA_LINK := -lMinuit2 $(shell root-config --libs) $(shell root-config --ldflags) 
+
+# put the '-lNet' AFTER -lTree (this is required for the linker on oneiric which is sensitive to linking order):
+EXTRA_LINK := $(patsubst -lNet,,$(EXTRA_LINK))
+EXTRA_LINK := $(patsubst -lTree,-lTree -lNet,$(EXTRA_LINK))
 
 all: ../lib/root.so ../bin/histos
 
@@ -28,22 +31,22 @@ all: create_testhistos create_testtree
 endif
 
 ../bin/histos: .bin/histos.o
-	@$(LINK_EXE) -o $@ $<
+	@$(LINK_EXE) $(EXTRA_LINK)
 
 create_testhistos: .bin/create_testhistos.o
-	@$(LINK_EXE) -o $@ $<
+	@$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 create_testhistos2: .bin/create_testhistos2.o
-	@$(LINK_EXE) -o $@ $<
+	@$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 create_histos: .bin/create_histos.o
-	@$(LINK_EXE) -o $@ $<
+	@$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 create_testtree: .bin/create_testtree.o
-	@$(LINK_EXE) -o $@ $<
+	$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 ../lib/root.so: $(objects)
-	@$(LINK_SO) -o $@ $+
+	$(LINK_SO) $(EXTRA_LINK)
 
 endif
 
