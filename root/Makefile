@@ -43,10 +43,10 @@ create_histos: .bin/create_histos.o
 	@$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 create_testtree: .bin/create_testtree.o
-	$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
+	@$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 ../lib/root.so: $(objects)
-	$(LINK_SO) $(EXTRA_LINK)
+	@$(LINK_SO) $(EXTRA_LINK)
 
 endif
 

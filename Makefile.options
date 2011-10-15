@@ -16,9 +16,10 @@ OPTIONS_USE_AMDLIBM := no
 # llvm installation (tested with 2.7 and 2.8)
 OPTIONS_BUILD_LLVM := no
 
-# Additional flags for compilation / linking:
+# Additional flags for compilation / linking so files / linking exe files:
 OPTIONS_CFLAGS :=
-OPTIONS_LDFLAGS :=
+OPTIONS_LDFLAGS_SO :=
+OPTIONS_LDFLAGS_EXE :=
 
 # Usually, theta assumes building for 64-bit x86 cpus (and an assembler
 # compatible with the one gcc uses).
