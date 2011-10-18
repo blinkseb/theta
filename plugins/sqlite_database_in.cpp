@@ -152,7 +152,7 @@ std::auto_ptr<DatabaseInput::ResultIterator> sqlite_database_in::query(const std
        error_ss << "Could not compile SQL statement " << q.str() << "; sqlite said " << sqlite3_errmsg(db);
        throw DatabaseException(error_ss.str());
    }
-   return std::auto_ptr<ResultIterator>(new SqliteResultIterator(statement, db));
+   return std::auto_ptr<ResultIterator>(new SqliteResultIterator(q.str(), statement, db));
 }
 
 
@@ -170,7 +170,10 @@ void sqlite_database_in::SqliteResultIterator::operator++(){
 
 double sqlite_database_in::SqliteResultIterator::get_double(size_t icol){
     if(sqlite3_column_type(statement, icol)!=SQLITE_FLOAT){
-        throw DatabaseException("column type mismatch: asked for double (SQLITE_DOUBLE) but sqlite type was " + sqlite_type_to_string(sqlite3_column_type(statement, icol)));
+        stringstream ss;
+        ss << "sqlite_database_in: column type mismtatch for column " << icol << " in query '" << sql_statement << "': asked for double (SQLITE_DOUBLE), but type is "
+           << sqlite_type_to_string(sqlite3_column_type(statement, icol));
+        throw DatabaseException(ss.str());
     }
     return sqlite3_column_double(statement, icol);
 }

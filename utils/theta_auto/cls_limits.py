@@ -324,6 +324,56 @@ def debug_cls_plots(dbfile, ts_column):
         config.report.add_html('<p>For q = %g: <br/><img src="plots/%s" /></p>' % (q,  plotname))
 """
 
+
+## \brief Make a grid for CLs limit calculation
+#
+#
+# To make use of distributed grid calculation, three steps are necessary:
+# 1. In your analysis.py, call cls_limits_grid with run_theta=False. This returns a dictionary containing all config filenames to run. As usual, you find them in the working directory.
+# 2. Run (somewhere, distributed), all config filenames and put the output together with the original config file in the cache directory.
+# 3. In analysis.py, call cls_limits, passing the dictionary from the (same!) call to cls_limits_grid as the reuse_toys parameter.
+#
+# Returns a dictionary (spid) -> (list of config names). This dictionary can be passed as the 'reuse_toys' parameter to cls_limits
+#
+# If options include 'run_theta = False', theta was not actually run. For each signal process
+# group, n_configs configuration files are created.
+#
+def cls_limits_grid(model, beta_signal_range, n_beta_signal = 21, n_toys_sb = 2000, n_toys_b = 2000, n_configs = 1, ts = 'lr', signal_prior = 'flat',\
+        nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, **options):
+    if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
+    assert len(signal_processes) > 0
+    if signal_prior_bkg is None:
+        if ts == 'lhclike': signal_prior_bkg = 'flat'
+        else: signal_prior_bkg = 'fix:0'
+    signal_prior = signal_prior_dict(signal_prior)
+    signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
+    nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
+    main = {'type': 'cls_limits', 'model': '@model', 'producer': '@ts_producer', 'rnd_gen': {},
+        'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'mode': 'generate_grid',
+        'truth_range': (float(beta_signal_range[0]), float(beta_signal_range[1])), 'n_truth': n_beta_signal,
+        'n_sb_toys_per_truth': n_toys_sb, 'n_b_toys_per_truth': n_toys_b }
+    ts_producer, tscol = ts_producer_dict(ts, signal_prior_bkg)
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, 'minimizer': minimizer(need_error = False),
+       'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
+    if ts == 'lhclike': del toplevel_settings['signal_prior']
+    toplevel_settings.update(get_common_toplevel_settings(**options))
+    cfg_names_to_run = []
+    result = {}
+    for sp in signal_processes:
+        spid = ''.join(sp)
+        if spid not in result: result[spid] = []
+        model_parameters = model.get_parameters(sp)
+        toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
+        for i in range(n_configs):
+            main['rnd_gen']['seed'] = i + 1
+            name = write_cfg(model, sp, 'cls_limits_grid', '%d' % i, additional_settings = toplevel_settings, **options)
+            cfg_names_to_run.append(name)
+            result[spid].append(name)
+    run_theta_ = options.get('run_theta', True)
+    if run_theta_:
+        run_theta(cfg_names_to_run, **options)
+    return result
+
 ## \brief Calculate CLs limits.
 #
 # Calculate expected and/or observed CLs limits for a given model. The choice of test statistic
@@ -348,19 +398,21 @@ def debug_cls_plots(dbfile, ts_column):
 # * 'expected': compute +-1sigma, +-2sigma limit bands for background only
 # * 'all': both 'data' and 'expected'
 #
+# reuse_toys should contain a dictionary (spid) -> (list of config filenames) as returned by cls_limits_grid. If set, toys from the grid db files
+# in the cache directory will be used.
+#
 # If setting debug_cls to True, the report will contain all test statistic distributions and "CLs versus beta_signal"-plots
 # used to determine the CLs limits. As the name suggest, this is useful mainly for debugging.
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
-def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, debug_cls = False, **options):
+def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, reuse_toys = {}, debug_cls = False, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     assert len(signal_processes) > 0
     if signal_prior_bkg is None:
         if ts == 'lhclike': signal_prior_bkg = 'flat'
         else: signal_prior_bkg = 'fix:0'
     signal_prior = signal_prior_dict(signal_prior)
-    if 'beta_signal' in signal_prior: signal_prior['beta_signal']['fix-sample-value'] = signal_prior['beta_signal']['range'][0]
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'type': 'cls_limits', 'model': '@model', 'producer': '@ts_producer', 'expected_bands' : 0,
@@ -376,17 +428,23 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
        'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
     if ts == 'lhclike': del toplevel_settings['signal_prior']
     toplevel_settings.update(get_common_toplevel_settings(**options))
+    cachedir = os.path.join(config.workdir, 'cache')
     cfg_names_to_run = []
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
+        spid = ''.join(sp)
+        if spid in reuse_toys:
+            reuse_names = reuse_toys[spid]
+            filenames = map(lambda s: os.path.join(cachedir, s) + '.db', reuse_names)
+            #TODO: check whether files exist and complain here already!
+            main['reuse_toys'] = {'input_database': {'type': 'sqlite_database_in', 'filenames': filenames}}
+        elif 'reuse_toys' in main: del main['reuse_toys']
         name = write_cfg(model, sp, 'cls_limits', '', additional_settings = toplevel_settings, **options)
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run, **options)
     else: return None
-    cachedir = os.path.join(config.workdir, 'cache')
-    
     
     #expected results maps (process name) -> (median, band1, band2)
     # where band1 and band2 are tuples for the central 68 and 95%, resp.

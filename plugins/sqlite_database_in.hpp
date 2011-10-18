@@ -40,9 +40,10 @@ private:
    private:
        sqlite3 * db;
        sqlite3_stmt * statement;
+       std::string sql_statement; // for error messages / debugging
        bool has_data_;
    public:
-       SqliteResultIterator(sqlite3_stmt * st, sqlite3 * db_): db(db_), statement(st){
+       SqliteResultIterator(const std::string & sql_statement_, sqlite3_stmt * st, sqlite3 * db_): db(db_), statement(st), sql_statement(sql_statement_){
            operator++();
        }
        ~SqliteResultIterator(){

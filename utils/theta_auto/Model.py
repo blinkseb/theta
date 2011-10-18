@@ -32,7 +32,7 @@ class rootfile:
         
     def get_histogram(self, hname):
         th1 = self.tfile.Get(hname)
-        if th1 is None or type(th1) not in (ROOT.TH1F, ROOT.TH1D): return None
+        if type(th1) not in (ROOT.TH1F, ROOT.TH1D): return None
         return rootfile.th1_to_histo(th1)
 
 # represents a model as in theta, plus

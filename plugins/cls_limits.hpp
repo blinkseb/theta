@@ -20,7 +20,7 @@ class truth_ts_values;
  *          type = "sqlite_database_in";
  *          filename = "toys0.db";
  *       };
- *       truth_column = "source__beta_signal"; // defaults to "source__" + truth_parameter name
+ *       truth_column = "source__beta_signal"; // defaults to "source__truth" which is always cls_limits compatible
  *       poi_column = "lr__poi"; // defaults to (producer name) + "__poi". Only used if current producer depends on poi
  *   };
 
@@ -46,26 +46,23 @@ class truth_ts_values;
  *      type = "sqlite_database";
  *      filename = "toys.db";
  *   };
- *   data_source = { some datasource specification }; //optional; for the observed data
- *
+ *   
  *   truth_parameter = "beta_signal";
- *
- *   // A. in limit setting mode (default):
- *   mode = "set_limits"; // optional, default is "set_limits"
- *   minimizer = { ... };
- *   ts_column = "lr__nll_diff";
- *
- *   // optional parameters
- *   cl = 0.90; // optional; default is 0.95
- *   expected_bands = 500; //optional. Default is 1000
- *
- *   reltol_limit = 0.001; // optional; default is 0.05
- *   tol_cls = 0.005; //optional; default is 0.015
- *   limit_hint = (200.0, 240.0); //optional; default is finding out on its own ...
- *
  *   debuglog = "debug.txt"; // optional, default is no debug output
  *
- *   // B. for grid generation mode (TODO: not implementey yet(!))
+ *   // A. in limit setting mode (default):
+ *   mode = "set_limits"; // optional; default is "set_limits"
+ *   data_source = { ... }; //optional; for the observed data
+ *   minimizer = { ... };
+ *   ts_column = "lr__nll_diff";
+ *   cl = 0.90; // optional; default is 0.95
+ *   expected_bands = 500; //optional; default is 1000
+ *
+ *   reltol_limit = 0.001; // optional; default is 0.05
+ *   tol_cls = 0.015; //optional; default; is 0.02
+ *   limit_hint = (200.0, 240.0); //optional; default is finding out on its own
+ *
+ *   // B. for grid generation mode (TODO: not implemented yet(!))
  *   mode = "generate_grid";
  *   truth_range = [0.0, 300.0];
  *   n_truth = 21;
@@ -117,6 +114,8 @@ public:
 private:
     
     void run_single_truth(double truth, bool bkg_only, int n_event);
+    void run_set_limits();
+    void run_generate_grid();
     
     // run toys at the given truth value (and at truth=0!) until either
     // * the uncertainty on the CLs value is below tol_cls
@@ -127,6 +126,10 @@ private:
     void update_truth_to_ts(std::map<double, double> & truth_to_ts, double ts_epsilon);
 
     void read_reuse_toys();
+
+    enum t_mode {
+        m_set_limits, m_generate_grid
+    };
 
     boost::shared_ptr<theta::VarIdManager> vm;
     boost::shared_ptr<theta::Model> model;
@@ -139,23 +142,28 @@ private:
     //the producer to be run on the pseudo data which provides the test statistic:
     std::auto_ptr<theta::Producer> producer;
     theta::ParameterDependentProducer * pp_producer; // points to the ParameterDependentProducer in producer.get(), if type matched. 0 otherwise.
-    boost::shared_ptr<SaveDoubleColumn> sdc;
     boost::shared_ptr<theta::ProductsTable> products_table;
-    
-    std::auto_ptr<theta::Table> cls_limits_table;
-    theta::Column cls_limits__index, cls_limits__limit, cls_limits__limit_uncertainty;
-    
-    theta::ParId truth_parameter;
+    boost::shared_ptr<SaveDoubleColumn> sdc;
+
     std::auto_ptr<data_filler> source;
     
-    // for fitting the CLs versus truth curve, we need a minimizer and some parameters:
+    theta::ParId truth_parameter;
+    int runid;
+    int n_toys, n_toy_errors, n_toys_total;
+    std::auto_ptr<std::ostream> debug_out;
+
+    t_mode mode;
+
+    // A. for mode = "set_limits":
+    std::auto_ptr<theta::Table> cls_limits_table;
+    theta::Column cls_limits__index, cls_limits__limit, cls_limits__limit_uncertainty;
+
+    
     std::auto_ptr<theta::Minimizer> minimizer;
     theta::ParId pid_limit, pid_lambda;
     
     theta::Data current_data;
     std::auto_ptr<truth_ts_values> tts;
-
-    int runid;
     
     int expected_bands;
     std::auto_ptr<theta::DataSource> data_source;
@@ -169,9 +177,10 @@ private:
     std::string input_truth_colname, input_poi_colname, input_ts_colname;
     std::vector<double> input_bonly_ts_pool;
     
-    std::auto_ptr<std::ostream> debug_out;
-    
-    int n_toys, n_toy_errors;
+
+    // B. for mode = "generate_grid":
+    std::pair<double, double> truth_range;
+    int n_truth, n_sb_toys_per_truth, n_b_toys_per_truth;
 };
 
 

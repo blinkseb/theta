@@ -30,7 +30,7 @@ class plotdata:
         self.yerrors = None
         self.xerrors = None
         self.fill_color = None
-        self.color = None
+        self.color = '#000000'
         self.marker = 'None'
         self.lw = 2
         self.fmt = '-'
@@ -51,6 +51,12 @@ class plotdata:
             ibin = int((v - xmin) / (xmax - xmin) * nbins)
             if ibin < 0 or ibin >= nbins: continue
             self.y[ibin] += 1
+
+    # set data according to the "histo triple" h = (xmin, xmax, data)
+    def histo_triple(self, h):
+        binwidth = (h[1] - h[0]) / len(h[2])
+        self.x = [h[0] + i * binwidth for i in range(len(h[2]))]
+        self.y = h[2][:]
         
     # ofile is a string (filename) or a handle to a open file
     def write_txt(self, ofile):

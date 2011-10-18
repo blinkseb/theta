@@ -95,17 +95,20 @@ def _run_theta_single(name, debug):
     if os.path.exists(cfgfile_cache) and os.path.exists(os.path.join(cache_dir, dbfile)):
         # compare the config files:
         already_done = open(cfgfile_cache, 'r').read() == open(cfgfile_full, 'r').read()
-    if not already_done:
-        utils.info("running 'theta %s'" % cfgfile)
-        params = ""
-        if debug: params += " --redirect-io=False"
-        retval = os.system(theta + params + " " + cfgfile_full)
-        if retval != 0:
-            if os.path.exists(dbfile) and not debug: os.unlink(dbfile)
-            raise RuntimeError, "executing theta for cfg file '%s' failed with exit code %d" % (cfgfile, retval)
-        # move to cache, also the config file ...
-        shutil.move(dbfile, dbfile_cache)
-        shutil.copy(cfgfile_full, cfgfile_cache)
+    if already_done:
+        utils.info("Skipping 'theta %s': found output file" % cfgfile)
+        return
+    utils.info("running 'theta %s'" % cfgfile)
+    params = ""
+    if debug: params += " --redirect-io=False"
+    retval = os.system(theta + params + " " + cfgfile_full)
+    if retval != 0:
+        if os.path.exists(dbfile) and not debug: os.unlink(dbfile)
+        raise RuntimeError, "executing theta for cfg file '%s' failed with exit code %d" % (cfgfile, retval)
+    # move to cache, also the config file ...
+    shutil.move(dbfile, dbfile_cache)
+    shutil.copy(cfgfile_full, cfgfile_cache)
+
 """
 def run_function_then_notify(f, condvar):
     ex, result = None, None

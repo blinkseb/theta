@@ -209,6 +209,29 @@ public:
         truth_to_ts_sb[truth].insert(ts);
     }
 
+    // truth_to_to for sb and b should cnotain same truth values. If not, complain with an InvalidArgumentException:
+    void check_consistency(){
+        map<double, multiset<double> >::const_iterator it_sb = truth_to_ts_sb.begin();
+        map<double, multiset<double> >::const_iterator it_b = truth_to_ts_b.begin();
+        for(;it_sb!=truth_to_ts_sb.end() && it_b!=truth_to_ts_b.end(); ++it_sb, ++it_b){
+            if(it_sb->first != it_b->first){
+                stringstream ss;
+                ss << "sb has " << it_sb->first << "; while b has " << it_b->first;
+                throw InvalidArgumentException(ss.str());
+            }
+        }
+        if(it_sb!=truth_to_ts_sb.end()){
+            stringstream ss;
+            ss << "sb has " << it_sb->first << "; while b has no more values";
+            throw InvalidArgumentException(ss.str());
+        }
+        if(it_b!=truth_to_ts_b.end()){
+            stringstream ss;
+            ss << "b has " << it_b->first << "; while sb has no more values";
+            throw InvalidArgumentException(ss.str());
+        }
+    }
+
     // get the test statistic quantile q (0 <= q < 1) for the given truth value for the b-only case.
     double get_ts_b_quantile(double truth, double q){
         return get_quantile(truth_to_ts_b, truth, q);
@@ -458,6 +481,7 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
     ts_values.reserve(n_event);
     for (int eventid = 1; eventid <= n_event; eventid++) {
         if(stop_execution) break;
+        ++n_toys;
         source->fill(data, truth_parameter, bkg_only?0.0:truth);
         bool error = false;
         try {
@@ -476,24 +500,25 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
 		    f.message = ss.str();
 		    throw;
 	    }
-        ++n_toys;
         if(!error){
-            ts_values.push_back(sdc->get_value());
+            if(sdc.get()) ts_values.push_back(sdc->get_value());
             products_table->add_row(runid, eventid);
         }
         if(progress_listener){
-            progress_listener->progress(n_toys, -1, n_toy_errors);
+            progress_listener->progress(n_toys, n_toys_total, n_toy_errors);
         }
     }
-    if(bkg_only){
-       tts->add_points_b(truth, ts_values.begin(), ts_values.end());
-    }
-    else{
-       tts->add_points_sb(truth, ts_values.begin(), ts_values.end());
-    }
-    // check success rate and fail in case this is < 0.8. Do not check in case of stop_execution flag set:
-    if(ts_values.size() * 1.0 / n_event < 0.8 && !stop_execution){
-        throw FatalException("cls_limits: ts_producer fails in more than 20% of the cases");
+    if(tts.get()){
+        if(bkg_only){
+           tts->add_points_b(truth, ts_values.begin(), ts_values.end());
+        }
+        else{
+           tts->add_points_sb(truth, ts_values.begin(), ts_values.end());
+        }
+        // check success rate and fail in case this is < 0.8. Do not check in case of stop_execution flag set:
+        if(ts_values.size() * 1.0 / n_event < 0.8 && !stop_execution){
+            throw FatalException("cls_limits: ts_producer fails in more than 20% of the cases");
+        }
     }
 }
 
@@ -582,16 +607,24 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
 
 
 cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->getParId(cfg.setting["truth_parameter"])),
-  pid_limit(vm->createParId("__limit")), pid_lambda(vm->createParId("__lambda")), runid(0),
-  expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.015), clb_cutoff(0.01), cl(0.95), n_toys(0), n_toy_errors(0) {
-    tts.reset(new truth_ts_values());
+  runid(1), n_toys(0), n_toy_errors(0), n_toys_total(-1), pid_limit(vm->createParId("__limit")), pid_lambda(vm->createParId("__lambda")), 
+  expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95) {
     SettingWrapper s = cfg.setting;
+
+    string s_mode = "set_limits";
+    if(s.exists("mode")){
+        s_mode = static_cast<string>(s["mode"]);
+    }
+    if(s_mode == "set_limits") mode = m_set_limits;
+    else if(s_mode == "generate_grid") mode = m_generate_grid;
+    else throw ConfigurationException("unknown mode '" + s_mode +"'");
     
-    //1. setup database and tables:
+    //1. setup common stuff:
     db = PluginManager<Database>::build(Configuration(cfg, s["output_database"]));
 
     std::auto_ptr<Table> logtable_underlying = db->create_table("log");
     logtable.reset(new LogTable(logtable_underlying));
+    logtable->set_loglevel(LogTable::warning);
     
     std::auto_ptr<Table> rndinfo_table_underlying = db->create_table("rndinfo");
     rndinfo_table.reset(new RndInfoTable(rndinfo_table_underlying));
@@ -599,30 +632,24 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
     
     std::auto_ptr<Table> products_table_underlying = db->create_table("products");
     products_table.reset(new ProductsTable(products_table_underlying));
-    string colname = s["ts_column"];
-    sdc.reset(new SaveDoubleColumn(colname));
-    std::vector<boost::shared_ptr<ProductsSink> > sinks;
-    sinks.push_back(products_table);
-    sinks.push_back(sdc);
-    cfg.pm->set<ProductsSink>("default", boost::shared_ptr<ProductsSink>(new MultiplexingProductsSink(sinks)));
+    string colname;
+    if(mode == m_set_limits){
+        colname = static_cast<string>(s["ts_column"]);
+        sdc.reset(new SaveDoubleColumn(colname));
+        std::vector<boost::shared_ptr<ProductsSink> > sinks;
+        sinks.push_back(products_table);
+        sinks.push_back(sdc);
+        cfg.pm->set<ProductsSink>("default", boost::shared_ptr<ProductsSink>(new MultiplexingProductsSink(sinks)));
+    }
+    else{
+        cfg.pm->set<ProductsSink>("default", products_table);
+    }
     
     boost::shared_ptr<int> ptr_runid(new int(runid));
     cfg.pm->set("runid", ptr_runid);
-    
-    cls_limits_table = db->create_table("cls_limits");
-    cls_limits__index = cls_limits_table->add_column("index", typeInt);
-    cls_limits__limit = cls_limits_table->add_column("limit", typeDouble);
-    cls_limits__limit_uncertainty = cls_limits_table->add_column("limit_uncertainty", typeDouble);
-            
-    //2. model, data_source and minimizer
+
     model = PluginManager<Model>::build(Configuration(cfg, s["model"]));
-    minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));
-    source.reset(new data_filler(cfg, model));
-    
-    //3. logging stuff
-    logtable->set_loglevel(LogTable::warning);
-    
-    //4. producer:
+
     producer = PluginManager<Producer>::build(Configuration(cfg, s["producer"]));
     pp_producer = dynamic_cast<ParameterDependentProducer*>(producer.get()); // either 0 or identical to producer ...
     if(pp_producer){
@@ -637,54 +664,73 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
             }
         }
     }
-    
-    //5. data_source and expected_bands
-    if(s.exists("data_source")){
-        data_source = PluginManager<DataSource>::build(Configuration(cfg, s["data_source"]));
-    }
-    if(s.exists("expected_bands")){
-        expected_bands = s["expected_bands"];
-    }
 
-    //6. re-use toys = input database
-    if(s.exists("reuse_toys")){
-        SettingWrapper s2 = s["reuse_toys"];
-        input_database = PluginManager<DatabaseInput>::build(Configuration(cfg, s2["input_database"]));
-        input_ts_colname = colname;
-        if(s2.exists("truth_column")){
-            input_truth_colname = static_cast<string>(s2["truth_column"]);
-        }
-        else{
-            input_truth_colname = "source__" + vm->getName(truth_parameter);
-        }
-        if(s2.exists("poi_column")){
-            input_poi_colname = static_cast<string>(s2["poi_column"]);
-        }
-        else{
-            input_poi_colname =  producer->getName() + "__poi";
-        }
-    }
-    
-    //7. misc
-    if(s.exists("reltol_limit")) reltol_limit = s["reltol_limit"];
-    if(s.exists("limit_hint")){
-        limit_hint.first = s["limit_hint"][0];
-        limit_hint.second = s["limit_hint"][1];
-    }
-    if(s.exists("cl")){
-        cl = s["cl"];
-        if(cl >= 0.999 || cl <= 0) throw ConfigurationException("invalid value for cl. Valid range is (0, 0.999)");
-    }
-    if(s.exists("tol_cls")){
-        tol_cls = s["tol_cls"];
-    }
+    source.reset(new data_filler(cfg, model));
+
     if(s.exists("debuglog")){
         string fname = s["debuglog"];
         debug_out.reset(new ofstream(fname.c_str()));
     }
 
-    if(s.exists("clb_cutoff")) {
-        clb_cutoff = s["clb_cutoff"];
+    // A.
+    if(mode == m_set_limits){
+        cls_limits_table = db->create_table("cls_limits");
+        cls_limits__index = cls_limits_table->add_column("index", typeInt);
+        cls_limits__limit = cls_limits_table->add_column("limit", typeDouble);
+        cls_limits__limit_uncertainty = cls_limits_table->add_column("limit_uncertainty", typeDouble);
+        minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));
+        tts.reset(new truth_ts_values());
+        if(s.exists("expected_bands")){
+            expected_bands = s["expected_bands"];
+        }
+        if(s.exists("data_source")){
+            data_source = PluginManager<DataSource>::build(Configuration(cfg, s["data_source"]));
+        }
+        if(s.exists("reltol_limit")) reltol_limit = s["reltol_limit"];
+        if(s.exists("limit_hint")){
+            limit_hint.first = s["limit_hint"][0];
+            limit_hint.second = s["limit_hint"][1];
+        }
+        if(s.exists("cl")){
+            cl = s["cl"];
+            if(cl >= 0.999 || cl <= 0) throw ConfigurationException("invalid value for cl. Valid range is (0, 0.999)");
+        }
+        if(s.exists("tol_cls")){
+            tol_cls = s["tol_cls"];
+        }
+        if(s.exists("clb_cutoff")) {
+            clb_cutoff = s["clb_cutoff"];
+        }
+        if(s.exists("reuse_toys")){
+            SettingWrapper s2 = s["reuse_toys"];
+            input_database = PluginManager<DatabaseInput>::build(Configuration(cfg, s2["input_database"]));
+            input_ts_colname = colname;
+            if(s2.exists("truth_column")){
+                input_truth_colname = static_cast<string>(s2["truth_column"]);
+            }
+            else{
+                input_truth_colname = "source__truth";
+            }
+            if(s2.exists("poi_column")){
+                input_poi_colname = static_cast<string>(s2["poi_column"]);
+            }
+            else{
+                input_poi_colname =  producer->getName() + "__poi";
+            }
+        }
+    }
+    //B. mode = generate_grid
+    else{
+        theta_assert(mode == m_generate_grid);
+        truth_range.first = s["truth_range"][0];
+        truth_range.second = s["truth_range"][1];
+        if(truth_range.first >= truth_range.second) throw ConfigurationException("invalid truth range");
+        n_truth = s["n_truth"];
+        if(n_truth < 2) throw ConfigurationException("n_truth < 2 not allowed");
+        n_sb_toys_per_truth = s["n_sb_toys_per_truth"];
+        n_b_toys_per_truth = s["n_b_toys_per_truth"];
+        if(n_sb_toys_per_truth <= 0 or n_b_toys_per_truth <= 0) throw ConfigurationException("toy_per_truth <= 0 not allowed");
+        n_toys_total = n_truth * (n_sb_toys_per_truth + n_b_toys_per_truth);
     }
 }
 
@@ -781,31 +827,58 @@ void cls_limits::read_reuse_toys(){
             tts->add_point_sb(truth, ts);
         }
         else{
-            // if truth is == 0.0, it's a background-only toy, but thye situation is not so clear to which
+            // if truth is == 0.0, it's a background-only toy, but the situation is not so clear to which
             // truth value to add the point, unless we have a poi value :
-            if(poi >= 0.0)
-                tts->add_point_b(poi, ts);
-            else
+            if(pp_producer){
+                if(poi > 0)
+                   tts->add_point_b(poi, ts);
+                // so poi <= 0 are skipped
+            }
+            else{
                 input_bonly_ts_pool.push_back(ts);
+            }
         }
     }
+    
     // in case of no parameter dependece, use at least a few b-only toys for each truth value (cls_limits requires to have
     // some b-only toys for each truth value!)
     if(pp_producer == 0){
         int n_truth = truth_values.size();
         int n_bonly_per_truth = input_bonly_ts_pool.size() / n_truth;
+        debug_out << "reuse_toys: adding 200 b-only toys for each of the " << truth_values.size() << " truth values. Have " << input_bonly_ts_pool.size() << " toys, so ";
         if(n_bonly_per_truth < 200){
-            debug_out << "reuse_toys: too few bonly toys per truth value found, will have to make some new ones ...\n";
+            debug_out << "they will suffice.\n";
         }
+        else{
+            debug_out << "will have to make some additional ones.\n";
+        }
+        flush(debug_out);
         for(set<double>::const_iterator it=truth_values.begin(); it!=truth_values.end(); ++it){
             // we have the code for pulling values from the pool already as long as available, no need to recode ...
             run_single_truth(*it, true, 200);
         }
     }
+    tts->check_consistency();
+}
+
+void cls_limits::run(){
+    switch(mode){
+       case m_set_limits: run_set_limits(); break;
+       case m_generate_grid: run_generate_grid(); break;
+    }
+}
+
+void cls_limits::run_generate_grid(){
+    double truth_step = (truth_range.second - truth_range.first) / (n_truth - 1);
+    for(int i=0; i<n_truth; ++i){
+        double truth = truth_range.first + i*truth_step;
+        run_single_truth(truth, true, n_b_toys_per_truth);
+        run_single_truth(truth, false, n_sb_toys_per_truth);
+    }
 }
 
 
-void cls_limits::run(){
+void cls_limits::run_set_limits(){
     debug_out << "tol_cls = " << tol_cls << ".\n";
     // 0. determine signal width
     double signal_width = limit_hint.second - limit_hint.first;
@@ -874,8 +947,16 @@ void cls_limits::run(){
             size_t i_low, i_high;
             i_high = 0;
             i_low = data.cls_values().size()-1;
-            while(not cls_is_significantly_smaller(data, i_high, 1-cl, tol_cls)) ++i_high; //terminates because we created a significantly smaller point in 3.a.i.
-            while(not cls_is_significantly_larger(data, i_low, 1-cl)) --i_low; //terminates because this is true for i_low==0 (truth==0.0)
+            while(i_high < i_low){
+                size_t diff = i_low - i_high;
+                while(not cls_is_significantly_smaller(data, i_high, 1-cl, tol_cls)) ++i_high; //terminates because we created a significantly smaller point in 3.a.i.
+                while(not cls_is_significantly_larger(data, i_low, 1-cl)) --i_low; //terminates because this is true for i_low==0 (truth==0.0)
+                // if nothing changed, force change:
+                if(i_low - i_high == diff){
+                    if(i_low > 0) --i_low;
+                    if(i_high < data.cls_values().size()-1) ++i_high;
+                }
+            }
             double truth_low = data.truth_values()[i_low];
             double truth_high = data.truth_values()[i_high];
             debug_out << idata << " seed: interval [" << truth_low << ", " << truth_high << "]; i_low, ihigh = (" << i_low << ", " << i_high << ")\n";
@@ -905,11 +986,10 @@ void cls_limits::run(){
                 }
                 debug_out << idata << "." << i << ": fitted limit on range " << truth_low << "--" << truth_high << " using " << (i_high - i_low + 1) << " points:\n";
                 debug_out << "       limit = " << latest_res.limit << " +- " << latest_res.limit_error << "\n";
-                theta_assert(latest_res.limit >= truth_low && latest_res.limit <= truth_high);
                 i_low = find(data.truth_values().begin(), data.truth_values().end(), truth_low) - data.truth_values().begin();
                 i_high = find(data.truth_values().begin(), data.truth_values().end(), truth_high) - data.truth_values().begin();
                 //accept result if truth=0 not included and error is small enough:
-                if(latest_res.limit_error / latest_res.limit < reltol_limit && i_low > 0){
+                if(latest_res.limit_error / latest_res.limit < reltol_limit && latest_res.limit >= truth_low && latest_res.limit <= truth_high){
                     debug_out << "       limit accepted.\n";
                     break;
                 }
@@ -939,6 +1019,13 @@ void cls_limits::run(){
                 }
                 if(next_truth!=latest_res.limit){
                     debug_out << "instead of starting new toys at limit estimate (" << latest_res.limit << "), re-use old point truth = " << next_truth << ".\n";
+                    
+                }
+                // for the (very rare) cae that the fitted limit is not in the interval, make sure the new point is included in the fit range:
+                if(next_truth < truth_low || next_truth > truth_high){
+                    debug_out << "WARNING: fitted limit not contained in fit interval\n";
+                    truth_low = min(next_truth, truth_low);
+                    truth_high = max(next_truth, truth_high);
                 }
                 run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_truth, 1);
                 if(stop_execution) return;
@@ -999,6 +1086,17 @@ void cls_limits::run(){
         }
         catch(MinimizationException & ex){
             debug_out << "idata " << idata << " had minimizationexception; skipping.\n";
+        }
+    }
+    // print the total number of toys per point (hint for setting up grid ...)
+    if(debug_out.get()){
+        debug_out << "total toys made: " << n_toys << "; errorneous: " << n_toy_errors << "\n";
+        debug_out << "number of toys per truth: truth n_b_toys n_sb_toys\n";
+        set<double> truth_values = tts->truth_values();
+        for(set<double>::const_iterator it=truth_values.begin(); it!=truth_values.end(); ++it){
+            double t = *it;
+            if(t==0) continue;
+            debug_out << t << " " << tts->get_n0(t) << " " << tts->get_n(t) << "\n";
         }
     }
 }
