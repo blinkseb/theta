@@ -835,7 +835,9 @@ void cls_limits::run(){
 
 
     // read in data from the input database, if set:
-    read_reuse_toys();
+    if(input_database.get()){
+        read_reuse_toys();
+    }
 
     fitexp_parameters pars(*minimizer, pid_limit, pid_lambda);
     const size_t N_maxit = 200;
