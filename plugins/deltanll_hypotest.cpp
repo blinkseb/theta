@@ -33,31 +33,51 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
         init = true;
     }
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
-    // fit b-only first. In case of restrict_poi, this means setting an upper boundary for the poi to the current poi value.
+
+    double nll_sb, nll_b;
+
+    // For more robustness, try to fit the more restrictive model first, then the other one, starting at the same parameter values, if possible.
+    // This is hard to tell in general, but usually, the b-only model is more restrictive.
+    // In case of restrict_poi however, s+b is more restrictive, so switch fitting in that case.
+    // It's
+
     if(restrict_poi){
         theta_assert(!std::isnan(poi_value));
-        b_only_support[*restrict_poi].second = poi_value;
-    }
-    nll->set_override_distribution(b_only);
-    MinimizationResult minres = minimizer->minimize(*nll, b_only_mode, b_only_width, b_only_support);
-    double nll_b = minres.fval;
-
-    // now fit s+b; in case of restrict_poi, this means fixing the poi to the given value.
-    if(restrict_poi){
+        //s+b first:
+        nll->set_override_distribution(s_plus_b);
         s_plus_b_support[*restrict_poi].first =  s_plus_b_support[*restrict_poi].second = poi_value;
-        minres.values.set(*restrict_poi, poi_value);
-    }
-    nll->set_override_distribution(s_plus_b);
-    if(in_support(minres.values, s_plus_b_support)){
-        // start at the b-only minimum. This is more robust than starting at the original point again.
-        minres = minimizer->minimize(*nll, minres.values, s_plus_b_width, s_plus_b_support);
+        s_plus_b_mode.set(*restrict_poi, poi_value);
+        MinimizationResult minres = minimizer->minimize(*nll, s_plus_b_mode, s_plus_b_width, s_plus_b_support);
+        nll_sb = minres.fval;
+
+        //now b-only:
+        nll->set_override_distribution(b_only);
+        b_only_support[*restrict_poi].second = poi_value;
+        if(in_support(minres.values, b_only_support)){
+            minres = minimizer->minimize(*nll, minres.values, b_only_width, b_only_support);
+        }
+        else{
+            minres = minimizer->minimize(*nll, b_only_mode, b_only_width, b_only_support);
+        }
+        nll_b = minres.fval;
+        products_sink->set_product(c_poi, poi_value);
     }
     else{
-        if(restrict_poi) s_plus_b_mode.set(*restrict_poi, poi_value);
-        minres = minimizer->minimize(*nll, s_plus_b_mode, s_plus_b_width, s_plus_b_support);
+        // b-only first:
+        nll->set_override_distribution(b_only);
+        MinimizationResult minres = minimizer->minimize(*nll, b_only_mode, b_only_width, b_only_support);
+        nll_b = minres.fval;
+        // now s+b:
+        nll->set_override_distribution(s_plus_b);
+        if(in_support(minres.values, s_plus_b_support)){
+            // start at the b-only minimum. This is more robust than starting at the original point again.
+            minres = minimizer->minimize(*nll, minres.values, s_plus_b_width, s_plus_b_support);
+        }
+        else{
+            minres = minimizer->minimize(*nll, s_plus_b_mode, s_plus_b_width, s_plus_b_support);
+        }
+        nll_sb = minres.fval;
     }
-    
-    double nll_sb = minres.fval;
     
     products_sink->set_product(c_nll_sb, nll_sb);
     products_sink->set_product(c_nll_b, nll_b);
@@ -81,7 +101,9 @@ deltanll_hypotest::deltanll_hypotest(const theta::Configuration & cfg):
         boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
         restrict_poi = vm->getParId(s["restrict_poi"]);
         par_ids.insert(*restrict_poi);
-        poi_value = NAN;
+        default_poi_value = NAN;
+        if(s.exists("default_poi_value")) default_poi_value = s["default_poi_value"];
+        poi_value = default_poi_value;
     }
     DistributionUtils::fillModeSupport(s_plus_b_mode, s_plus_b_support, *s_plus_b);
     DistributionUtils::fillModeSupport(b_only_mode, b_only_support, *b_only);
@@ -91,6 +113,9 @@ deltanll_hypotest::deltanll_hypotest(const theta::Configuration & cfg):
     c_nll_b = products_sink->declare_product(*this, "nll_b", theta::typeDouble);
     c_nll_sb = products_sink->declare_product(*this, "nll_sb", theta::typeDouble);
     c_nll_diff = products_sink->declare_product(*this, "nll_diff", theta::typeDouble);
+    if(restrict_poi){
+       c_poi = products_sink->declare_product(*this, "poi", theta::typeDouble);
+    }
 }
 
 REGISTER_PLUGIN(deltanll_hypotest)

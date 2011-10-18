@@ -3,21 +3,26 @@
 
 #include "interface/decls.hpp"
 #include "interface/main.hpp"
+#include "interface/phys.hpp"
 #include "interface/database.hpp"
 
 #include <map>
 #include <memory>
 #include <boost/shared_ptr.hpp>
 
-class MultiplexingProductsSink;
 class SaveDoubleColumn;
 class data_filler;
 class truth_ts_values;
 
 /*
- *   reuse_toys = (
- *       {type = "sqlite_database_in"; filename = "toys0.db"; }
- *   ); //optional; default is the empty list (), i.e., not to reuse any toys
+ *   reuse_toys = {
+ *       input_database = {
+ *          type = "sqlite_database_in";
+ *          filename = "toys0.db";
+ *       };
+ *       truth_column = "source__beta_signal"; // defaults to "source__" + truth_parameter name
+ *       poi_column = "lr__poi"; // defaults to (producer name) + "__poi". Only used if current producer depends on poi
+ *   };
 
  * (TODO: this is not implemented yet!) The optional setting \c reuse_toys is a list of theta::DatabaseInput
  * specifications. If present, it is assumed that these contain toys
@@ -34,29 +39,38 @@ class truth_ts_values;
  * main = {
  *   type = "cls_limits";
  *
- *   // (almost) same as in type = "default" (theta::Run):
+ *   // the first few settings are (almost) the same as usual in type = "default" (theta::Run):
  *   producer = "@lr";
  *   model = "@model";
  *   output_database = {
  *      type = "sqlite_database";
  *      filename = "toys.db";
  *   };
+ *   data_source = { some datasource specification }; //optional; for the observed data
  *
- *   // specific to cls_toys
+ *   truth_parameter = "beta_signal";
+ *
+ *   // A. in limit setting mode (default):
+ *   mode = "set_limits"; // optional, default is "set_limits"
  *   minimizer = { ... };
  *   ts_column = "lr__nll_diff";
- *   truth_parameter = "beta_signal";
  *
  *   // optional parameters
  *   cl = 0.90; // optional; default is 0.95
- *   data_source = { some datasource specification }; //optional
- *   expected_bands = true; //optional
+ *   expected_bands = 500; //optional. Default is 1000
  *
  *   reltol_limit = 0.001; // optional; default is 0.05
  *   tol_cls = 0.005; //optional; default is 0.015
  *   limit_hint = (200.0, 240.0); //optional; default is finding out on its own ...
  *
  *   debuglog = "debug.txt"; // optional, default is no debug output
+ *
+ *   // B. for grid generation mode (TODO: not implementey yet(!))
+ *   mode = "generate_grid";
+ *   truth_range = [0.0, 300.0];
+ *   n_truth = 21;
+ *   n_sb_toys_per_truth = 2000; // number of toys for s+b hypothesis per truth value
+ *   n_b_toys_per_truth = 2000;  // number of b-only toys per truth value
  * };
  * \endcode
  * 
@@ -65,9 +79,8 @@ class truth_ts_values;
  * value from the given \c ts_column is used as test statistic for the construction of CLs limits.
  *
  * \c data_source and \c expected_bands control for which data / test statistic the limits are calculated. \c data_source
- * is a data source and used to caluclate the observed limit on actual data. If \c expected_bands is true, the central expected,
- * +-1sigma and +-2sigma bands of expected limits are calculated as well. \c expected_bands defaults to true if data_source is
- * given and to false otherwise.
+ * is a data source and used to calculate the <em>observed</em> limit; provide the actual data here. If \c expected_bands is greater than 0,
+ * it specifies the number of background-only toys to dice to determine the central expected, +-1sigma and +-2sigma bands of expected limits.
  *
  * The calculation of CLs limits in general requires making a large number of toys at different truth values, to scan for the 
  * desired CLs value 1 - cl. How many toys are drawn and where is done automatically and is driven by \c reltol_limit:
@@ -81,10 +94,9 @@ class truth_ts_values;
  *
  * The products produced by each toy is used immidiately for the construction of the CLs limits.
  * They are also written to the \c output_database. The tables are the same as for theta::Run. In addition, the table
- * "cls_limits" is created which contains the columns "q", "limit", and "limit_uncertainty".
- * The column "q" is the quantile of the background-only distribution used as test statistic. It is
- * The values 0.025, 0.16, 0.5, 0.84, and 0.975 define the "expected" bands. the special value -1 is used
- * to indicate that data was used from the data_source.
+ * "cls_limits" is created which contains the columns "index", "limit", and "limit_uncertainty".
+ * The "index" specifies on which data the limit was computed: 0 for actual data (from data_source), all other values for
+ * background-only toys.
  * 
  * \c debuglog is the filename of the debug log. Debug output is only written if a filename is given here.
  *
@@ -92,7 +104,8 @@ class truth_ts_values;
  * necessary; aside the more obvious things like \c reltol_limit, the number of required toys 
  * also depends on the CLb value: a low CLb value requires much more toys to reach the desired accuracy
  * (note that if calculating the expected limit band, low CLb values occur naturally).
- * In such a case, it is not uncommon that 20k to 50k toys are necessary. For a typical case of calculating the observed limit, i.e. if CLb is around 0.5,
+ * In such a case, it is not uncommon that between 50k to 200k toys are necessary, or even more.
+ * For a typical case of calculating the observed limit, i.e. if CLb is around 0.5,
  * usually 5-10k of toys are sufficient. This is also true in cases where the test statistic is degenerate as
  * in such a case, very low CLb values do not occur.
  */
@@ -110,8 +123,10 @@ private:
     //   or
     // * the CLs value is found to be more than 3 sigma away from the target CLs 1-cl.
     //void run_single_truth_adaptive(double ts_value, double truth);
-    void run_single_truth_adaptive(double q, std::map<double, double> & truth_to_ts, double ts_epsilon, double truth);
-    void update_truth_to_ts(std::map<double, double> & truth_to_ts, double q, double ts_epsilon);
+    void run_single_truth_adaptive(std::map<double, double> & truth_to_ts, double ts_epsilon, double truth, int mode = 0);
+    void update_truth_to_ts(std::map<double, double> & truth_to_ts, double ts_epsilon);
+
+    void read_reuse_toys();
 
     boost::shared_ptr<theta::VarIdManager> vm;
     boost::shared_ptr<theta::Model> model;
@@ -123,13 +138,12 @@ private:
 
     //the producer to be run on the pseudo data which provides the test statistic:
     std::auto_ptr<theta::Producer> producer;
-    theta::ParameterDependentProducer * pp_producer; // points to producer, if type matched. 0 otherwise.
-    boost::shared_ptr<MultiplexingProductsSink> mps;
+    theta::ParameterDependentProducer * pp_producer; // points to the ParameterDependentProducer in producer.get(), if type matched. 0 otherwise.
     boost::shared_ptr<SaveDoubleColumn> sdc;
     boost::shared_ptr<theta::ProductsTable> products_table;
     
     std::auto_ptr<theta::Table> cls_limits_table;
-    theta::Column cls_limits__q, cls_limits__limit, cls_limits__limit_uncertainty;
+    theta::Column cls_limits__index, cls_limits__limit, cls_limits__limit_uncertainty;
     
     theta::ParId truth_parameter;
     std::auto_ptr<data_filler> source;
@@ -138,16 +152,22 @@ private:
     std::auto_ptr<theta::Minimizer> minimizer;
     theta::ParId pid_limit, pid_lambda;
     
+    theta::Data current_data;
     std::auto_ptr<truth_ts_values> tts;
 
     int runid;
     
-    bool expected_bands;
+    int expected_bands;
     std::auto_ptr<theta::DataSource> data_source;
     
     std::pair<double, double> limit_hint;
     double reltol_limit, tol_cls;
+    double clb_cutoff;
     double cl;
+
+    std::auto_ptr<theta::DatabaseInput> input_database;
+    std::string input_truth_colname, input_poi_colname, input_ts_colname;
+    std::vector<double> input_bonly_ts_pool;
     
     std::auto_ptr<std::ostream> debug_out;
     

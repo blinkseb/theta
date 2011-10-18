@@ -25,6 +25,7 @@
  *   signal-plus-background-distribution = "@default-dist";
  *   //optional:
  *   restrict_poi = "beta_signal";
+ *   default_poi_value = 1.0;
  * };
  * 
  * myminuit = {...}; // minimizer definition
@@ -48,13 +49,16 @@
  * \c restrict_poi is the parameter of interest whose range is restricted during minimization of the
  *  signal + background model. The allowed maximum value for thegiven parameter will be set to the current
  *  poi value, as set via setParameterValues.
+ *
+ * \c default_poi_value only applies if \c restrict_poi is set and is optional in this case. It is the default value to use if no
+ * other value is set externally. If \c default_poi_value is not given and no value is set externallty, an exception is thrown.
  *   
  * Note that the setting "override-parameter-distribution" is not allowed for this producer.
  *
  * The result table will contain the columns "nll_sb" and "nll_b", and "nll_diff"
  * which contain the found value of the negative log-likelihood
  * for the "signal-plus-background" and "background-only" hypotheses, and the difference
- * of these two, nll_b - nll_sb, respectively.
+ * of these two, nll_b - nll_sb, respectively. In case \c restrict_poi is set, an additional column "poi" contains the used value.
  *
  * For a typical application, the "signal-plus-background-distribution" setting is the same as in the model,
  * whereas the "background-only-distribution" setting group includes a delta_distributions which fixes
@@ -85,6 +89,7 @@ private:
 
     boost::optional<theta::ParId> restrict_poi;
     double poi_value;
+    double default_poi_value;
     
     theta::ParValues s_plus_b_mode, b_only_mode;
     theta::ParValues s_plus_b_width, b_only_width;
@@ -93,7 +98,7 @@ private:
     
     std::auto_ptr<theta::Minimizer> minimizer;
     
-    theta::Column c_nll_b, c_nll_sb, c_nll_diff;
+    theta::Column c_nll_b, c_nll_sb, c_nll_diff, c_poi;
 };
 
 #endif

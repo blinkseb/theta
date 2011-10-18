@@ -126,6 +126,8 @@ extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None):
                new_x += [histo.x[-1] + x_binwidth]
                new_y = []
                for y in histo.y: new_y += [y]*2
+               if logy and ymin is not None:
+                    for i in range(len(new_y)): new_y[i] = max(new_y[i], ymin)
                if histo.fill_color is not None:
                    ax.fill_between(new_x, new_y, [0] * len(new_y), lw=histo.lw, label=histo.legend, color=histo.color, facecolor = histo.fill_color)
                else:
