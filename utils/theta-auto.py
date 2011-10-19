@@ -532,6 +532,8 @@ def main():
     config.report = html_report(os.path.join(config.workdir, 'index.html'))
     variables = globals()
     variables['report'] = config.report
+    utils.info("workdir is %s" % config.workdir)
+    utils.info("cachedir is %s" % os.path.join(config.workdir, 'cache'))
     utils.info("executing script %s" % scriptname)
     try:
         execfile(scriptname, variables)

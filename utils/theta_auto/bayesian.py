@@ -55,7 +55,6 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
     result = {}
     for name in cfg_names_to_run:
         method, sp_id, dummy = name.split('-',2)
-        result_table.set_column('process', sp_id)
         sqlfile = os.path.join(cachedir, '%s.db' % name)
         data = sql(sqlfile, 'select bayes__quant%0.5d, bayes__accrate from products' % (quantile * 10000))
         result[sp_id] = {'quantiles': [row[0] for row in data], 'accrates': [row[1] for row in data]}
@@ -99,7 +98,7 @@ def limit_band_plot(quantiles, include_band, quantile = 0.95, **options):
         n = len(data)
         median, band1, band2 = (data[n / 2], (data[int(0.16 * n)], data[int(0.84 * n)]), (data[int(0.025 * n)], data[int(0.975 * n)]))
         if not include_band:
-            mean, error = get_trunc_median_width(data)
+            mean, error = get_trunc_mean_width(data)
             pd.y.append(mean)
             pd.yerrors.append(error / math.sqrt(len(data)))
             continue

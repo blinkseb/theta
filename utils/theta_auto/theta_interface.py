@@ -96,9 +96,9 @@ def _run_theta_single(name, debug):
         # compare the config files:
         already_done = open(cfgfile_cache, 'r').read() == open(cfgfile_full, 'r').read()
     if already_done:
-        utils.info("Skipping 'theta %s': found output file" % cfgfile)
+        utils.info("Skipping 'theta %s': found corresponding output file in cachedir" % cfgfile)
         return
-    utils.info("running 'theta %s'" % cfgfile)
+    utils.info("Running 'theta %s'" % cfgfile)
     params = ""
     if debug: params += " --redirect-io=False"
     retval = os.system(theta + params + " " + cfgfile_full)
