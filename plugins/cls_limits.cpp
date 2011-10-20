@@ -167,6 +167,13 @@ public:
     }
 };
 
+ostream & operator<<(ostream & out, const map<double, double> & m){
+    for(map<double, double>::const_iterator it=m.begin(); it!=m.end(); ++it){
+        out << it->first << " " << it->second << "\n";
+    }
+    return out;
+}
+
 
 void binom_with_error(size_t nominator, size_t denominator, double & p, double & p_error){
     p = 1.0 * nominator / denominator;
@@ -803,6 +810,7 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
         }
         ++eventid;
     }
+    check_truth_to_ts(truth_to_ts, ts_epsilon);
 }
 
 void cls_limits::read_reuse_toys(){
@@ -878,6 +886,27 @@ void cls_limits::run_generate_grid(){
 }
 
 
+void cls_limits::check_truth_to_ts(const std::map<double, double> & truth_to_ts, double ts_epsilon){
+    theta_assert(truth_to_ts.size() > 0);
+    theta_assert(ts_epsilon > 0);
+    double ts_first = truth_to_ts.begin()->second;
+    double ts_last = truth_to_ts.rbegin()->second;
+    // sign is -1 if falling, +1 if raising (and kind of arbitray if constant):
+    double sign = (ts_first - ts_last > 0) ? -1 : 1;
+    for(map<double, double>::const_iterator it = truth_to_ts.begin(); it!= truth_to_ts.end(); ++it){
+        map<double, double>::const_iterator it_next = it;
+        ++it_next;
+        if(it_next == truth_to_ts.end()) break;
+        double diff = (it_next->second - it->second) * sign + ts_epsilon;
+        if(diff < 0){
+            debug_out << "check_truth_to_ts: ts as a function of truth is not monotonic; (truth, ts) = (" << it->first << ", "
+                      << it->second << "), (" << it_next->first << ", " << it_next->second << ")\n";
+            throw OutlierException();
+        }
+    }
+}
+
+
 void cls_limits::run_set_limits(){
     debug_out << "tol_cls = " << tol_cls << ".\n";
     // 0. determine signal width
@@ -913,6 +942,7 @@ void cls_limits::run_set_limits(){
     }
 
     fitexp_parameters pars(*minimizer, pid_limit, pid_lambda);
+    size_t n_results = 0;
     const size_t N_maxit = 200;
     // idata == 0 means from data_source; all other for expected_bands.
     for(int idata=0; idata <= expected_bands; ++idata){
@@ -945,18 +975,10 @@ void cls_limits::run_set_limits(){
                  data = tts->get_cls_vs_truth(truth_to_ts);
             }
             size_t i_low, i_high;
-            i_high = 0;
-            i_low = data.cls_values().size()-1;
-            while(i_high < i_low){
-                size_t diff = i_low - i_high;
-                while(not cls_is_significantly_smaller(data, i_high, 1-cl, tol_cls)) ++i_high; //terminates because we created a significantly smaller point in 3.a.i.
-                while(not cls_is_significantly_larger(data, i_low, 1-cl)) --i_low; //terminates because this is true for i_low==0 (truth==0.0)
-                // if nothing changed, force change:
-                if(i_low - i_high == diff){
-                    if(i_low > 0) --i_low;
-                    if(i_high < data.cls_values().size()-1) ++i_high;
-                }
-            }
+            i_low = 0;
+            i_high = data.cls_values().size()-1;
+            while(cls_is_significantly_smaller(data, i_high-1, 1-cl, tol_cls)) --i_high; //terminates because this at truth=0.0, point is not sign. smaller
+            while(cls_is_significantly_larger(data, i_low+1, 1-cl)) ++i_low; //terminates because we created a significantly smaller point in 3.a.i.
             double truth_low = data.truth_values()[i_low];
             double truth_high = data.truth_values()[i_high];
             debug_out << idata << " seed: interval [" << truth_low << ", " << truth_high << "]; i_low, ihigh = (" << i_low << ", " << i_high << ")\n";
@@ -964,16 +986,16 @@ void cls_limits::run_set_limits(){
             //3.b. iterate
             fitexp_result latest_res;
             for(size_t i=0; i<=N_maxit; ++i){
+                if(i==N_maxit){
+                    debug_out << idata << "." << i << ": maximum number of iterations reached. Marking as outlier.\n";
+                    throw OutlierException();
+                }
                 debug_out << idata << "." << i << "\n";
                 if(debug_out.get()){
-                    //debug_out << "tts:\n";
-                    //tts->write_txt(*debug_out, 70, -2, 5);
                     debug_out << "cls vs truth:\n";
                     data.write_txt(*debug_out);
                     flush(debug_out);
-                }
-                if(i==N_maxit){
-                    throw FatalException("CLs method did not converge: too many iterations necessary. See debuglog for details.");
+                    debug_out << "truth_to_ts:\n" << truth_to_ts << "\n";
                 }
                 latest_res = fitexp(data, 1 - cl, pars, truth_low, truth_high, debug_out);
                 if(isnan(latest_res.limit)){
@@ -1005,7 +1027,7 @@ void cls_limits::run_set_limits(){
 
                 // add a point at the estimated limit, but round to points we have already, if it makes sense ...
                 double next_truth = latest_res.limit;
-                // "round" to a neighboring value if within limit_uncertainty and new point within the middle half of the interval:
+                // "round" to a neighboring value if within limit_uncertainty or half of reltol_limit and within the middle half of the fit interval:
                 double min_diff = numeric_limits<double>::infinity();
                 double mid_interval_min = truth_low + 0.25 * (truth_high - truth_low);
                 double mid_interval_max = truth_low + 0.75 * (truth_high - truth_low);
@@ -1013,7 +1035,7 @@ void cls_limits::run_set_limits(){
                     double t = data.truth_values()[m];
                     if(t < mid_interval_min) continue;
                     if(t > mid_interval_max) break;
-                    if(fabs(t - next_truth) < min_diff && fabs(t - latest_res.limit) / latest_res.limit_error < 1.0){
+                    if(fabs(t - next_truth) < min_diff && (fabs(t - latest_res.limit) / latest_res.limit_error < 1.0 || fabs(t - latest_res.limit) / latest_res.limit < reltol_limit / 2)){
                         next_truth = t;
                     }
                 }
@@ -1021,7 +1043,7 @@ void cls_limits::run_set_limits(){
                     debug_out << "instead of starting new toys at limit estimate (" << latest_res.limit << "), re-use old point truth = " << next_truth << ".\n";
                     
                 }
-                // for the (very rare) cae that the fitted limit is not in the interval, make sure the new point is included in the fit range:
+                // for the (very rare) case that the fitted limit is not in the interval, make sure the new point is included in the fit range:
                 if(next_truth < truth_low || next_truth > truth_high){
                     debug_out << "WARNING: fitted limit not contained in fit interval\n";
                     truth_low = min(next_truth, truth_low);
@@ -1064,6 +1086,7 @@ void cls_limits::run_set_limits(){
                      }
                 }
             }
+            ++n_results;
             Row r;
             r.set_column(cls_limits__index, idata);
             r.set_column(cls_limits__limit, latest_res.limit);
@@ -1078,6 +1101,7 @@ void cls_limits::run_set_limits(){
             }
             debug_out << "idata " << idata  << " identified as outlier, limit is " << ex.limit << " \n";
             flush(debug_out);
+            ++n_results;
             Row r;
             r.set_column(cls_limits__index, idata);
             r.set_column(cls_limits__limit, ex.limit);
@@ -1098,6 +1122,7 @@ void cls_limits::run_set_limits(){
             if(t==0) continue;
             debug_out << t << " " << tts->get_n0(t) << " " << tts->get_n(t) << "\n";
         }
+        debug_out << "number of successful limits: " << n_results << " / " << (expected_bands + (data_source.get() ? 1 : 0)) << "\n";
     }
 }
 

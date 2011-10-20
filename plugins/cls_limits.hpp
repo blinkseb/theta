@@ -125,6 +125,10 @@ private:
     void run_single_truth_adaptive(std::map<double, double> & truth_to_ts, double ts_epsilon, double truth, int mode = 0);
     void update_truth_to_ts(std::map<double, double> & truth_to_ts, double ts_epsilon);
 
+    // check that truth to ts is a monotonic as function of truth (tolerates non-monotonic behaviour in order of ts_epsilon).
+    // prints a warning to debug_out if not fulfilled and throws an outlier exception
+    void check_truth_to_ts(const std::map<double, double> & truth_to_ts, double ts_epsilon);
+
     void read_reuse_toys();
 
     enum t_mode {

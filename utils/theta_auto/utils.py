@@ -17,7 +17,7 @@ def get_x_to_sp(spgids, **options):
         if 'spid_to_xvalue' in options and sp in options['spid_to_xvalue']: x = options['spid_to_xvalue'][sp]
         else: x = extract_number(sp)
         if x is None:
-            print "WARNING: cannot find ordering value for signal process '%s', using %d" % (sp, next_x)
+            warning("cannot find x-value for signal process id '%s', using %d (try passing the option spid_to_xvalue = {'%s': XXX})" % (sp, next_x, sp))
             x = next_x
             next_x += 1
         x_to_sp[x] = sp
@@ -40,13 +40,12 @@ def reldiff(d1, d2):
     return abs(d1 - d2) / max(abs(d1), abs(d2))
 
 # returns a default minimizer specification which should be pretty robust
-def minimizer(need_error = True):
-    #return {'type': 'root_minuit'}
+def minimizer(need_error = True, always_mcmc = False):
     minimizers = []
     #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex.
-    minimizers.append({'type': 'root_minuit'})
+    if not always_mcmc: minimizers.append({'type': 'root_minuit'})
     minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': 1000, 'after_minimizer': {'type': 'root_minuit'}})
-    minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
+    if not always_mcmc: minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
     minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 1000, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
     result = {'type': 'minimizer_chain', 'minimizers': minimizers}
     if need_error: result['last_minimizer'] = {'type': 'root_minuit'}
@@ -206,6 +205,9 @@ def extract_number(s):
 def info(s):
     if not config.suppress_info:
         print "[INFO] ", s
+
+def warning(s):
+    print "[WARN] ", s
 
 # return a list of result rows for the given query on the .db filename.
 def sql_singlefile(filename, query):
