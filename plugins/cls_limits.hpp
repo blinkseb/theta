@@ -125,9 +125,8 @@ private:
     void run_single_truth_adaptive(std::map<double, double> & truth_to_ts, double ts_epsilon, double truth, int mode = 0);
     void update_truth_to_ts(std::map<double, double> & truth_to_ts, double ts_epsilon);
 
-    // check that truth to ts is a monotonic as function of truth (tolerates non-monotonic behaviour in order of ts_epsilon).
-    // prints a warning to debug_out if not fulfilled and throws an outlier exception
-    void check_truth_to_ts(const std::map<double, double> & truth_to_ts, double ts_epsilon);
+    // make truth_to_ts monotonic
+    void correct_truth_to_ts(std::map<double, double> & truth_to_ts);
 
     void read_reuse_toys();
 
@@ -180,7 +179,6 @@ private:
     std::auto_ptr<theta::DatabaseInput> input_database;
     std::string input_truth_colname, input_poi_colname, input_ts_colname;
     std::vector<double> input_bonly_ts_pool;
-    
 
     // B. for mode = "generate_grid":
     std::pair<double, double> truth_range;

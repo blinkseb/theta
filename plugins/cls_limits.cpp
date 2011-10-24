@@ -40,10 +40,6 @@ public:
         theta_assert(x_values.size()==inverse_covariance.getRows() && x_values.size()==y_values.size());
     }
     
-    std::auto_ptr<Function> clone() const{
-        return std::auto_ptr<Function>(new exp_nll(*this));
-    }
-    
     double operator()(const ParValues & values) const{
         double limit_v = values.get(limit);
         double lambda_v = values.get(lambda);
@@ -444,8 +440,6 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
     return result;
 }
 
-
-
 data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_): RandomConsumer(cfg, "source"),
     ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_){
     truth_column = products_sink->declare_product(*this, "truth", theta::typeDouble);
@@ -594,16 +588,21 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
             }
         }
         else{
-            size_t n = min<size_t>(tts->get_n0(truth), 2000);
-            debug_out << "run_single_truth_adaptive, mode 1: making " << n << " more toys for background only\n";
-            flush(debug_out);
-            run_single_truth(truth, true, n);
-            if(stop_execution) return;
-            n = min<size_t>(tts->get_n(truth), 2000);
-            debug_out << "run_single_truth_adaptive, mode 1: making " << n << " more toys for signal + background\n";
-            flush(debug_out);
-            run_single_truth(truth, false, n);
-            if(stop_execution) return;
+            //make some more toys for s+b or b-only, depending on which helps more, given the current uncertainty estimate on CLs...
+            if(res.cls_uncertainty_n0 > res.cls_uncertainty_n){
+                size_t n = min<size_t>(tts->get_n0(truth), 2000);
+                debug_out << "run_single_truth_adaptive, mode 1: making " << n << " more toys for background only\n";
+                flush(debug_out);
+                run_single_truth(truth, true, n);
+                if(stop_execution) return;
+            }
+            else{
+                size_t n = min<size_t>(tts->get_n(truth), 2000);
+                debug_out << "run_single_truth_adaptive, mode 1: making " << n << " more toys for signal + background\n";
+                flush(debug_out);
+                run_single_truth(truth, false, n);
+                if(stop_execution) return;
+            }
             return;
         }
     }
@@ -612,11 +611,15 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
 }
 
 
-
 cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->getParId(cfg.setting["truth_parameter"])),
   runid(1), n_toys(0), n_toy_errors(0), n_toys_total(-1), pid_limit(vm->createParId("__limit")), pid_lambda(vm->createParId("__lambda")), 
   expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95) {
     SettingWrapper s = cfg.setting;
+
+    if(s.exists("debuglog")){
+        string fname = s["debuglog"];
+        debug_out.reset(new ofstream(fname.c_str()));
+    }
 
     string s_mode = "set_limits";
     if(s.exists("mode")){
@@ -673,11 +676,6 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
     }
 
     source.reset(new data_filler(cfg, model));
-
-    if(s.exists("debuglog")){
-        string fname = s["debuglog"];
-        debug_out.reset(new ofstream(fname.c_str()));
-    }
 
     // A.
     if(mode == m_set_limits){
@@ -810,7 +808,7 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
         }
         ++eventid;
     }
-    check_truth_to_ts(truth_to_ts, ts_epsilon);
+    correct_truth_to_ts(truth_to_ts);
 }
 
 void cls_limits::read_reuse_toys(){
@@ -886,26 +884,25 @@ void cls_limits::run_generate_grid(){
 }
 
 
-void cls_limits::check_truth_to_ts(const std::map<double, double> & truth_to_ts, double ts_epsilon){
+void cls_limits::correct_truth_to_ts(std::map<double, double> & truth_to_ts){
     theta_assert(truth_to_ts.size() > 0);
-    theta_assert(ts_epsilon > 0);
     double ts_first = truth_to_ts.begin()->second;
     double ts_last = truth_to_ts.rbegin()->second;
     // sign is -1 if falling, +1 if raising (and kind of arbitray if constant):
     double sign = (ts_first - ts_last > 0) ? -1 : 1;
-    for(map<double, double>::const_iterator it = truth_to_ts.begin(); it!= truth_to_ts.end(); ++it){
-        map<double, double>::const_iterator it_next = it;
+    for(map<double, double>::iterator it = truth_to_ts.begin(); it!= truth_to_ts.end(); ++it){
+        map<double, double>::iterator it_next = it;
         ++it_next;
         if(it_next == truth_to_ts.end()) break;
-        double diff = (it_next->second - it->second) * sign + ts_epsilon;
+        double diff = (it_next->second - it->second) * sign;
         if(diff < 0){
-            debug_out << "check_truth_to_ts: ts as a function of truth is not monotonic; (truth, ts) = (" << it->first << ", "
+            debug_out << "correct_truth_to_ts: ts as a function of truth is not monotonic; (truth, ts) = (" << it->first << ", "
                       << it->second << "), (" << it_next->first << ", " << it_next->second << ")\n";
-            throw OutlierException();
+            // correct it_next value by setting it to the same value as it:
+            it_next->second = it->second;
         }
     }
 }
-
 
 void cls_limits::run_set_limits(){
     debug_out << "tol_cls = " << tol_cls << ".\n";
@@ -1026,22 +1023,22 @@ void cls_limits::run_set_limits(){
                 }
 
                 // add a point at the estimated limit, but round to points we have already, if it makes sense ...
-                double next_truth = latest_res.limit;
-                // "round" to a neighboring value if within limit_uncertainty or half of reltol_limit and within the middle half of the fit interval:
+                // double next_truth = latest_res.limit;
+                // add a random point in the fit interval:
+                double u = (((i + 17) * 1103515245 + 12345) % 4294967296) * 1.0 / 4294967296;
+                double next_truth = truth_low + u * (truth_high - truth_low);
+                debug_out << "next truth for toys: " << next_truth << "\n";
+                // "round" to a neighboring value if within the target limit_uncertainty:
                 double min_diff = numeric_limits<double>::infinity();
-                double mid_interval_min = truth_low + 0.25 * (truth_high - truth_low);
-                double mid_interval_max = truth_low + 0.75 * (truth_high - truth_low);
                 for(size_t m=0; m < data.truth_values().size(); ++m){
                     double t = data.truth_values()[m];
-                    if(t < mid_interval_min) continue;
-                    if(t > mid_interval_max) break;
-                    if(fabs(t - next_truth) < min_diff && (fabs(t - latest_res.limit) / latest_res.limit_error < 1.0 || fabs(t - latest_res.limit) / latest_res.limit < reltol_limit / 2)){
+                    if(fabs(t - next_truth) < min_diff && fabs(t - next_truth) / max(t, next_truth) < reltol_limit){
                         next_truth = t;
+                        min_diff = fabs(t - next_truth);
                     }
                 }
-                if(next_truth!=latest_res.limit){
-                    debug_out << "instead of starting new toys at limit estimate (" << latest_res.limit << "), re-use old point truth = " << next_truth << ".\n";
-                    
+                if(!isinf(min_diff)){
+                    debug_out << "rounded next truth value to existing point " << next_truth << "\n";
                 }
                 // for the (very rare) case that the fitted limit is not in the interval, make sure the new point is included in the fit range:
                 if(next_truth < truth_low || next_truth > truth_high){
@@ -1052,11 +1049,8 @@ void cls_limits::run_set_limits(){
                 run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_truth, 1);
                 if(stop_execution) return;
 
-                data = tts->get_cls_vs_truth(truth_to_ts);
-                // pruning phase to find new "seed" points:
+                // pruning phase:
                 // make interval [truth_low, truth_high] smaller if (border is far away (>2sigma) from limit or border is 0) AND the next point can serve as new interval border
-                i_low = find(data.truth_values().begin(), data.truth_values().end(), truth_low) - data.truth_values().begin();
-                i_high = find(data.truth_values().begin(), data.truth_values().end(), truth_high) - data.truth_values().begin();
                 if((fabs(truth_low - latest_res.limit) / latest_res.limit_error > 2 or i_low==0) && i_low+1 < i_high){
                      debug_out << "lower border " << truth_low << " far away from current limit --> test if can be removed ...\n";
                      //re-run next candidate point:
@@ -1085,6 +1079,7 @@ void cls_limits::run_set_limits(){
                          debug_out << "--> no, next point not valid.\n";
                      }
                 }
+                data = tts->get_cls_vs_truth(truth_to_ts);
             }
             ++n_results;
             Row r;
