@@ -99,7 +99,7 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
         }
         catch(Exception & ex){
             ex.message = "initialization failed: " + ex.message;
-            throw FatalException(ex);
+            invalid_argument(ex.message);
         }
     }
     

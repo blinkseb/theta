@@ -73,7 +73,7 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
            h0.check_compatibility(kappa_minus[i]);
     }
     if(pid_set.size()!=nsys){
-        throw InvalidArgumentException("linear_histo_morph: duplicate parameter in parameter list.");
+        throw invalid_argument("linear_histo_morph: duplicate parameter in parameter list.");
     }
     h0exp = ctx.setting["nominal-expectation"];
     h0 *= h0exp / h0.get_sum();
@@ -84,7 +84,7 @@ Histogram1D linear_histo_morph::getConstantHistogram(const Configuration & cfg, 
     if(hf->getParameters().size()!=0){
         stringstream ss;
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
-        throw InvalidArgumentException(ss.str());
+        throw invalid_argument(ss.str());
     }
     return (*hf)(ParValues());
 }

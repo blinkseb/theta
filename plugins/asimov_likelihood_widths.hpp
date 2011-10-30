@@ -24,6 +24,6 @@
  * This function is meant to be used to choose initial step sizes for minimization and MCMC integration.
  */
 theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boost::shared_ptr<theta::Distribution> & override_parameter_distribution
-     = boost::shared_ptr<theta::Distribution>());
+     = boost::shared_ptr<theta::Distribution>(), const boost::shared_ptr<theta::Function> & additional_nll_term = boost::shared_ptr<theta::Function>());
 
 #endif

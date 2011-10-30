@@ -21,7 +21,7 @@ using namespace std;
  * To use only one criterion, set the other value to 0.0 to prevent it from being fulfilled.
  *
  * Note that the function values at x_low and x_high must have different sign. Otherwise,
- * an InvalidArgumentException will be thrown.
+ * an std::invalid_argument will be thrown.
  * All x and function values mus be finite.
  */
 template<typename T>
@@ -29,7 +29,7 @@ double secant(double x_low, double x_high, double x_accuracy, double f_x_low, do
     theta_assert(isfinite(x_low) && isfinite(x_high));
     theta_assert(x_low <= x_high);
     theta_assert(isfinite(f_x_low) && isfinite(f_x_high));
-    if(f_x_low * f_x_high >= 0) throw theta::InvalidArgumentException("secant: function values have the same sign!");
+    if(f_x_low * f_x_high >= 0) throw std::invalid_argument("secant: function values have the same sign!");
     if(fabs(f_x_low) <= f_accuracy) return x_low;
     if(fabs(f_x_high) <= f_accuracy) return x_high;
 

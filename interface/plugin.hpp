@@ -27,6 +27,8 @@ namespace theta {
      *   <li>RndInfoTable "default"</li>
      *   <li>int "seed_offset"</li>
      * </ul>
+     *
+     * Apart from the ProductsSink, none of these properties must be used beyond the initialisation.
      */
     class Configuration{
     public:

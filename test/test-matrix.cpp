@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(matrix1){
    try{
       n.cholesky_decomposition();
    }
-   catch(MathException & e){
+   catch(std::range_error & e){
       exception = true;
    }
    BOOST_REQUIRE(exception);

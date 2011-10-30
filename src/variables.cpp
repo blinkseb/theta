@@ -15,7 +15,7 @@ ParId VarIdManager::createParId(const std::string & name) {
     if (parNameExists(name)) {
         stringstream ss;
         ss << "VarIdManager::createParId: parameter '"<< name <<"' defined twice";
-        throw InvalidArgumentException(ss.str());
+        throw invalid_argument(ss.str());
     }
     ParId result(next_pid_id);
     ++next_pid_id;
@@ -28,17 +28,17 @@ ObsId VarIdManager::createObsId(const std::string & name, size_t nbins, double m
     if (obsNameExists(name)) {
         stringstream ss;
         ss << "VarIdManager::createObsId: observable '" << name << "' defined twice";
-        throw InvalidArgumentException(ss.str());
+        throw invalid_argument(ss.str());
     }
     if (min >= max) {
         stringstream ss;
         ss << "Observable " << name << " has min >= max, i.e., empty range";
-        throw InvalidArgumentException(ss.str());
+        throw invalid_argument(ss.str());
     }
     if(nbins==0){
         stringstream ss;
         ss << "Observable '" << name << "' has no bins";
-        throw InvalidArgumentException(ss.str());
+        throw invalid_argument(ss.str());
     }
     
     ObsId result(next_oid_id);
@@ -61,7 +61,7 @@ bool VarIdManager::obsNameExists(const std::string & name) const {
 std::string VarIdManager::getName(const ParId & id) const {
     std::map<size_t, std::string>::const_iterator it = pid_to_name.find(id.id);
     if (it == pid_to_name.end()) {
-        throw NotFoundException("VarIdManager::getVarname: did not find given VarId.");
+        throw invalid_argument("VarIdManager::getVarname: did not find given VarId.");
     }
     return it->second;
 }
@@ -69,7 +69,7 @@ std::string VarIdManager::getName(const ParId & id) const {
 std::string VarIdManager::getName(const ObsId & id) const {
     std::map<size_t, std::string>::const_iterator it = oid_to_name.find(id.id);
     if (it == oid_to_name.end()) {
-        throw NotFoundException("VarIdManager::getVarname: did not find given VarId.");
+        throw invalid_argument("VarIdManager::getVarname: did not find given VarId.");
     }
     return it->second;
 }
@@ -79,7 +79,7 @@ ParId VarIdManager::getParId(const std::string & name) const {
     if (it == name_to_pid.end()) {
         stringstream ss;
         ss << __FUNCTION__ << ": did not find variable '" << name << "'";
-        throw NotFoundException(ss.str());
+        throw invalid_argument(ss.str());
     }
     return ParId(it->second);
 }
@@ -89,7 +89,7 @@ ObsId VarIdManager::getObsId(const std::string & name) const {
     if (it == name_to_oid.end()) {
         stringstream ss;
         ss << __FUNCTION__ << ": did not find variable '" << name << "'";
-        throw NotFoundException(ss.str());
+        throw invalid_argument(ss.str());
     }
     return ObsId(it->second);
 }
@@ -97,7 +97,7 @@ ObsId VarIdManager::getObsId(const std::string & name) const {
 size_t VarIdManager::getNbins(const ObsId & id) const{
     std::map<size_t, size_t>::const_iterator it = oid_to_nbins.find(id.id);
     if (it == oid_to_nbins.end()) {
-        throw NotFoundException("VarIdManager::getNbins: did not find given variable id.");
+        throw invalid_argument("VarIdManager::getNbins: did not find given variable id.");
     }
     return it->second;
 }
@@ -105,7 +105,7 @@ size_t VarIdManager::getNbins(const ObsId & id) const{
 const pair<double, double> & VarIdManager::getRange(const ObsId & id) const{
     std::map<size_t, pair<double, double> >::const_iterator it = oid_to_range.find(id.id);
     if (it == oid_to_range.end()) {
-        throw NotFoundException("VarIdManager::getRange: did not find given variable id.");
+        throw invalid_argument("VarIdManager::getRange: did not find given variable id.");
     }
     return it->second;
 }
@@ -142,7 +142,14 @@ ParIds ParValues::getParameters() const {
 void ParValues::fail_get(const ParId & pid) const{
     std::stringstream ss;
     ss << "ParValues::get: given VarId " << pid.id << " not found";
-    throw NotFoundException(ss.str());
+    throw invalid_argument(ss.str());
+}
+
+std::ostream & theta::operator<<(std::ostream & out, const ParIds & pids){
+    for(ParIds::const_iterator it=pids.begin(); it!=pids.end(); ++it){
+        out << *it << " ";
+    }
+    return out;
 }
 
 

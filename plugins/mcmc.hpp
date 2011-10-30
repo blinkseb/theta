@@ -42,7 +42,7 @@ void metropolisHastings(const Function & nllikelihood, resulttype &res, Random &
         const std::vector<double> & startvalues, const Matrix & sqrt_cov, size_t iterations, size_t burn_in) {    
     const size_t npar = startvalues.size();
     if(npar != sqrt_cov.getRows() || npar!=sqrt_cov.getCols() || npar!=nllikelihood.getParameters().size() || npar!=res.getnpar())
-    throw InvalidArgumentException("metropolisHastings: dimension/size of arguments mismatch");
+    throw std::invalid_argument("metropolisHastings: dimension/size of arguments mismatch");
     size_t npar_reduced = npar;
     for(size_t i=0; i<npar; i++){
         if(sqrt_cov(i,i)==0) --npar_reduced;

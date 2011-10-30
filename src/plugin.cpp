@@ -23,18 +23,17 @@ void PluginLoader::load(const std::string & soname) {
     void* handle = 0;
     try {
         handle = dlopen(soname.c_str(), RTLD_NOW | RTLD_GLOBAL);
-    } catch (Exception & ex) {
+    } catch (std::exception & ex) {
         std::stringstream ss;
-        ss << ex.message << " (in PluginLoader::load while loading plugin file '" << soname << "')";
-        ex.message = ss.str();
-        throw;
+        ss << ex.what() << " (in PluginLoader::load while loading plugin file '" << soname << "')";
+        throw Exception(ss.str());
     }
     if (handle == 0) {
         std::stringstream s;
         const char * error = dlerror();
         if (error == 0) error = "0";
         s << "PluginLoader::load: error loading plugin file '" << soname << "': " << error << std::endl;
-        throw InvalidArgumentException(s.str());
+        throw Exception(s.str());
     }
 }
 

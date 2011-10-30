@@ -48,11 +48,10 @@ void Run::run(){
                 ++n_errors;
                 break;
             }
-            catch(FatalException & f){
+            catch(std::logic_error & f){
                 stringstream ss;
-                ss << "Producer '" << producers[j].getName() << "': " << f.message;
-                f.message = ss.str();
-                throw;
+                ss << "Producer '" << producers[j].getName() << "': " << f.what();
+                throw logic_error(ss.str());
             }
         }
         //only add a row if no error ocurred to prevent NULL values and similar things ...
@@ -93,7 +92,7 @@ Run::Run(const Configuration & cfg){
     logtable.reset(new LogTable(logtable_underlying));
     
     std::auto_ptr<Table> rndinfo_table_underlying = db->create_table("rndinfo");
-    rndinfo_table.reset(new RndInfoTable(rndinfo_table_underlying));
+    boost::shared_ptr<RndInfoTable> rndinfo_table(new RndInfoTable(rndinfo_table_underlying));
     cfg.pm->set("default", rndinfo_table);
     
     std::auto_ptr<Table> products_table_underlying = db->create_table("products");

@@ -27,7 +27,7 @@ void Matrix::invert_cholesky(){
     for(size_t i=0; i<rows; i++){
         double t_ii = (*this)(i,i);
         if(t_ii==0.0){
-           throw MathException("Matrix inversion not possible: division by zero");
+           throw range_error("Matrix inversion not possible: division by zero");
         }
         max_tii = std::max(max_tii, fabs(t_ii));
         min_tii = std::min(min_tii, fabs(t_ii));
@@ -44,7 +44,7 @@ void Matrix::invert_cholesky(){
     }
     
     if(max_tii / min_tii > 1E12){
-        throw MathException("Matrix inversion: problem is very bad (largest / smallest eigenvalue > 1E12)");
+        throw range_error("Matrix inversion: problem is very bad (largest / smallest eigenvalue > 1E12)");
     }
     
     //now, result=L^-1 where L is the lower triangular matrix from the cholesky decomposition,
@@ -62,9 +62,9 @@ void Matrix::invert_cholesky(){
 
 
 void Matrix::cholesky_decomposition(){
-   if(cols!=rows) throw MathException("cholesky: not square");
+   if(cols!=rows) throw range_error("cholesky: not square");
    Matrix & m = *this;
-   if(m(0,0) < 0.0) throw MathException("cholesky: not positive definite");
+   if(m(0,0) < 0.0) throw range_error("cholesky: not positive definite");
    double l_00 = m(0,0) = sqrt(m(0,0));
    
    if(rows > 1){
@@ -72,7 +72,7 @@ void Matrix::cholesky_decomposition(){
       double m_11 = m(1,1);
       double l_10 = m_10 / l_00;
       double diag = m_11 - l_10 * l_10;
-      if(diag < 0) throw MathException("cholesky: not positive definite");
+      if(diag < 0) throw range_error("cholesky: not positive definite");
       m(1,1) = sqrt(diag);
       m(1,0) = l_10;
    }
@@ -96,7 +96,7 @@ void Matrix::cholesky_decomposition(){
       }
       double diag = m_kk - sum;
       double l_kk = sqrt(diag);
-      if(diag < 0) throw MathException("cholesky: not positive definite");
+      if(diag < 0) throw range_error("cholesky: not positive definite");
       m(k,k) = l_kk;
    }
    

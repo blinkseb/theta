@@ -59,6 +59,9 @@ protected:
  * The former is a distribution for all model parameters to be used for the likelihood function instead
  * of the ones from the model. The latter is a Function to add to the negative log-likelihood such as external
  * constraints or priors which cannot be expressed as parameter distributions.
+ * 
+ * The override-parameter-distribution, if given, must be defined for all parameters the model and the additional-nll-term
+ * depend on.
  */
 class Producer: public ProductsSource{
 public:
@@ -91,8 +94,9 @@ protected:
     
     /** \brief Get the likelihood for the provided Data and Model, including the setting of \c override-parameter-distribution, if applicable
      * 
-     * Derived classes should always use this method and never construct the NLLIkelihood
-     * directly from a Model instance to ensure consistent treatment of the additional likelihood terms.
+     * Derived classes should always use this method and never construct the NLLikelihood
+     * directly from a Model instance to ensure consistent treatment of the additional likelihood term
+     * and override_parameter_distribution.
      */
     std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data, const Model & model);
     

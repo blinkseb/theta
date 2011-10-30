@@ -11,7 +11,7 @@ nl_one_over_sqrt::nl_one_over_sqrt(const theta::Configuration & cfg): pid(cfg.pm
 
 double nl_one_over_sqrt::operator()(const theta::ParValues & values) const{
     double val = values.get(pid);
-    if(val < 0.0) throw theta::MathException("nl_one_over_sqrt: negative argument");
+    if(val < 0.0) throw invalid_argument("nl_one_over_sqrt: negative argument");
     return 0.5 * val;
 }
 

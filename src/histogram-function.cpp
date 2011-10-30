@@ -61,7 +61,7 @@ void ConstantHistogramFunctionError::set_histos(const Histogram1D & histo, const
     fluc = h;
     //check that errors are positive:
     for(size_t i=0; i<h.get_nbins(); ++i){
-        if(error.get(i)<0.0) throw InvalidArgumentException("ConstantHistogramFunctionError: error histogram contains negative entries");
+        if(error.get(i)<0.0) throw std::invalid_argument("ConstantHistogramFunctionError: error histogram contains negative entries");
     }
 }
 

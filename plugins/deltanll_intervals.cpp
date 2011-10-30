@@ -19,7 +19,7 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
     if(not start_step_ranges_init){
         const Distribution & d = nll->get_parameter_distribution();
         DistributionUtils::fillModeSupport(start, ranges, d);
-        step.set(asimov_likelihood_widths(model, override_parameter_distribution));
+        step.set(asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term));
         start_step_ranges_init = true;
     }
     MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);
@@ -112,8 +112,8 @@ deltanll_intervals::deltanll_intervals(const theta::Configuration & cfg): Produc
     }
     deltanll_levels.resize(clevels.size());
     for(size_t i=0; i<clevels.size(); ++i){
-        if(clevels[i] < 0.0) throw InvalidArgumentException("deltanll_intervals: clevel < 0 not allowed.");
-        if(clevels[i] >= 1.0) throw InvalidArgumentException("deltanll_intervals: clevel >= 1.0 not allowed.");
+        if(clevels[i] < 0.0) throw invalid_argument("deltanll_intervals: clevel < 0 not allowed.");
+        if(clevels[i] >= 1.0) throw invalid_argument("deltanll_intervals: clevel >= 1.0 not allowed.");
         deltanll_levels[i] = utils::phi_inverse((1+clevels[i])/2);
         deltanll_levels[i] *= deltanll_levels[i]*0.5;
     }

@@ -41,7 +41,7 @@ class MCMCPosteriorQuantilesResult{
         //return the quantile q
         double get_quantile(double q){
             if(par_values.size()!=n_iterations){
-                throw InvalidArgumentException("MCMCPosteriorQuantilesResult: called get_quantile before chain has finished!");
+                throw invalid_argument("MCMCPosteriorQuantilesResult: called get_quantile before chain has finished!");
             }
             int index = static_cast<int>(q * n_iterations);
             if(index >= static_cast<int>(n_iterations)) index = n_iterations-1;
@@ -73,7 +73,7 @@ void mcmc_quantiles::produce(const Data & data, const Model & model) {
         }
         catch(Exception & ex){
             ex.message = "initialization failed: " + ex.message;
-            throw FatalException(ex);
+            throw invalid_argument(ex.message);
         }
     }
     ++itoy;

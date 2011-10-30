@@ -62,7 +62,7 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     int ivar=0;
     for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it, ++ivar){
         std::map<theta::ParId, std::pair<double, double> >::const_iterator r_it = ranges.find(*it);
-        if(r_it==ranges.end()) throw InvalidArgumentException("root_minuit::minimize: range not set for a parameter");
+        if(r_it==ranges.end()) throw invalid_argument("root_minuit::minimize: range not set for a parameter");
         pair<double, double> range = r_it->second;
         double def = start.get(*it);
         double step = steps.get(*it);
@@ -199,7 +199,7 @@ root_minuit::root_minuit(const Configuration & cfg): tolerance(NAN), printlevel(
        else{
            stringstream s;
            s << "invalid method '" << method << "' (allowed are only 'migrad' and 'simplex')";
-           throw InvalidArgumentException(s.str());
+           throw ConfigurationException(s.str());
        }       
        if(cfg.setting.exists("tolerance")){
            tolerance = cfg.setting["tolerance"];

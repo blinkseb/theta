@@ -3,6 +3,8 @@
 #include <sstream>
 #include <typeinfo>
 
+#include <stdexcept>
+
 
 using namespace theta;
 
@@ -13,23 +15,13 @@ const char* Exception::what() const throw(){
     return whatstring.c_str();
 }
 
-InvalidArgumentException::InvalidArgumentException(const std::string & m) : FatalException(m) {}
-Exception::Exception(const std::string & m):message(m){}
+Exception::Exception(const std::string & m): runtime_error(m), message(m){}
 ConfigurationException::ConfigurationException(const std::string & msg): Exception(msg){}
-NotFoundException::NotFoundException(const std::string & msg): Exception(msg){}
-MathException::MathException(const std::string & m): Exception(m){}
-
-FatalException::FatalException(const Exception & ex){
-    message = ex.what();
-}
-
-FatalException::FatalException(const std::string & message_): message(message_){
-}
 
 void fail_assert(const char * filename, int lineno, const char * expression){
     std::stringstream ss;
     ss << "Assertion '" << expression << "' failed in " << filename << ":" << lineno;
-    throw FatalException(ss.str());
+    throw std::logic_error(ss.str());
 }
 
 DatabaseException::DatabaseException(const std::string & s): Exception(s){}

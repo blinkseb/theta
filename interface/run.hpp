@@ -105,7 +105,6 @@ private:
 
     std::auto_ptr<LogTable> logtable;
     bool log_report;
-    boost::shared_ptr<RndInfoTable> rndinfo_table;
 
     //the producers to be run on the pseudo data:
     boost::ptr_vector<Producer> producers;

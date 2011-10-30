@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(ctest){
    try{
       Histogram1D m2(nbins, 1, 0);
    }
-   catch(InvalidArgumentException & ex){
+   catch(invalid_argument & ex){
       exception = true;
    }
    BOOST_CHECK(exception);
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(ctest){
    try{
       Histogram1D m2(nbins, -1, -1);
    }
-   catch(InvalidArgumentException & ex){
+   catch(invalid_argument & ex){
       exception = true;
    }
    BOOST_CHECK(exception);
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(test_multiply){
        Histogram1D m2(nbins + 1, 0, 1);
        m0 *= m2;
     }
-    catch(InvalidArgumentException & ex){
+    catch(invalid_argument & ex){
        exception = true;
     }
     BOOST_REQUIRE(exception);
@@ -235,7 +235,7 @@ BOOST_AUTO_TEST_CASE(test_reset){
    try{
       m.reset_range(0, 0);
    }
-   catch(InvalidArgumentException & ex){
+   catch(invalid_argument & ex){
       exception = true;
    }
    BOOST_CHECK(exception);

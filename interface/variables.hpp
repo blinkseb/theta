@@ -207,7 +207,7 @@ namespace theta {
      *
      * Note that there does not exist any global "current value" of a variable.
      */
-    class VarIdManager: private boost::noncopyable {
+    class VarIdManager {
         friend class ParValues;
     public:
         //@{
@@ -235,7 +235,7 @@ namespace theta {
         //@{
         /** \brief Return the name of the given ParId or ObsId.
          *
-         * If the id is not known, a NotFoundException is thrown.
+         * If the id is not known, a std::invalid_argument is thrown.
          */
         std::string getName(const ParId & id) const;
         std::string getName(const ObsId & id) const;
@@ -251,7 +251,7 @@ namespace theta {
         //@{
         /** \brief Return the ParId / ObsId with the given name
          *
-         * If the name is not known, a NotFoundException is thrown.
+         * If the name is not known, a std::invalid_argument is thrown.
          *
          * If you merely want to test whether a name already exists, use parNameExists and obsNameExists
          */
@@ -335,7 +335,7 @@ namespace theta {
          *
          * Set the value of the ParId \c pid to \c val. Setting a parameter 
          * to NAN means to delete it from the list (i.e., get() will throw a
-         * NotFoundException for that parameter). This makes it possible to "clear" a parameter
+         * invalid_argument for that parameter). This makes it possible to "clear" a parameter
          * from a VarValues instance after setting it.
          *
          * Returns a reference to this \c ParValues object to allow 
@@ -369,7 +369,7 @@ namespace theta {
         
         /** \brief Add a value to a parameter.
          *
-         * Same as \c set(pid, get(pid) + delta), but faster. Throws NotFoundException if not value
+         * Same as \c set(pid, get(pid) + delta), but faster. Throws invalid_argument if not value
          * was set for \c pid before.
          *
          * \param pid The parameter to change.
@@ -378,14 +378,14 @@ namespace theta {
         void addTo(const ParId & pid, double delta){
             const size_t id = pid.id;
             if(id >= values.size() || std::isnan(values[id])){
-                throw NotFoundException("ParValues::addTo: given ParId not found.");
+                throw std::invalid_argument("ParValues::addTo: given ParId not found.");
             }
             values[id] += delta;
         }
 
         /** \brief Retrieve the current value of a parameter.
          *
-         *  Throws a NotFoundException if no value was set for \c pid in this \c ParValues.
+         *  Throws a invalid_argument if no value was set for \c pid in this \c ParValues.
          *
          *  \param pid The parameter for which the value should be returned.
          *  \return The current value for the parameter \c pid.

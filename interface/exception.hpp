@@ -2,6 +2,7 @@
 #define EXCEPTION_H
 
 #include <string>
+#include <stdexcept>
 
 void fail_assert(const char * filename, int lineno, const char * expression);
 
@@ -13,11 +14,11 @@ void fail_assert(const char * filename, int lineno, const char * expression);
 
 namespace theta {
 
-/** \brief Base class for all Exceptions used in %theta
+/** \brief Base class for the runtime exceptions used in %theta
  */
-class Exception: virtual public std::exception{
+class Exception: public std::runtime_error {
 public:
-    /// The human-readable, english message 
+    /// The human-readable message for the user
     std::string message;
     
     /// Constructor taking a message intended for the user which will be written to Exception::message
@@ -42,21 +43,6 @@ public:
     ConfigurationException(const std::string & msg);
 };
 
-/** \brief Thrown in case of a request for a non-existing member in a conatiner-like structure is made. 
- */
-class NotFoundException: public Exception{
-public:
-    /// Constructor taking a message intended for the user which will be written to Exception::message
-   NotFoundException(const std::string & message);
-};
-
-/** \brief Thrown in case of invalid mathematical constructs like domain errors
- */
-class MathException: public Exception{
-public:
-    /// Constructor taking a message intended for the user which will be written to Exception::message
-    MathException(const std::string &);
-};
 
 /// \brief Thrown in case of database errors.
 class DatabaseException: public Exception{
@@ -73,36 +59,6 @@ class MinimizationException: public Exception{
 public:
     /// Constructor taking a message intended for the user which will be written to Exception::message
     MinimizationException(const std::string & s);
-};
-
-/** \brief Exception class to indicate an internal error
- * 
- * An exception of this kind should usually not be caught: it indicates a serious error
- * which prevents further execution, such as violation of pre / postconditions, i.e., logic errors
- * which could be prevented by proper programming.
- * 
- * In order to prevent catching FatalException in a catch(Exception &) statement, FatalException is not part
- * of the usual exception hierarchy of theta.
- */
-class FatalException{
-public:
-    std::string message;
-       
-    /** \brief Construct from a "usual" Exception
-     * 
-     * The error message displayed will be taken from ex. 
-     */
-    explicit FatalException(const Exception & ex);
-    
-    /// Construct directly from an error message
-    explicit FatalException(const std::string & message);
-};
-
-/// \brief General exception to indicate that arguments passed to a function are invalid (=do not correspond to documentation)
-class InvalidArgumentException: public FatalException{
-public:
-    /// Constructor taking a message intended for the user which will be written to Exception::message
-    InvalidArgumentException(const std::string &);
 };
 
 

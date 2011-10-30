@@ -187,7 +187,7 @@ private:
     static double get_quantile(const map<double, multiset<double> > & truth_to_ts, double truth, double q){
         theta_assert(q>=0.0 && q < 1.0);
         map<double, multiset<double> >::const_iterator it = truth_to_ts.find(truth);
-        if(it==truth_to_ts.end()) throw NotFoundException("truth_ts_value::get_quantile");
+        if(it==truth_to_ts.end()) throw invalid_argument("truth_ts_value::get_quantile");
         const multiset<double> & ts_values = it->second;
         multiset<double>::const_iterator itt = ts_values.begin();
         advance(itt, q*ts_values.size());
@@ -212,7 +212,7 @@ public:
         truth_to_ts_sb[truth].insert(ts);
     }
 
-    // truth_to_to for sb and b should cnotain same truth values. If not, complain with an InvalidArgumentException:
+    // truth_to_to for sb and b should cnotain same truth values. If not, complain with an invalid_argument:
     void check_consistency(){
         map<double, multiset<double> >::const_iterator it_sb = truth_to_ts_sb.begin();
         map<double, multiset<double> >::const_iterator it_b = truth_to_ts_b.begin();
@@ -220,18 +220,18 @@ public:
             if(it_sb->first != it_b->first){
                 stringstream ss;
                 ss << "sb has " << it_sb->first << "; while b has " << it_b->first;
-                throw InvalidArgumentException(ss.str());
+                throw invalid_argument(ss.str());
             }
         }
         if(it_sb!=truth_to_ts_sb.end()){
             stringstream ss;
             ss << "sb has " << it_sb->first << "; while b has no more values";
-            throw InvalidArgumentException(ss.str());
+            throw invalid_argument(ss.str());
         }
         if(it_b!=truth_to_ts_b.end()){
             stringstream ss;
             ss << "b has " << it_b->first << "; while sb has no more values";
-            throw InvalidArgumentException(ss.str());
+            throw invalid_argument(ss.str());
         }
     }
 
@@ -290,7 +290,7 @@ public:
         map<double, multiset<double> >::const_iterator it_b = truth_to_ts_b.find(truth_value);
         map<double, multiset<double> >::const_iterator it_sb = truth_to_ts_sb.find(truth_value);
         if(it_b == truth_to_ts_b.end() || it_sb == truth_to_ts_sb.end()){
-            throw InvalidArgumentException("truth_ts_values::get_cls: truth_to_ts_sb or truth_to_b do not contain given truth value");
+            throw invalid_argument("truth_ts_values::get_cls: truth_to_ts_sb or truth_to_b do not contain given truth value");
         }
         cls_info result;
         multiset<double>::const_iterator it_ts = it_sb->second.lower_bound(ts_value);
@@ -342,7 +342,7 @@ public:
          map<double, multiset<double> >::const_iterator it_sb = truth_to_ts_sb.begin();
          for(size_t i=0; it_b!=truth_to_ts_b.end(); ++it_b, ++it_sb, ++i){
             if(it_b->first != it_sb->first){
-                throw InvalidArgumentException("truth_ts_values::get_cls_vs_truth: truth_to_ts_sb and truth_to_b contain different truth values");
+                throw invalid_argument("truth_ts_values::get_cls_vs_truth: truth_to_ts_sb and truth_to_b contain different truth values");
             }
             double t = it_b->first;
             if(t==0.0) continue;
@@ -397,10 +397,10 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
     size_t imin = find(truth_values.begin(), truth_values.end(), xmin) - truth_values.begin();
     size_t imax = find(truth_values.begin(), truth_values.end(), xmax) - truth_values.begin();
     if(imin==truth_values.size() || imax==truth_values.size()){
-        throw InvalidArgumentException("fitexp: xmin, xmax not found in data");
+        throw invalid_argument("fitexp: xmin, xmax not found in data");
     }
     if(imin >= imax){
-        throw InvalidArgumentException("fitexp: xmin, xmax define empty range");
+        throw invalid_argument("fitexp: xmin, xmax define empty range");
     }
     const size_t N_range = imax - imin + 1;
     vector<double> x_values(truth_values.begin() + imin, truth_values.begin() + imax + 1);
@@ -461,7 +461,7 @@ void data_filler::fill(Data & dat, const ParId & truth_parameter, double truth_v
 
 
 void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
-    if(!isfinite(truth)) throw InvalidArgumentException("run_single_truth: truth not finite");
+    if(!isfinite(truth)) throw invalid_argument("run_single_truth: truth not finite");
     ++runid;
     //debug_out << "starting run_single_truth(truth = " << truth << ", bkg_only = " << bkg_only << ", n_event = " << n_event << ")\n";
     // if the producer is parameter dependent, pass the truth value to the producer:
@@ -495,12 +495,11 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
             ++n_toy_errors;
             continue;
         }
-	    catch(FatalException & f){
-		    stringstream ss;
-		    ss << "Producer '" << producer->getName() << "': " << f.message;
-		    f.message = ss.str();
-		    throw;
-	    }
+        catch(std::logic_error & f){
+              stringstream ss;
+              ss << "Producer '" << producer->getName() << "': " << f.what();
+              throw logic_error(ss.str());
+        }
         if(!error){
             if(sdc.get()) ts_values.push_back(sdc->get_value());
             products_table->add_row(runid, eventid);
@@ -518,7 +517,7 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
         }
         // check success rate and fail in case this is < 0.8. Do not check in case of stop_execution flag set:
         if(ts_values.size() * 1.0 / n_event < 0.8 && !stop_execution){
-            throw FatalException("cls_limits: ts_producer fails in more than 20% of the cases");
+            throw logic_error("cls_limits: ts_producer fails in more than 20% of the cases");
         }
     }
 }

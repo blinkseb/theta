@@ -117,11 +117,8 @@ namespace theta {
         virtual ~Model(){}
 
     protected:
-        boost::shared_ptr<VarIdManager> vm;
         ParIds parameters;
         ObsIds observables;
-
-        Model(const boost::shared_ptr<VarIdManager> & vm_): vm(vm_){}
     };
     
     

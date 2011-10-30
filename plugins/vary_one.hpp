@@ -48,19 +48,19 @@ class vary_one: public theta::Distribution{
 public:
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const{
-      throw theta::FatalException("vary_one::mode is not implemented");
+      throw std::invalid_argument("vary_one::mode is not implemented");
     }
     virtual double evalNL(const theta::ParValues & values) const{
-       throw theta::FatalException("vary_one::evalNL is not implemented");
+       throw std::invalid_argument("vary_one::evalNL is not implemented");
     }
     virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const{
-       throw theta::FatalException("vary_one::evalNL_withDerivatives is not implemented");
+       throw std::invalid_argument("vary_one::evalNL_withDerivatives is not implemented");
     }
     virtual const std::pair<double, double> & support(const theta::ParId & p) const{
-       throw theta::FatalException("vary_one::support is not implemented");
+       throw std::invalid_argument("vary_one::support is not implemented");
     }
     virtual double width(const theta::ParId & p) const{
-       throw theta::FatalException("vary_one::width is not implemented");
+       throw std::invalid_argument("vary_one::width is not implemented");
     }
     vary_one(const theta::Configuration & cfg);
     

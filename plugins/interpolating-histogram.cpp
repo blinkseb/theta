@@ -78,7 +78,7 @@ interpolating_histo::interpolating_histo(const Configuration & ctx){
     }
     //to make calculation of derivatives easier, we do not allow the same parameter twice.
     if(pid_set.size()!=nsys){
-        throw InvalidArgumentException("interpolating_histo::interpolating_histo: having one parameter parametrizing two interpolations is not supported.");
+        throw invalid_argument("interpolating_histo::interpolating_histo: having one parameter parametrizing two interpolations is not supported.");
     }
 }
 
@@ -87,7 +87,7 @@ Histogram1D interpolating_histo::getConstantHistogram(const Configuration & cfg,
     if(hf->getParameters().size()!=0){
         stringstream ss;
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
-        throw InvalidArgumentException(ss.str());
+        throw invalid_argument(ss.str());
     }
     return (*hf)(ParValues());//copies the internal reference, so this is ok.
 }

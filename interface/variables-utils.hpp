@@ -28,7 +28,11 @@ namespace theta{
        * then this function will call VarIdManager::createParId("p0", 20, 0, inf) and VarIdManager::createObsId("mass", 200, 0.0, 10.0).
        */
       void apply_vm_settings(theta::Configuration & cfg);
+      
+      std::ostream & operator<<(std::ostream & out, const theta::ParIds & pids);
 }
+
+
 
 #endif
 

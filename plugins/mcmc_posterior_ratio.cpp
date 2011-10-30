@@ -58,7 +58,7 @@ void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model 
             init = true;
         }catch(Exception & ex){
             ex.message = "initialization failed: " + ex.message;
-            throw FatalException(ex);
+            throw invalid_argument(ex.message);
         }
     }
     

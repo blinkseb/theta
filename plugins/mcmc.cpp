@@ -41,10 +41,10 @@ void get_cholesky(const Matrix & cov, Matrix & result, int expect_reduced){
             npar_reduced--;
     }
     if(npar_reduced==0){
-        throw InvalidArgumentException("get_cholesky: number of reduced dimensions is zero (all parameters fixed?)");
+        throw invalid_argument("get_cholesky: number of reduced dimensions is zero (all parameters fixed?)");
     }
     if(expect_reduced > 0 && static_cast<size_t>(expect_reduced)!=npar_reduced){
-        throw InvalidArgumentException("get_cholesky: number of reduced dimensions not as expected");
+        throw invalid_argument("get_cholesky: number of reduced dimensions not as expected");
     }
     //calculate cholesky decomposition    cov = L L^T    of the reduced covariance matrix:
     Matrix cov_c(npar_reduced, npar_reduced);

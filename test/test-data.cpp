@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(basic){
     try{
        c_d[oid5];
     }
-    catch(Exception &){
+    catch(exception &){
       ex = true;
     }
     BOOST_CHECK(ex);

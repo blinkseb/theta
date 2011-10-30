@@ -64,7 +64,7 @@ public:
     void fill(const double * x, double nll0, size_t n){
         vector<double> myvalues(npar);
         if(isnan(nll0) || (isinf(nll0) && nll0 < 0)){
-            throw FatalException("nll0 is nan/-inf in mcmc_posterior_histo");
+            throw range_error("nll0 is nan/-inf in mcmc_posterior_histo");
         }
         for(size_t ih=0; ih<histos.size(); ++ih){
             copy(x, x + npar, myvalues.begin());
@@ -74,7 +74,7 @@ public:
                 myvalues[ipars[ih]] = xmin + (i + 0.5) * x_binwidth;
                 double nll_value = nll(&myvalues[0]);
                 if(isnan(nll_value) || (isinf(nll_value) && nll_value < 0)){
-                    throw FatalException("nll value is nan/-inf in mcmc_posterior_histo");
+                    throw range_error("nll value is nan/-inf in mcmc_posterior_histo");
                 }
                 histos_tmp[ih].set(i, exp(-nll_value + nll0));
             }
@@ -118,7 +118,7 @@ void mcmc_posterior_histo::produce(const Data & data, const Model & model) {
         }
         catch(Exception & ex){
             ex.message = "initialization failed: " + ex.message;
-            throw FatalException(ex);
+            throw invalid_argument(ex.message);
         }
     }
     

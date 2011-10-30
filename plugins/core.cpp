@@ -152,7 +152,7 @@ double delta_distribution::evalNL_withDerivatives(const theta::ParValues & value
 
 const std::pair<double, double> & delta_distribution::support(const theta::ParId& p) const{
     std::map<theta::ParId, std::pair<double, double> >::const_iterator it=supports.find(p);
-    if(it==supports.end()) throw InvalidArgumentException("delta_distribution::support: parameter not found");
+    if(it==supports.end()) throw invalid_argument("delta_distribution::support: parameter not found");
     return it->second;
 }
 
@@ -215,7 +215,7 @@ double flat_distribution::evalNL_withDerivatives(const theta::ParValues & values
 
 const std::pair<double, double> & flat_distribution::support(const theta::ParId& p) const{
     std::map<theta::ParId, std::pair<double, double> >::const_iterator it=ranges.find(p);
-    if(it==ranges.end()) throw InvalidArgumentException("flat_distribution::support: parameter not found");
+    if(it==ranges.end()) throw invalid_argument("flat_distribution::support: parameter not found");
     return it->second;
 }
 
@@ -358,7 +358,7 @@ const std::pair<double, double> & gauss::support(const ParId & p)const{
     for(vector<ParId>::const_iterator v=v_par_ids.begin(); v!=v_par_ids.end(); ++v, ++i){
         if(*v == p)return ranges[i];
     }
-    throw InvalidArgumentException("gauss::support(): invalid parameter");
+    throw invalid_argument("gauss::support(): invalid parameter");
 }
 
 void gauss::mode(theta::ParValues & result) const{
@@ -426,7 +426,7 @@ gauss1d::gauss1d(const Configuration & cfg){
 }
 
 const std::pair<double, double> & gauss1d::support(const ParId & p)const{
-    if(p!=*par_ids.begin()) throw InvalidArgumentException("gauss1d::support(): invalid parameter");
+    if(p!=*par_ids.begin()) throw invalid_argument("gauss1d::support(): invalid parameter");
     return range;
 }
 
@@ -445,8 +445,11 @@ void product_distribution::add_distributions(const Configuration & cfg, const th
             add_distributions(cfg, dist_setting["distributions"], depth-1);
         }
         else{
-            distributions.push_back(PluginManager<Distribution>::build(Configuration(cfg, dist_setting)));
-            ParIds new_pids = distributions.back().getParameters();
+            std::auto_ptr<Distribution> dist = PluginManager<Distribution>::build(Configuration(cfg, dist_setting));
+            ParIds new_pids = dist->getParameters();
+            // ignore 'empty' distributions which do not depent on any parameter:
+            if(new_pids.size()==0) continue;
+            distributions.push_back(dist);
             par_ids.insert(new_pids.begin(), new_pids.end());
             for(ParIds::const_iterator it=new_pids.begin(); it!=new_pids.end(); ++it){
                 parid_to_index[*it] = distributions.size()-1;
@@ -494,7 +497,7 @@ double product_distribution::evalNL_withDerivatives(const ParValues & values, Pa
 
 const std::pair<double, double> & product_distribution::support(const ParId & p) const{
     map<ParId, size_t>::const_iterator it = parid_to_index.find(p);
-    if(it==parid_to_index.end()) throw InvalidArgumentException("product_distribution::support: invalid ParId");
+    if(it==parid_to_index.end()) throw invalid_argument("product_distribution::support: invalid ParId");
     return distributions[it->second].support(p);
 }
 

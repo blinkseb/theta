@@ -36,8 +36,8 @@ class rootfile:
         return rootfile.th1_to_histo(th1)
 
 # represents a model as in theta, plus
-# * data histograms, if any
-# * list of parameters
+# * data histograms (if any)
+# * additional likelihood terms
 # * observables, with xmin, xmax, ranges
 # * which processes are signal
 #
@@ -57,6 +57,8 @@ class Model:
         self.distribution = Distribution()
         # data histograms: dictionary str obs -> histo
         self.data_histos = {}
+        # a FunctionBase instance or None:
+        self.additional_nll_term = None
     
     def reset_binning(self, obs, xmin, xmax, nbins):
         assert obs in self.observables
@@ -77,6 +79,9 @@ class Model:
         self.processes.update(other_model.processes)
         self.data_histos.update(other_model.data_histos)
         self.observable_to_pred.update(other_model.observable_to_pred)
+        if other_model.additional_nll_term is not None:
+            if self.additional_nll_term is None: self.additional_nll_term = other_model.additional_nll_term
+            else: self.additional_nll_term = self.additional_nll_term + other_model.additional_nll_term
     
     # modify the model to only contain a subset of the current observables.
     # The parameter observables must be convertible to a set of strings
@@ -91,8 +96,6 @@ class Model:
             if obs in self.data_histos: del self.data_histos[obs]
         # in theory, we could also update self.processes / self.signal_processes and
         # self.distribution (if the model now has fewer dependencies), but this is not necessary.
-        
-        
        
     def set_data_histogram(self, obsname, histo, reset_binning = False):
         xmin, xmax, nbins = histo[0], histo[1], len(histo[2])
@@ -189,9 +192,13 @@ class Model:
                 found_match = True
         if not found_match: raise RuntimeError, 'did not find obname, procname = %s, %s' % (obsname, procname)
         
-    
+    # get the set of parameters the model predictions depends on, given the signal_processes.
+    # This does not cover additional_nll_terms; it is useful to pass the result to
+    # Distribution.get_cfg.
     def get_parameters(self, signal_processes):
         result = set()
+        signal_processes = set(signal_processes)
+        signal_processes.discard('__fakesp__')
         for sp in signal_processes:
             assert sp in self.signal_processes
         for o in self.observable_to_pred:
@@ -221,6 +228,7 @@ class Model:
         result = {}
         if options.get('use_llvm', False): result['type'] = 'llvm_model'
         for sp in signal_processes:
+            if sp == '__fakesp__': continue
             assert sp in self.signal_processes
         for o in self.observable_to_pred:
             result[o] = {}

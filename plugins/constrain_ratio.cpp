@@ -17,7 +17,7 @@ constrain_ratio::constrain_ratio(const theta::Configuration & cfg): pid_nominato
 double constrain_ratio::operator()(const theta::ParValues & values) const{
     double nominator = values.get(pid_nominator);
     double denominator = values.get(pid_denominator);
-    if(denominator==0.0) throw theta::MathException("constrain_ratio: zero denominator");
+    if(denominator==0.0) throw invalid_argument("constrain_ratio: zero denominator");
     return 0.5 * pow((nominator / denominator - mean) / width, 2);
 }
 

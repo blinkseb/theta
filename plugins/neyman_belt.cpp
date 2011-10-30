@@ -50,7 +50,7 @@ public:
     
     double get_product(const std::string & name){
         map<string, double>::const_iterator it = double_data.find(name);
-        if(it==double_data.end()) throw NotFoundException("unknown product '" + name + "'");
+        if(it==double_data.end()) throw invalid_argument("unknown product '" + name + "'");
         return it->second;
     }
 };
@@ -164,7 +164,7 @@ tto_ensemble::tto_range tto_ensemble::get_ttos(double truth_value, const sortfla
     map<double, size_t>::const_iterator it1 = truth_partitions.lower_bound(truth_value);
     map<double, size_t>::const_iterator it2 = truth_partitions.upper_bound(truth_value);
     if(it1==truth_partitions.end() || it1->first != truth_value){
-        throw NotFoundException("tto_ensemble::get_ttos: unknown truth_value");
+        throw invalid_argument("tto_ensemble::get_ttos: unknown truth_value");
     }
     size_t index1 = it1->second;
     size_t index2 = (it2==truth_partitions.end()) ? ttos__truth_o_sorted.size() : it2->second;
@@ -176,7 +176,7 @@ tto_ensemble::tto_range tto_ensemble::get_ttos(double truth_value, const sortfla
         case sorted_by_ordering:
             return tto_range(ttos__truth_o_sorted.begin() + index1, ttos__truth_o_sorted.begin() + index2);
     }
-    throw InvalidArgumentException("invalid sortflag in tto_ensemble::get_ttos");
+    throw invalid_argument("invalid sortflag in tto_ensemble::get_ttos");
 }
 
 
@@ -557,7 +557,7 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
         }
     }
     if(ensemble_for_interpolation.size() < truth_n * truth_values.size() / 2){
-        throw FatalException("add_ordering_fclike: too many failures in ts calculation (>50%)");
+        throw invalid_argument("add_ordering_fclike: too many failures in ts calculation (>50%)");
     }
     //now go through all truth values again and use truth_to__ts_to_ordering
     // to interpolate / extrapolate ...

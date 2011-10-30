@@ -34,12 +34,16 @@ def get_histo_cfg(histogram):
 # options are passed to model.get_cfg
 def write_cfg(model, signal_processes, method, input, id = None, additional_settings = {}, **options):
     for sp in signal_processes:
+        if sp == '__fakesp__': continue
         assert sp in model.signal_processes, "invalid signal process '%s'" % sp
-    model_parameters = sorted(list(model.get_parameters(signal_processes)))
+    model_parameters = sorted(list(set(model.get_parameters(signal_processes))))
+    all_parameters = set(model.get_parameters(signal_processes))
+    if model.additional_nll_term is not None: all_parameters.update(model.additional_nll_term.get_parameters())
+    all_parameters = sorted(list(all_parameters))
     additional_settings['main']['output_database']['filename'] = '@output_name'
     additional_settings = copy.deepcopy(additional_settings)
     config = ''
-    config += "parameters = " + settingvalue_to_cfg(model_parameters, 0, ['parameters']) + ";\n"
+    config += "parameters = " + settingvalue_to_cfg(all_parameters, 0, ['parameters']) + ";\n"
     obs = {}
     for o in model.observables:
         xmin, xmax, nbins = model.observables[o]

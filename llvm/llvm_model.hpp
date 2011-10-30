@@ -24,6 +24,7 @@ friend class llvm_model_nll;
 private:
     typedef boost::ptr_map<theta::ObsId, boost::ptr_vector<theta::HistogramFunction> > histos_type;
     typedef boost::ptr_map<theta::ObsId, boost::ptr_vector<theta::Function> > coeffs_type;
+    theta::VarIdManager vm;
     histos_type histos;
     coeffs_type coeffs;
     std::auto_ptr<theta::Distribution> parameter_distribution;

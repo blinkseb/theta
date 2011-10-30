@@ -23,9 +23,9 @@ ObsIds Model::getObservables() const{
 void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs_, boost::ptr_vector<HistogramFunction> & histos_){
     observables.insert(obs_id);
     const size_t n = coeffs_.size();
-    if(n!=coeffs_.size()) throw InvalidArgumentException("Model::setPrediction: number of histograms and coefficients do not match");
+    if(n!=coeffs_.size()) throw invalid_argument("Model::setPrediction: number of histograms and coefficients do not match");
     if(histos[obs_id].size()>0 || coeffs[obs_id].size()>0)
-        throw InvalidArgumentException("Model::setPrediction: prediction already set for this observable");
+        throw invalid_argument("Model::setPrediction: prediction already set for this observable");
     coeffs[obs_id].transfer(coeffs[obs_id].end(), coeffs_.begin(), coeffs_.end(), coeffs_);
     histos[obs_id].transfer(histos[obs_id].end(), histos_.begin(), histos_.end(), histos_);
     for(boost::ptr_vector<Function>::const_iterator it=coeffs[obs_id].begin(); it!=coeffs[obs_id].end(); ++it){
@@ -46,8 +46,8 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
 }
 
 void default_model::get_prediction(Data & result, const ParValues & parameters) const {
-    if(!(parameters.getParameters()==this->parameters)){
-        throw InvalidArgumentException("deault_model::get_prediction: parameters was incomplete");
+    if(!(parameters.getParameters().contains_all(this->parameters))){
+        throw invalid_argument("default_model::get_prediction: not all parameters set!");
     }
     histos_type::const_iterator h_it = histos.begin();
     coeffs_type::const_iterator c_it = coeffs.begin();
@@ -96,13 +96,14 @@ void default_model::get_prediction_randomized(Random & rnd, Data & result, const
 
 std::auto_ptr<NLLikelihood> default_model::getNLLikelihood(const Data & data) const{
     if(not(data.getObservables()==observables)){
-        throw FatalException("Model::createNLLikelihood: observables of model and data mismatch!");
+        throw invalid_argument("Model::createNLLikelihood: observables of model and data mismatch!");
     }
     return std::auto_ptr<NLLikelihood>(new default_model_nll(*this, data, observables));
 }
 
-default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarIdManager>()){
+default_model::default_model(const Configuration & ctx) {
     SettingWrapper s = ctx.setting;
+    boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     ObsIds observables = vm->getAllObsIds();
     //go through observables to find the template definition for each of them:
     for (ObsIds::const_iterator obsit = observables.begin(); obsit != observables.end(); obsit++) {
@@ -122,8 +123,11 @@ default_model::default_model(const Configuration & ctx): Model(ctx.pm->get<VarId
         }
         set_prediction(*obsit, coeffs, histos);
     }
+    if(parameters.size() == 0){
+        parameter_distribution.reset(new EmptyDistribution());
+    }
     parameter_distribution = PluginManager<Distribution>::build(Configuration(ctx, s["parameter-distribution"]));
-    if(not (parameter_distribution->getParameters() == getParameters())){
+    if(not (parameter_distribution->getParameters() == parameters)){
         stringstream ss;
         ss << "'parameter-distribution' has to define the same set of parameters the model depends on. However";
         ParIds dist_pars = parameter_distribution->getParameters();
@@ -147,11 +151,16 @@ default_model::~default_model(){
 /* default_model_nll */
 default_model_nll::default_model_nll(const default_model & m, const Data & dat, const ObsIds & obs): model(m),
         data(dat), obs_ids(obs){
-    Function::par_ids = model.getParameters();
+    par_ids = model.getParameters();
 }
 
 void default_model_nll::set_additional_term(const boost::shared_ptr<Function> & term){
     additional_term = term;
+    par_ids = model.getParameters();
+    if(additional_term.get()){
+         const ParIds & pids = additional_term->getParameters();
+         par_ids.insert(pids.begin(), pids.end());
+    }
 }
 
 void default_model_nll::set_override_distribution(const boost::shared_ptr<Distribution> & d){

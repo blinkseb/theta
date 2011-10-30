@@ -120,7 +120,7 @@ llvm_module::llvm_module(const ParIds & pids_): pids(pids_), pid_to_index(create
    std::string err;
    ee =  ExecutionEngine::createJIT(module, &err, 0, CodeGenOpt::Aggressive);
    if(!ee){
-       throw FatalException("llvm_module: could not create llvm::ExecutionEngine: " + err);
+       throw Exception("llvm_module: could not create llvm::ExecutionEngine: " + err);
    }
    //define function prototype for the codegen_*_evaluate functions:
    //double codegen_f_evaluate(llvm_module* mod, void* fptr, const double * par_value);
@@ -152,7 +152,7 @@ llvm_module::llvm_module(const ParIds & pids_): pids(pids_), pid_to_index(create
 
 size_t llvm_module::get_index(const theta::ParId & pid) const{
     map<theta::ParId, size_t>::const_iterator it = pid_to_index.find(pid);
-    if(it==pid_to_index.end()) throw NotFoundException("llvm_module::get_index");
+    if(it==pid_to_index.end()) throw invalid_argument("llvm_module::get_index");
     return it->second;
 }
 
@@ -205,7 +205,7 @@ llvm::FunctionType * get_ft_function_evaluate(llvm_module & mod){
 void llvm_verify(llvm::Function* f, const std::string & fname){
     if(verifyFunction(*f, llvm::ReturnStatusAction)){
         f->dump();
-        throw FatalException("llvm_verify failed for function " + fname);
+        throw invalid_argument("llvm_verify failed for function " + fname);
     }
 }
 

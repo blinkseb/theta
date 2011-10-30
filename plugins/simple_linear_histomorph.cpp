@@ -62,7 +62,7 @@ Histogram1D simple_linear_histomorph::getConstantHistogram(const Configuration &
     if(hf->getParameters().size()!=0){
         stringstream ss;
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
-        throw InvalidArgumentException(ss.str());
+        throw ConfigurationException(ss.str());
     }
     return (*hf)(ParValues());
 }

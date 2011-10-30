@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(par_exceptions){
     try{
         v.vm.getParId("var1");
     }
-    catch(NotFoundException &){
+    catch(invalid_argument &){
         ex = true;
     }
     BOOST_REQUIRE(ex);
@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(par_exceptions){
     try{
         v.vm.createParId("par0");
     }
-    catch(InvalidArgumentException &){
+    catch(invalid_argument &){
         ex = true;
     }
     BOOST_REQUIRE(ex);
@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(exceptions_obs){
     try{
         vm.createObsId("obs0", 0, -1, 1);
     }
-    catch(InvalidArgumentException &){
+    catch(invalid_argument &){
         ex = true;
     }
     BOOST_CHECK(ex);
@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(exceptions_obs){
     try{
         vm.createObsId("obs0", 100, 1, -1);
     }
-    catch(InvalidArgumentException &){
+    catch(invalid_argument &){
         ex = true;
     }
     BOOST_CHECK(ex);
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(parvalues_basic){
     try{
         vv.get(v1);
     }
-    catch(NotFoundException &){
+    catch(invalid_argument &){
         ex = true;
     }
     BOOST_REQUIRE(ex);

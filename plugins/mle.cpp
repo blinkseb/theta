@@ -18,7 +18,7 @@ int get_index(const ParId & pid, const ParIds & pids){
    for(ParIds::const_iterator it=pids.begin(); it!=pids.end(); ++it, ++result){
       if((*it)==pid) return result;
    }
-   throw NotFoundException("get_index: no such parameter");
+   throw invalid_argument("get_index: no such parameter");
 }
 
 }

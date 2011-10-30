@@ -104,6 +104,21 @@ namespace theta{
         ParIds par_ids;
     };
     
+    /** \brief An empty distribution, not depending on any parameters
+     *
+     * This class simplifies the architecture at some places as an EmptyDistribution can take
+     * a place where "no distribution" is meant; this avoids some special cases.
+     */
+    class EmptyDistribution: public Distribution{
+    public:
+        virtual const std::pair<double, double> & support(const ParId & p) const;
+        virtual double evalNL(const ParValues & values) const{ return 0.0; }
+        virtual double evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const{ return 0.0; }
+        virtual void mode(ParValues & result) const{}
+        virtual void sample(ParValues & result, Random & rnd) const{}
+        virtual ~EmptyDistribution();
+    };
+    
     /// \brief namespace for free functions closely related to the \link Distribution Distribution\endlink class
     namespace DistributionUtils{
         

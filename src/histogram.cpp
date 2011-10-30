@@ -9,6 +9,7 @@
 #include <new>
 
 using namespace theta;
+using std::invalid_argument;
 
 namespace{
    int n_allocs = 0;
@@ -89,7 +90,7 @@ void DoubleVector::reset_n(size_t new_n){
 }
 
 Histogram1D::Histogram1D(size_t b, double x_min, double x_max) : DoubleVector(b), xmin(x_min), xmax(x_max) {
-    if(xmin >= xmax) throw InvalidArgumentException("Histogram: xmin >= xmax not allowed");
+    if(xmin >= xmax) throw invalid_argument("Histogram: xmin >= xmax not allowed");
     set_all_values(0.0);
 }
 
@@ -106,7 +107,7 @@ Histogram1D::~Histogram1D() {
 }
 
 void Histogram1D::reset_range(double x_min, double x_max){
-    if(size() > 0 && x_min >= x_max) throw InvalidArgumentException("Histogram: xmin >= xmax not allowed");
+    if(size() > 0 && x_min >= x_max) throw invalid_argument("Histogram: xmin >= xmax not allowed");
     xmin = x_min;
     xmax = x_max;
 }
@@ -137,7 +138,7 @@ void Histogram1D::fail_check_compatibility(const Histogram1D & h) const {
         s <<  "Histogram::check_compatibility: Histograms are not compatible (nbins, xmin, xmax) are: "
               " (" << get_nbins() << ", " << xmin << ", " << xmax << ") and "
               " (" << h.get_nbins() << ", " << h.xmin << ", " << h.xmax << ")";
-        throw InvalidArgumentException(s.str());
+        throw invalid_argument(s.str());
     }
 }
 

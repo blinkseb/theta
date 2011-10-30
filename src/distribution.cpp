@@ -15,3 +15,11 @@ void theta::DistributionUtils::fillModeSupport(theta::ParValues & mode,
 }
 
 theta::Distribution::~Distribution(){}
+
+
+theta::EmptyDistribution::~EmptyDistribution(){}
+
+
+const std::pair<double, double> & theta::EmptyDistribution::support(const ParId & p) const{
+    throw std::invalid_argument("EmptyDistribution::support not implemented");
+}

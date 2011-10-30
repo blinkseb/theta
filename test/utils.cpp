@@ -36,8 +36,8 @@ void load_core_plugins(){
     try{
         PluginLoader::load("lib/core-plugins.so");
     }
-    catch(FatalException & ex){
-      std::cout << ex.message << std::endl;
+    catch(exception & ex){
+      std::cout << "std::exception in load_core_plugins: " << ex.what() << std::endl;
       throw;
     }
     BOOST_TEST_CHECKPOINT("loaded core plugin");
@@ -51,7 +51,7 @@ bool load_root_plugins(){
     try{
         PluginLoader::load("lib/root.so");
     }
-    catch(FatalException & ex){
+    catch(exception & ex){
         return false;
     }
     BOOST_TEST_CHECKPOINT("loaded root plugin");
@@ -66,8 +66,8 @@ bool load_llvm_plugins(){
     try{
         PluginLoader::load("lib/llvm-plugins.so");
     }
-    catch(FatalException & ex){
-        std::cout << "error loagin llvm plugins: " << ex.message << endl;
+    catch(exception & ex){
+        //std::cout << "error loadin llvm plugins: " << ex.message << endl;
         return false;
     }
     BOOST_TEST_CHECKPOINT("loaded llvm plugin");

@@ -77,7 +77,7 @@ Histogram1D cubiclinear_histomorph::getConstantHistogram(const Configuration & c
     if(hf->getParameters().size()!=0){
         stringstream ss;
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
-        throw InvalidArgumentException(ss.str());
+        throw invalid_argument(ss.str());
     }
     return (*hf)(ParValues());
 }

@@ -95,9 +95,9 @@ llvm_model::~llvm_model(){}
 void llvm_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<theta::Function> & coeffs_, boost::ptr_vector<HistogramFunction> & histos_){
     observables.insert(obs_id);
     const size_t n = coeffs_.size();
-    if(n!=coeffs_.size()) throw InvalidArgumentException("Model::setPrediction: number of histograms and coefficients do not match");
+    if(n!=coeffs_.size()) throw invalid_argument("Model::setPrediction: number of histograms and coefficients do not match");
     if(histos[obs_id].size()>0 || coeffs[obs_id].size()>0)
-        throw InvalidArgumentException("Model::setPrediction: prediction already set for this observable");
+        throw invalid_argument("Model::setPrediction: prediction already set for this observable");
     coeffs[obs_id].transfer(coeffs[obs_id].end(), coeffs_.begin(), coeffs_.end(), coeffs_);
     histos[obs_id].transfer(histos[obs_id].end(), histos_.begin(), histos_.end(), histos_);
     for(boost::ptr_vector<theta::Function>::const_iterator it=coeffs[obs_id].begin(); it!=coeffs[obs_id].end(); ++it){
@@ -119,15 +119,15 @@ void llvm_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<theta::F
 
 void llvm_model::get_prediction(Data & result, const ParValues & parameters) const {
     if(!(parameters.getParameters()==this->parameters)){
-        throw InvalidArgumentException("deault_model::get_prediction: parameters was incomplete");
+        throw invalid_argument("llvm_model::get_prediction: parameters was incomplete");
     }
     if(llvm_always){
         if(model_get_prediction==0) generate_llvm();
-        Histogram1D pred_concat(get_total_nbins(observables, *vm));
+        Histogram1D pred_concat(get_total_nbins(observables, vm));
         vector<double> parameter_values;
         get_par_values(parameter_values, parameters, this->parameters);
         model_get_prediction(&parameter_values[0], pred_concat.getData());
-        get_data_from_concatenated(result, pred_concat, observables, *vm);
+        get_data_from_concatenated(result, pred_concat, observables, vm);
         return;
     }
     
@@ -220,7 +220,7 @@ void llvm_model::generate_llvm() const {
             set_private_inline(histo_function);
             Builder.CreateCall3(histo_function, coeff, par_values, data_iobs);
         }
-        obs_offset += vm->getNbins(h_it->first);
+        obs_offset += vm.getNbins(h_it->first);
         if(obs_offset % 2) ++obs_offset;
     }
     Builder.CreateRetVoid();
@@ -233,7 +233,7 @@ void llvm_model::generate_llvm() const {
 
 std::auto_ptr<NLLikelihood> llvm_model::getNLLikelihood(const Data & data) const{
     if(not(data.getObservables()==observables)){
-        throw FatalException("Model::createNLLikelihood: observables of model and data mismatch!");
+        throw invalid_argument("Model::createNLLikelihood: observables of model and data mismatch!");
     }
     if(model_get_prediction == 0){
         generate_llvm();
@@ -242,13 +242,14 @@ std::auto_ptr<NLLikelihood> llvm_model::getNLLikelihood(const Data & data) const
 }
 
 
-llvm_model::llvm_model(const Configuration & ctx): Model(ctx.pm->get<VarIdManager>()), llvm_always(false), model_get_prediction(0){
+llvm_model::llvm_model(const Configuration & ctx): vm(*ctx.pm->get<VarIdManager>()),
+ llvm_always(false), model_get_prediction(0){
     SettingWrapper s = ctx.setting;
-    ObsIds observables = vm->getAllObsIds();
+    ObsIds observables = vm.getAllObsIds();
     llvm_pb_sentinel b;
     //go through observables to find the template definition for each of them:
     for (ObsIds::const_iterator obsit = observables.begin(); obsit != observables.end(); obsit++) {
-        string obs_name = vm->getName(*obsit);
+        string obs_name = vm.getName(*obsit);
         if(not s.exists(obs_name)) continue;
         SettingWrapper obs_setting = s[obs_name];
         boost::ptr_vector<HistogramFunction> histos;
@@ -275,9 +276,9 @@ llvm_model::llvm_model(const Configuration & ctx): Model(ctx.pm->get<VarIdManage
         for(ParIds::const_iterator p_it=all_pars.begin(); p_it!=all_pars.end(); ++p_it){
             if(m_pars.contains(*p_it) && dist_pars.contains(*p_it)) continue;
             if(m_pars.contains(*p_it)){
-               ss << ", the model depends on '"<< vm->getName(*p_it) << "' which the parameter distribution does not include";
+               ss << ", the model depends on '"<< vm.getName(*p_it) << "' which the parameter distribution does not include";
             }
-            else ss << ", the parameter distribution depends on '" << vm->getName(*p_it) << "' which the model does not depend on";
+            else ss << ", the parameter distribution depends on '" << vm.getName(*p_it) << "' which the model does not depend on";
         }
         throw ConfigurationException(ss.str());
     }
@@ -291,13 +292,18 @@ llvm_model::llvm_model(const Configuration & ctx): Model(ctx.pm->get<VarIdManage
 llvm_model_nll::llvm_model_nll(const llvm_model & m, const Data & dat, t_model_get_prediction model_get_prediction_): model(m),
   model_get_prediction(model_get_prediction_){
     theta::Function::par_ids = model.getParameters();
-    get_concatenated_from_data(data_concatenated, dat, *model.vm);
+    get_concatenated_from_data(data_concatenated, dat, model.vm);
     pred_concatenated.reset_n(data_concatenated.size());
     parameter_values.resize(par_ids.size());
 }
 
 void llvm_model_nll::set_additional_term(const boost::shared_ptr<theta::Function> & term){
     additional_term = term;
+    par_ids = model.getParameters();
+    if(additional_term.get()){
+         const ParIds & pids = additional_term->getParameters();
+         par_ids.insert(pids.begin(), pids.end());
+    }
 }
 
 void llvm_model_nll::set_override_distribution(const boost::shared_ptr<Distribution> & d){

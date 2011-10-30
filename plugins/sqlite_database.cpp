@@ -148,7 +148,7 @@ sqlite_database::sqlite_table::sqlite_table(const string & name_, const boost::s
 }
 
 Column sqlite_database::sqlite_table::add_column(const std::string & name, const data_type & type){
-    if(table_created) throw FatalException("sqlite_table::add_column called after table already created (via call to set_column / add_row).");
+    if(table_created) throw invalid_argument("sqlite_table::add_column called after table already created (via call to set_column / add_row).");
     if(!save_all_columns && save_columns.find(name) == save_columns.end()) return Column(-1);
     if(column_definitions.str().size() > 0)
         column_definitions << ", ";
@@ -161,7 +161,7 @@ Column sqlite_database::sqlite_table::add_column(const std::string & name, const
         case typeString: column_definitions << "TEXT"; break;
         case typeHisto: column_definitions << "BLOB"; break;
         default:
-            throw InvalidArgumentException("Table::add_column: invalid type parameter given.");
+            throw invalid_argument("Table::add_column: invalid type parameter given.");
     };
     if(ss_insert_statement.str().size() > 0)
         ss_insert_statement << ", ";

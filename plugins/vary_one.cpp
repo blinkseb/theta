@@ -22,7 +22,7 @@ void vary_one::sample(ParValues & result, Random &) const{
           k-= other_values[i].second.size();
        }
     }
-    throw FatalException("logic error in vary_one::sample");
+    theta_assert(false);
 }
 
 vary_one::vary_one(const theta::Configuration & cfg): next_index(0), n_total(1){

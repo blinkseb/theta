@@ -7,6 +7,156 @@ inf = float("inf")
 
 #TODO:
 # * support for studies using +-1sigma toy / asimov data as input and re-run the method --> input='toys:scan-nuisance[-asimov]'?
+# * support additional_nll_term everywhere:
+#   - producers set additional-ll-term
+#   - producers add additional terms in override-parameter-distribution
+#  => make a base class Producer which contains takes care of these two!
+# * switch Function to the one defined in FunctionBase
+
+
+# base class for producers, providing consistent approach to override_parameter_distribution
+# and additional_nll_term
+class ProducerBase:
+    def gef_cfg(self, parameters): pass
+    
+    # model_parameters is the list of parameters (not necesarily those of additional_nll_term)
+    def get_cfg_base(self, model, signal_processes):
+        result = {'name': self.name}
+        if self.override_parameter_distribution is not None:
+            parameters = set(model.get_parameters(signal_processes))
+            if model.additional_nll_term is not None:
+                parameters.update(model.additional_nll_term.get_parameters())
+            result['override-parameter-distribution'] = self.override_parameter_distribution.get_cfg(parameters)
+        if model.additional_nll_term is not None:
+            result['additional-nll-term'] = model.additional_nll_term.get_cfg()
+        return result
+    
+    def __init__(self, parameter_dist, name):
+        self.override_parameter_distribution = None
+        self.name = name
+    
+
+class MleProducer(ProducerBase):
+    def __init__(self, parameter_dist, name = 'mle'):
+        ProducerBase.__init__(self, parameter_dist, name)
+        
+    # parameters_write is the list of parameters to write the mle for in the db. The default (None) means
+    # to use all parameters.
+    def get_cfg(self, model, signal_processes, parameters_write = None):
+        model_parameters = model.get_parameters(signal_processes)
+        if parameters_write is None: parameters_write = model_parameters
+        result = {'type': 'mle', 'minimizer': minimizer(), 'parameters': list(parameters_write)}
+        result.update(self.get_cfg_base(model, signal_processes))
+        return result
+
+
+#the class for the configuration of the "main" path and common options.
+class MainBase:
+    def __init__(self, root_plugins = True):
+        self.cfg_options = {'plugin_files': ['$THETA_DIR/lib/core-plugins.so']}
+        if root_plugins: self.cfg_options['plugin_files'].append('$THETA_DIR/lib/root.so')
+        
+class Run(MainBase):
+    def __init__(self, n_events, data_source_dict, model_dist, root_plugins = True):
+        MainBase.__init__(self, root_plugins)
+        self.n_events = n_events
+        self.producers = []
+        self.data_source_dict = data_source_dict
+        self.model_dist = model_dist
+        
+    def add_producer(self, producer):
+        self.producers.append(producer)
+        
+    def get_cfg(self, model, signal_processes):
+        main = {'n-events': self.n_events, 'producers': [], 'log-report': False, 'output_database': sqlite_database(), 'model': "@model", 'data_source': self.data_source_dict}
+        toplevel_settings = {'main': main, 'options': self.cfg_options, 'model': model.get_cfg(signal_processes)}
+        model_parameters = model.get_parameters(signal_processes)
+        toplevel_settings['model']['parameter-distribution'] = Distribution.merge(model.distribution, self.model_dist).get_cfg(model_parameters)
+        for p in self.producers:
+            toplevel_settings['p%s' % p.name] = p.get_cfg(model, signal_processes)
+            main['producers'].append('@p%s' % p.name)
+        return toplevel_settings
+        
+
+def model_signal_prior_dist(input_spec):
+    if input_spec.startswith('toys:') or input_spec.startswith('toys-asimov:'):
+        beta_signal_value = float(input_spec[input_spec.find(':') + 1:])
+    else: beta_signal_value = 0.0
+    result = Distribution()
+    result.set_distribution('beta_signal', 'gauss', beta_signal_value, 0.0, [beta_signal_value, beta_signal_value])
+    return result
+
+def signal_prior_dist(spec):
+    result = Distribution()
+    if type(spec) == str:
+        if spec.startswith('flat'):
+            if spec.startswith('flat:'):
+                res = re.match('flat:\[([^,]+),(.*)\]', spec)
+                if res is None: raise RuntimeError, "signal_prior specification '%s' invalid (does not match range specification syntax)" % spec
+                xmin, xmax = float(res.group(1)), float(res.group(2))
+            else:
+                if spec!='flat': raise RuntimeError, "signal_prior specification '%s' invalid" % spec
+                xmin, xmax = 0.0, float("inf")
+            value = 0.5 * (xmax - xmin)
+            if value==float("inf"): value = 1.0
+            result.set_distribution('beta_signal', 'gauss', value, float("inf"), [xmin, xmax])
+            return result
+        elif spec.startswith('fix:'):
+            v = float(spec[4:])
+            result.set_distribution('beta_signal', 'gauss', v, 0.0, [v,v])
+            return result
+        else: raise RuntimeError, "signal_prior specification '%s' unknown" % spec
+    else:
+        if not isinstance(spec,Distribution): raise RuntimeError, "signal_prior specification has to be a string ('flat' / 'fix:X') or a Distribution instance!"
+        return spec
+
+
+def write_cfg2(main, model, signal_processes, method, input, id = None, **options):
+    all_parameters = model.get_parameters(signal_processes)
+    if model.additional_nll_term is not None: all_parameters.update(model.additional_nll_term.get_parameters())
+    all_parameters = sorted(list(all_parameters))
+    theta_cfg = "parameters = " + settingvalue_to_cfg(all_parameters, 0, ['parameters']) + ";\n"
+    obs = {}
+    for o in model.observables:
+        xmin, xmax, nbins = model.observables[o]
+        obs[o] = {'range': [xmin, xmax], 'nbins': nbins}
+    theta_cfg += "observables = " + settingvalue_to_cfg(obs, 0, ['observables']) + ";\n"
+    cfg = main.get_cfg(model, signal_processes)
+    cfg['main']['output_database']['filename'] = '@output_name';
+    for s in cfg:
+        theta_cfg += s + " = " + settingvalue_to_cfg(cfg[s]) + ";\n"
+    m = hashlib.md5()
+    m.update(theta_cfg)
+    hash = m.hexdigest()[:10]
+    if id is None:
+        name = '%s-%s-%s-%s' % (method, ''.join(signal_processes), input, hash)
+    else:
+        name = '%s-%s-%s-%s-%s' % (method, ''.join(signal_processes), input, id, hash)
+    f = open(os.path.join(global_config.workdir, name + '.cfg'), 'w')
+    print >>f, theta_cfg
+    print >>f, 'output_name = "%s.db";\n' % name
+    f.close()
+    return name
+
+    
+
+def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 'shape:fix', signal_processes = None, n = 1, **options):
+    if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
+    nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
+    signal_prior_spec = signal_prior
+    signal_prior = signal_prior_dist(signal_prior)
+    model_signal_prior = model_signal_prior_dist(input)
+    data_source_dict, model_dist_signal_dict = utils.data_source_dict(model, input)
+    for sp in signal_processes:
+        main = Run(n, data_source_dict, model_signal_prior)
+        mle = MleProducer(Distribution.merge(signal_prior, nuisance_constraint))
+        main.add_producer(mle)
+        name = write_cfg2(main, model, sp, 'ml_fit', input)
+        print name
+        
+    
+    
+
 
 
 ## \page theta_auto_intro Introduction to theta-auto
@@ -425,8 +575,10 @@ def pl_intervals(model, input = 'toys:0', n = 100, nuisance_constraint = '', cls
     nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
     main = {'n-events': n, 'model': '@model', 'producers': ('@deltanll_interval',), 'output_database': sqlite_database(), 'log-report': False}
     deltanll_interval = {'type': 'deltanll_intervals', 'name': 'deltanll', 'parameter': 'beta_signal',
-       'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_constraint"),
+       'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_constraint", "@additional_pars_dist"),
        'clevels': cls, 'minimizer': minimizer(need_error = False)}
+    if model.additional_nll_term is not None:
+        deltanll_interval['additional-nll-term'] = model.additional_nll_term.get_cfg()
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     toplevel_settings = {'signal_prior': signal_prior_dict, 
                 'model-distribution-signal': delta_distribution(beta_signal = beta_signal_value), 'deltanll_interval': deltanll_interval, 'main': main,
@@ -436,6 +588,13 @@ def pl_intervals(model, input = 'toys:0', n = 100, nuisance_constraint = '', cls
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_constraint'] = nuisance_constraint.get_cfg(model_parameters)
+        if 'beta_signal' in model_parameters: toplevel_settings['signal_prior'] = signal_prior_dict
+        else: toplevel_settings['signal_prior'] = product_distribution()
+        toplevel_settings['additional_pars_dist'] = {'type': 'flat_distribution'}
+        if model.additional_nll_term is not None:
+            additional_pars = set(model.additional_nll_term.get_parameters()).difference(model_parameters)
+            for p in additional_pars:
+                toplevel_settings['additional_pars_dist'][p] = {'range': ("-inf", "inf"), "fix-sample-value": 0.0 }
         name = write_cfg(model, sp, 'deltanll_intervals', input, additional_settings = toplevel_settings)
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:

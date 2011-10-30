@@ -7,4 +7,4 @@ from bayesian import *
 #from neyman import *
 from cls_limits import *
 import higgs_datacard
-
+from Function import *

@@ -6,6 +6,8 @@
 #include "interface/main.hpp"
 #include "interface/redirect_stdio.hpp"
 
+#include "interface/database.hpp"
+
 #include "libconfig/libconfig.h++"
 
 #include <boost/filesystem.hpp>
@@ -116,7 +118,6 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
     Config cfg;
     boost::shared_ptr<SettingUsageRecorder> rec(new SettingUsageRecorder());
     boost::shared_ptr<Main> main;
-    boost::shared_ptr<VarIdManager> vm(new VarIdManager);
     bool init_complete = false;
     try {
         try {
@@ -146,7 +147,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
         
         SettingWrapper root(cfg.getRoot(), cfg.getRoot(), rec);
         Configuration config(root);
-        config.pm->set("default", vm);
+        config.pm->set("default", boost::shared_ptr<VarIdManager>(new VarIdManager));
         
         //process options:
         Configuration cfg_options(config, config.setting["options"]);
@@ -264,8 +265,12 @@ int main(int argc, char** argv) {
         theta::cerr << "An error ocurred in Main::run: " << ex.what() << endl;
         return 1;
     }
-    catch(FatalException & ex){
-        theta::cerr << "A fatal error ocurred in Main::run: " << ex.message << endl;
+    catch(logic_error & ex){
+        theta::cerr << "A logic error ocurred in Main::run: " << ex.what() << endl;
+        return 1;
+    }
+    catch(exception & ex){
+        theta::cerr << "An unspecified exception ocurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     if(theta::stop_execution){

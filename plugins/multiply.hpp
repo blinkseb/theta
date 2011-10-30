@@ -2,8 +2,7 @@
 
 /** \brief A Function which multiplies different factors which can be parameters, literal values and other Functions
  *
- * It is a generalization of the \link mult mult \endlink plugin and accepts more types of factors, namely
- * constant values and other Functions.
+ * It is the counterpart of the \link add add \endlink plugin.
  *
  * Example configuration:
  * \code
@@ -27,8 +26,6 @@
  */
 class multiply: public theta::Function{
 public:
-    /** \brief Construct a MultFunction from a Configuration instance
-     */
     multiply(const theta::Configuration & cfg);
     virtual double operator()(const theta::ParValues & v) const;
 private:

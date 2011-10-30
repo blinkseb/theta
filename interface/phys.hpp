@@ -71,6 +71,19 @@ namespace theta {
         mutable ParValues pv; //saving this class-wide and not in operator()(const double*) saves quiet some time ...
     };
     
+    /// Brief Function returning the value of one specific parameter
+    class IdFunction: public Function{
+    private:
+        ParId pid;
+    public:
+        IdFunction(const ParId & pid_): pid(pid_){
+            par_ids.insert(pid);
+        }
+        double operator()(const ParValues & values)const{
+            return values.get(pid);
+        }
+    };
+    
     
     /** \brief Contains data for one or more observables
      *  
@@ -98,7 +111,7 @@ namespace theta {
          *
          * The const version is usually only used to read a previously set
          * Histogram. If no Histogram is saved for the supplied observable id,
-         * a NotFoundException will be thrown from the const version.
+         * a invalid_argument exception will be thrown from the const version.
          */
         ///@{
         Histogram1D & operator[](const ObsId & id){

@@ -35,7 +35,7 @@ double SettingWrapper::get_double_or_inf() const {
     if(infstring == "-inf") return -numeric_limits<double>::infinity();
     stringstream error;
     error << "error reading double (or \"inf\") from configuration path " << getPath();
-    throw InvalidArgumentException(error.str());
+    throw ConfigurationException(error.str());
 }
 
 const Setting & SettingWrapper::resolve_link(const Setting & setting, const Setting & root, const boost::shared_ptr<SettingUsageRecorder> & rec){

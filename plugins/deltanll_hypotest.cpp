@@ -26,7 +26,7 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
     if(not init){
         ParIds model_pars = model.getParameters();
         if(not (s_plus_b->getParameters() == model_pars) or not (b_only->getParameters() == model_pars)){
-            throw FatalException(Exception("parameters in s+b / b only distributions do not coincide with model parameters"));
+            throw std::invalid_argument("parameters in s+b / b only distributions do not coincide with model parameters");
         }
         s_plus_b_width.set(asimov_likelihood_widths(model, s_plus_b));
         b_only_width.set(asimov_likelihood_widths(model, b_only));

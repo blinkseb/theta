@@ -30,7 +30,7 @@ private:
 
 }
 
-theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution){
+theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution, const boost::shared_ptr<theta::Function> & additional_nll_term){
     const Distribution & dist = override_parameter_distribution.get()? *override_parameter_distribution: model.get_parameter_distribution();
     ParIds parameters = model.getParameters();
     ParValues mode;
@@ -40,6 +40,11 @@ theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boos
     std::auto_ptr<NLLikelihood> nll = model.getNLLikelihood(asimov_data);
     //0 value has same semantics for NLLikelihood:
     nll->set_override_distribution(override_parameter_distribution);
+    nll->set_additional_term(additional_nll_term);
+    if(additional_nll_term.get()){
+        const ParIds & additional_pars = additional_nll_term->getParameters();
+        parameters.insert(additional_pars.begin(), additional_pars.end());
+    }
     double nll_at_min = (*nll)(mode);
     ParValues result;
     int k=0;

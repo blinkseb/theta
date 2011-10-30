@@ -18,6 +18,6 @@ ObsIds Data::getObservables() const{
 }
 
 void Data::fail_get(const ObsId & oid) const{
-    throw NotFoundException("Data::operator[]() const: no data found for given ObsId");
+    throw std::invalid_argument("Data::operator[]() const: no data found for given ObsId");
 }
 

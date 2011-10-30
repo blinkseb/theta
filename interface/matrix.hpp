@@ -38,7 +38,7 @@ public:
 
     /** \brief Detemines the cholesky decomposition of this matrix in-place.
      * 
-     * Throws a MathException if this Matrix is not square, not symmetric, or not positive definite.
+     * Throws a range_error if this Matrix is not square, not symmetric, or not positive definite.
      */
     void cholesky_decomposition();
 
@@ -71,10 +71,10 @@ public:
     /** \brief Add other matrix to this
      *
      * \c other must have the same number of rows and columns. Otherwise,
-     * an InvalidArgumentException is thrown.
+     * an invalid_argument exception is thrown.
      */
     const Matrix & operator+=(const Matrix & other){
-        if(rows!=other.rows || cols!=other.cols) throw InvalidArgumentException("Matrix::operator+= called for matrices of different dimensions");
+        if(rows!=other.rows || cols!=other.cols) throw std::invalid_argument("Matrix::operator+= called for matrices of different dimensions");
         for(size_t i=0; i<elements.size(); ++i){
             elements[i] += other.elements[i];
         }
@@ -84,7 +84,7 @@ public:
     /** \brief Add two matrices
      *
      * \c other must have the same number of rows and columns. Otherwise,
-     * an InvalidArgumentException is thrown.
+     * an invalid_argument exception is thrown.
      */
     Matrix operator+(const Matrix & other) const{
         Matrix result(*this);

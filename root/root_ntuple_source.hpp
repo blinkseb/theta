@@ -105,7 +105,7 @@ public:
     virtual void fill(theta::Data & data_out);
     
     virtual std::auto_ptr<theta::DataSource> clone(const theta::PropertyMap & pm) const{
-        throw theta::InvalidArgumentException("clone not implemented for root_ntuple_source");;
+        throw std::invalid_argument("clone not implemented for root_ntuple_source");
     }
     
 private:
