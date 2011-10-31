@@ -63,10 +63,10 @@ std::auto_ptr<product_type> PluginManager<product_type>::build(const Configurati
            if (pm.factories[i]->get_typename() != type) continue;
            try {
                result = pm.factories[i]->build(ctx);
-           }catch (std::exception & ex) {
+           }catch (theta::Exception & ex) {
                std::stringstream ss;
                ss << "Error while constructing plugin according to configuration path '" << ctx.setting.getPath()
-                   << "' (type='" << type << "'): " << ex.what();
+                   << "' (type='" << type << "'): " << ex.message;
                throw ConfigurationException(ss.str());
            }
        }
