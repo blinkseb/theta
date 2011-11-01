@@ -93,10 +93,23 @@ public:
     }
 };
 
+
+class BlackholeProductsSink: public ProductsSink{
+public:
+    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
+        return Column(0);
+    }
+    virtual void set_product(const Column & c, double d){ }
+    virtual void set_product(const Column & c, int k){ }
+    virtual void set_product(const Column & c, const std::string & s){ }
+    virtual void set_product(const Column & c, const Histogram1D & h){ }
+};
+
 class SaveDoubleColumn: public ProductsSink{
 private:
     string column_name;
     double value;
+    bool value_set;
 public:
     virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
         string colname = source.getName() + "__" + product_name;
@@ -104,7 +117,10 @@ public:
     }
     
     virtual void set_product(const Column & c, double d){
-        if(c.get_id()==1) value = d;
+        if(c.get_id()==1){
+            value_set = true;
+            value = d;
+        }
     }
     virtual void set_product(const Column & c, int i){
     }
@@ -113,11 +129,13 @@ public:
     virtual void set_product(const Column & c, const Histogram1D & h){
     }
     
-    double get_value() const{
+    double consum_value() {
+        if(!value_set) throw invalid_argument("column name '" + column_name + "' not set");
+        value_set = false;
         return value;
     }
     
-    explicit SaveDoubleColumn(const string & name): column_name(name), value(NAN){}
+    explicit SaveDoubleColumn(const string & name): column_name(name), value(NAN), value_set(false){}
 };
 
 
@@ -501,7 +519,7 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
               throw logic_error(ss.str());
         }
         if(!error){
-            if(sdc.get()) ts_values.push_back(sdc->get_value());
+            if(sdc.get()) ts_values.push_back(sdc->consum_value());
             products_table->add_row(runid, eventid);
         }
         if(progress_listener){
@@ -688,7 +706,10 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
             expected_bands = s["expected_bands"];
         }
         if(s.exists("data_source")){
+            boost::shared_ptr<ProductsSink> sink = cfg.pm->get<ProductsSink>();
+            cfg.pm->set("default", boost::shared_ptr<ProductsSink>(new BlackholeProductsSink()));
             data_source = PluginManager<DataSource>::build(Configuration(cfg, s["data_source"]));
+            cfg.pm->set("default", sink);
         }
         if(s.exists("reltol_limit")) reltol_limit = s["reltol_limit"];
         if(s.exists("limit_hint")){
@@ -789,7 +810,7 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
             ex.message += " (while running ts_producer for current_data)";
             throw;
         }
-        double ts = sdc->get_value() + ts_epsilon;
+        double ts = sdc->consum_value() + ts_epsilon;
         // for truth!=0, check if ts is an outlier and if it is, reject this toy by throwing an OutlierException:
         if(*it!=0){
             if(tts->is_outlier(*it, ts, ts_epsilon)){

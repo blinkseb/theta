@@ -239,9 +239,10 @@ class Model:
                 if proc in signal_processes:
                     result[o][proc]['coefficient-function']['factors'].append('beta_signal')
         return result
-        
+
 
 # a function multiplying 1d functions.
+# TODO: Replace by FunctionBase ...
 class Function:
     def __init__(self):
         self.value = 1.0

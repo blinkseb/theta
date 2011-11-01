@@ -71,13 +71,14 @@ class truth_ts_values;
  * };
  * \endcode
  * 
- * Toys are drawn from the \c model with different values for the signal parameter given in \c truth_parameter (all other
- * parameters are drawn randomly from the model's parameter distribution). For each toy, the \c producer is run and the
+ * For the construction of CLs limits, toys are drawn from the \c model with different values for the signal parameter
+ * given in \c truth_parameter (all other parameters are drawn randomly from the model's parameter distribution). For each toy, the \c producer is run and the
  * value from the given \c ts_column is used as test statistic for the construction of CLs limits.
  *
  * \c data_source and \c expected_bands control for which data / test statistic the limits are calculated. \c data_source
- * is a data source and used to calculate the <em>observed</em> limit; provide the actual data here. If \c expected_bands is greater than 0,
- * it specifies the number of background-only toys to dice to determine the central expected, +-1sigma and +-2sigma bands of expected limits.
+ * is a data source and used to calculate the <em>observed</em> limit; provide the actual data here (do <em>not</em> use a random
+ * data source here, this is not meaningful). \c expected_bands 
+ * specifies the number of background-only toys to dice to determine the expected limits.
  *
  * The calculation of CLs limits in general requires making a large number of toys at different truth values, to scan for the 
  * desired CLs value 1 - cl. How many toys are drawn and where is done automatically and is driven by \c reltol_limit:
@@ -92,10 +93,12 @@ class truth_ts_values;
  * The products produced by each toy is used immidiately for the construction of the CLs limits.
  * They are also written to the \c output_database. The tables are the same as for theta::Run. In addition, the table
  * "cls_limits" is created which contains the columns "index", "limit", and "limit_uncertainty".
- * The "index" specifies on which data the limit was computed: 0 for actual data (from data_source), all other values for
- * background-only toys.
+ * The "index" column specifies on which data the limit was computed: 0 for actual data (from data_source), all other values for
+ * background-only toys. In total, the "cls_limits" table should contain \c expected_bands rows and \c expected_rows + 1, if data_source
+ * is non-empty. However, the limit computation might not converge for all toys and some limits might be missing. Also note that
+ * a limit of infinity is reported for toys with very low CLb value, in order to save computing time.
  * 
- * \c debuglog is the filename of the debug log. Debug output is only written if a filename is given here.
+ * \c debuglog is the filename of the debug log. If not filename is given, not debug output is written.
  *
  * The indicated progress and errors refer to the number of toys produced. It is hard to tell how many toys are
  * necessary; aside the more obvious things like \c reltol_limit, the number of required toys 

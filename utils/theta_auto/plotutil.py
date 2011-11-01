@@ -102,7 +102,7 @@ extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None):
     if logx: ax.set_xscale('log')
     add_xlabel(ax, xlabel, fontproperties=fp)
     add_ylabel(ax, ylabel, fontproperties=fp)
-    if title_ul is not None: ax.text(0.0, 1.02, title, transform = ax.transAxes, ha='left', va='bottom')
+    if title_ul is not None: ax.text(0.0, 1.02, title_ul, transform = ax.transAxes, ha='left', va='bottom')
     if title_ur is not None: ax.text(1.0, 1.02, title_ur, transform = ax.transAxes, ha='right', va='bottom')
     draw_legend = False
     for histo in histos:

@@ -108,7 +108,7 @@ def nuisance_prior_distribution(model, spec):
 
 # get mean and rms estimate from list l:
 def get_mean_width(l):
-   n = len(l)
+   n = len(l) * 1.0
    assert n > 0
    mean = sum(l) / n
    if n == 1: width = float('inf')

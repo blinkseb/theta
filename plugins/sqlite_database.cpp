@@ -65,9 +65,7 @@ void sqlite_database::close() {
     // that the error is recoverable ...
     db = 0;
     if (res != 0) {
-        stringstream ss;
-        ss << "Database::close(): sqlite3_close() returned " << res;
-        throw DatabaseException(ss.str());
+        error("sqlite_database::close()");
     }
 }
 
@@ -76,7 +74,7 @@ sqlite_database::~sqlite_database() {
     try {
         close();
     } catch (Exception & e) {
-        theta::cerr << "Exception while closing database in destructor: " << e.message << endl << "Ingoring." << endl;
+        theta::cerr << "Exception in sqlite_database destructor: " << e.message << endl << "Ingoring." << endl;
     }
 }
 
@@ -98,11 +96,10 @@ void sqlite_database::exec(const string & query) {
     sqlite3_exec(db, query.c_str(), 0, 0, &err);
     if (err != 0) {
         stringstream ss;
-        ss << "Database.exec(\"" << query << "\") returned error: " << err;
+        ss << "sqlite_database::exec(\"" << query << "\") returned error: " << err;
         sqlite3_free(err);
         //database errors should not happen at all. If they do, we cannot use the log table, so write the error
         // to stderr, so the user knows what has happened:
-        theta::cerr << "SQL error: " << ss.str() << endl;
         throw DatabaseException(ss.str());
     }
 }
@@ -127,7 +124,7 @@ sqlite3_stmt* sqlite_database::prepare(const string & sql) {
 
 void sqlite_database::error(const string & functionName) {
     stringstream ss;
-    ss << "Error in function " << functionName << ": Database said '" << sqlite3_errmsg(db) << "'";
+    ss << "Error in function " << functionName << ": sqlite said '" << sqlite3_errmsg(db) << "'";
     throw DatabaseException(ss.str());
 }
 
