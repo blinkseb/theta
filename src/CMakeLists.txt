@@ -1,9 +1,9 @@
 file(GLOB libtheta_sources *.cpp)
 
 if(generic)
-   set(libtheta_sources ${libtheta_sources} log2_dot.cxx)
+   set(libtheta_sources ${libtheta_sources} log2_dot.cxx atomic.cxx)
 else()
-   set(libtheta_sources ${libtheta_sources} log2_dot.s)
+   set(libtheta_sources ${libtheta_sources} log2_dot.s atomic.s atomic_asserts.cxx)
 endif()
 
 add_library(libtheta SHARED ${libtheta_sources})

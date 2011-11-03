@@ -46,6 +46,10 @@ namespace theta{
     class NLLikelihood;
     
     class SettingWrapper;
+    class atomic_int;
+
+    class ToyMaker;
+    class BufferingProductsSink;
 }
 
 #endif

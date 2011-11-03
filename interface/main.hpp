@@ -11,10 +11,8 @@ namespace theta{
  * should return as soon as possible without violating the consistency of the result, if possible.
  *
  * This variable is set to true once theta receives SIGINT.
- *
- * It is defined in run.cpp.
  */
-extern bool stop_execution;
+extern volatile bool stop_execution;
 
 /** \brief Install the SIGINT signal handler which sets stop_execution
  *
@@ -85,3 +83,4 @@ protected:
 }
 
 #endif
+

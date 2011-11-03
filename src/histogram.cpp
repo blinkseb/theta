@@ -12,11 +12,8 @@ using namespace theta;
 using std::invalid_argument;
 
 namespace{
-   int n_allocs = 0;
-   int n_frees = 0;
 
    double * allocate_doubles(size_t n){
-      ++n_allocs;
       double * result = 0;
       const size_t n_orig = n;
       //always allocate an even number of bins:
@@ -35,14 +32,8 @@ namespace{
    
    // note: data can be NULL
    void free_doubles(double * data){
-      ++n_frees;
       free(data);
    }
-}
-
-void get_allocs_frees(int & n_alls, int & n_frs){
-    n_alls = n_allocs;
-    n_frs = n_frees;
 }
 
 DoubleVector::DoubleVector(size_t n): data(0), n_data(n){

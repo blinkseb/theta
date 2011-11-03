@@ -101,13 +101,17 @@ class truth_ts_values;
  * \c debuglog is the filename of the debug log. If not filename is given, not debug output is written.
  *
  * The indicated progress and errors refer to the number of toys produced. It is hard to tell how many toys are
- * necessary; aside the more obvious things like \c reltol_limit, the number of required toys 
- * also depends on the CLb value: a low CLb value requires much more toys to reach the desired accuracy
- * (note that if calculating the expected limit band, low CLb values occur naturally).
+ * necessary; apart from the obvious things like \c reltol_limit, the number of required toys 
+ * also depends on the CLb value: a low CLb value requires much more toys to reach the desired accuracy.
+ * Especially when calculating the expected limit band, low CLb values occur naturally.
  * In such a case, it is not uncommon that between 50k to 200k toys are necessary, or even more.
- * For a typical case of calculating the observed limit, i.e. if CLb is around 0.5,
- * usually 5-10k of toys are sufficient. This is also true in cases where the test statistic is degenerate as
+ * For a typical case of calculating the observed limit, i.e., if CLb is around 0.5,
+ * 5-10k toys might be sufficient. This is also true in cases where the test statistic is degenerate as
  * in such a case, very low CLb values do not occur.
+ *
+ * The indicated error counts the number of toy experiments with an exception. This indicates a problem running the producer
+ * on the toy data and in most cases means that the minimization the producer performs was not successful. A non-zero value is
+ * usually not of concern, as long as it is low (say < 5%).
  */
 class cls_limits: public theta::Main{
 public:

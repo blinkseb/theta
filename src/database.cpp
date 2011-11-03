@@ -82,15 +82,21 @@ const Histogram1D & Row::get_column_histogram(const Column & col) const{
     return it->second;
 }
 
+void Row::clear(){
+    histos.clear();
+    ints.clear();
+    doubles.clear();
+    strings.clear();
+}
+
 /* ProductsTable */
 ProductsTable::ProductsTable(std::auto_ptr<Table> & table_): table(table_){
     c_runid = table->add_column("runid", typeInt);
     c_eventid = table->add_column("eventid", typeInt);
 }
 
-Column ProductsTable::declare_product(const ProductsSource & source, const std::string & column_name, const data_type & type){
-    std::string new_name = source.getName() + "__" + column_name;
-    return table->add_column(new_name, type);
+Column ProductsTable::declare_column_impl(const std::string & colname, const data_type & type){
+    return table->add_column(colname, type);
 }
 
 void ProductsTable::add_row(int runid, int eventid){

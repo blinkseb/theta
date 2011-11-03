@@ -4,7 +4,6 @@
 #include "interface/variables-utils.hpp"
 #include "interface/variables.hpp"
 #include "interface/main.hpp"
-#include "interface/redirect_stdio.hpp"
 
 #include "interface/database.hpp"
 
@@ -17,6 +16,7 @@
 #include <termios.h>
 
 #include <fstream>
+#include <iostream>
 
 using namespace std;
 using namespace theta;
@@ -42,7 +42,7 @@ public:
         btime::ptime now = btime::microsec_clock::local_time();
         if(now < next_update && done < total) return;
         //move back to beginning of terminal line:
-        theta::cout << "\033[" << chars_written << "D";
+        cout << "\033[" << chars_written << "D";
         chars_written = 0;  
         char c[200];
         double error_fraction = 100.0 * n_error / done;
@@ -64,12 +64,12 @@ public:
         else{
             chars_written += snprintf(c, 200, "progress: %6d   errors: %s%6d [%5.1f%%]%s", done, color_start, n_error, error_fraction, color_end);
         }
-        theta::cout << c;
-        theta::cout.flush();
+        cout << c;
+        cout.flush();
         next_update = now + btime::milliseconds(50);
     }
 
-    MyProgressListener(): stdout_fd(theta::cout_fd), done(0), total(0), n_error(0), is_tty(isatty(stdout_fd)),
+    MyProgressListener(): stdout_fd(1), done(0), total(0), n_error(0), is_tty(isatty(stdout_fd)),
       chars_written(0), next_update(btime::microsec_clock::local_time()) {
         if(!is_tty) return;
         //disable terminal echoing; we don't expect any input.
@@ -87,7 +87,7 @@ public:
         settings.c_lflag |= ECHO;
         tcsetattr (stdout_fd, TCSANOW, &settings);
         if(chars_written > 0)
-            theta::cout << endl;
+            cout << endl;
     }
     
 private:
@@ -160,11 +160,11 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
         init_complete = true;
     }
     catch (SettingNotFoundException & ex) {
-        theta::cerr << "Error: the required setting " << ex.getPath() << " was not found." << endl;
+        cerr << "Error: the required setting " << ex.getPath() << " was not found." << endl;
     } catch (SettingTypeException & ex) {
-        theta::cerr << "Error: the setting " << ex.getPath() << " has the wrong type." << endl;
+        cerr << "Error: the setting " << ex.getPath() << " has the wrong type." << endl;
     } catch (Exception & e) {
-        theta::cerr << "Error: " << e.message << endl;
+        cerr << "Error: " << e.message << endl;
     }
     if(not init_complete){
         main.reset();
@@ -175,11 +175,11 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
         vector<string> unused;
         rec->get_unused(unused, cfg.getRoot());
         if (unused.size() > 0) {
-            theta::cout << "WARNING: following setting paths in the configuration file have not been used: " << endl;
+            cout << "WARNING: following setting paths in the configuration file have not been used: " << endl;
             for (size_t i = 0; i < unused.size(); ++i) {
-                theta::cout << "  " << (i+1) << ". " << unused[i] << endl;
+                cout << "  " << (i+1) << ". " << unused[i] << endl;
             }
-            theta::cout << "Comment out these settings to get rid of this message." << endl;
+            cout << "Comment out these settings to get rid of this message." << endl;
         }
     }
     return main;
@@ -187,13 +187,10 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
 
 
 int main(int argc, char** argv) {
-    bool redirect_io;
-    
     po::options_description desc("Options");
     desc.add_options()("help,h", "show help message")
     ("quiet,q", "quiet mode (suppress progress message)")
-    ("nowarn", "do not warn about unused configuration file statements")
-    ("redirect-io", po::value<bool>(&redirect_io)->default_value(true), "redirect stio/stderr of libraries to /dev/null");
+    ("nowarn", "do not warn about unused configuration file statements");
 
     po::options_description hidden("Hidden options");
 
@@ -211,22 +208,20 @@ int main(int argc, char** argv) {
         po::store(po::command_line_parser(argc, argv).options(cmdline_options).positional(p).run(), cmdline_vars);
     }
     catch(std::exception & ex){
-        theta::cerr << "Error parsing command line options: " << ex.what() << endl;
+        cerr << "Error parsing command line options: " << ex.what() << endl;
         return 1;
     }
     po::notify(cmdline_vars);
     
     if(cmdline_vars.count("help")){
-        theta::cout << desc << endl;
+        cout << desc << endl;
         return 0;
     }
     
     if(cmdline_vars.count("cfg-file")==0){
-        theta::cerr << "Error: you have to specify a configuration file" << endl;
+        cerr << "Error: you have to specify a configuration file" << endl;
         return 1;
     }
-    
-    if(redirect_io) theta::redirect_stdio();
     
     vector<string> cfg_filenames = cmdline_vars["cfg-file"].as<vector<string> >();
     bool quiet = cmdline_vars.count("quiet");
@@ -235,13 +230,13 @@ int main(int argc, char** argv) {
     //determine theta_dir (for config file replacements with $THETA_DIR
     fill_theta_dir(argv);
     if(theta_dir==""){
-        theta::cerr << "WARNING: could not determine theta_dir, leaving empty" << endl;
+        cerr << "WARNING: could not determine theta_dir, leaving empty" << endl;
     }
     
     try {
         for(size_t i=0; i<cfg_filenames.size(); ++i){
             if(!quiet and cfg_filenames.size() > 1){
-                theta::cout << "processing file " << (i+1) << " of " << cfg_filenames.size() << ", " << cfg_filenames[i] << endl;
+                cout << "processing file " << (i+1) << " of " << cfg_filenames.size() << ", " << cfg_filenames[i] << endl;
             }
             boost::shared_ptr<Main> main = build_main(cfg_filenames[i], nowarn);
             if(!main) return 1;
@@ -258,23 +253,23 @@ int main(int argc, char** argv) {
         }
     }
     catch(ExitException & ex){
-       theta::cerr << "Exit requested: " << ex.message << endl;
+       cerr << "Exit requested: " << ex.message << endl;
        return 1;
     }
     catch (Exception & ex) {
-        theta::cerr << "An error ocurred in Main::run: " << ex.what() << endl;
+        cerr << "An error ocurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     catch(logic_error & ex){
-        theta::cerr << "A logic error ocurred in Main::run: " << ex.what() << endl;
+        cerr << "A logic error ocurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     catch(exception & ex){
-        theta::cerr << "An unspecified exception ocurred in Main::run: " << ex.what() << endl;
+        cerr << "An unspecified exception ocurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     if(theta::stop_execution){
-        theta::cout << "(exiting on SIGINT)" << endl;
+        cout << "(exiting on SIGINT)" << endl;
     }
     return 0;
 }

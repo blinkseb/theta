@@ -4,7 +4,6 @@
 #include "interface/utils.hpp"
 #include "interface/distribution.hpp"
 #include "interface/model.hpp"
-#include "interface/redirect_stdio.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -137,9 +136,9 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
         if(jump_rates_converged(jump_rates)) break;
     }
     if(jump_rates.size()==max_passes){
-        theta::cout << "WARNING in get_sqrt_cov: covariance estimate did not really converge; jump rates were: ";
+        cout << "WARNING in get_sqrt_cov: covariance estimate did not really converge; jump rates were: ";
         for(size_t i=0; i<max_passes; ++i){
-            theta::cout << jump_rates[i] << "; ";
+            cout << jump_rates[i] << "; ";
         }
     }
     return sqrt_cov;

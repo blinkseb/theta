@@ -8,7 +8,6 @@
 #include "interface/random.hpp"
 #include "interface/database.hpp"
 #include "interface/main.hpp"
-#include "interface/redirect_stdio.hpp"
 #include "interface/phys.hpp"
 #include "interface/model.hpp"
 #include "interface/distribution.hpp"
@@ -63,10 +62,10 @@ private:
 public:
     MultiplexingProductsSink(const std::vector<boost::shared_ptr<ProductsSink> > & sinks_): sinks(sinks_), next_column_id(0){}
 
-    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
+    virtual Column declare_column_impl(const std::string & full_product_name, const data_type & type){
         Column result(next_column_id++);
         for(size_t i=0; i<sinks.size(); ++i){
-            sink_columns[result].push_back(sinks[i]->declare_product(source, product_name, type));
+            sink_columns[result].push_back(sinks[i]->declare_column(full_product_name, type));
         }
         return result;
     }
@@ -96,7 +95,7 @@ public:
 
 class BlackholeProductsSink: public ProductsSink{
 public:
-    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
+    virtual Column declare_column_impl(const std::string & product_name, const data_type & type){
         return Column(0);
     }
     virtual void set_product(const Column & c, double d){ }
@@ -111,9 +110,8 @@ private:
     double value;
     bool value_set;
 public:
-    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
-        string colname = source.getName() + "__" + product_name;
-        return Column(column_name == colname?1:0);
+    virtual Column declare_column_impl(const std::string & product_name, const data_type & type){
+        return Column(column_name == product_name ? 1 : 0);
     }
     
     virtual void set_product(const Column & c, double d){

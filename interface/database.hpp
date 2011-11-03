@@ -144,29 +144,6 @@ protected:
 };
 
 
-/** \brief Class representing a single Column within a Table
- * 
- * Column is a thin wrapper around an \c int called id.
- * Instances should always be retrieved via Table::add_column.
- */
-class Column{
-public:
-    /// Comparison operator
-    bool operator<(const Column & rhs) const{
-        return id < rhs.id;
-    }
-    
-    /// Construct a Column instance, given the id
-    explicit Column(int id_ = -1): id(id_){}
-    
-    /// Get the id as set at construction time
-    int get_id() const{
-        return id;
-    }
-private:
-    int id;
-};
-
 /** \brief Data for a single row in a Table
  * 
  * This class represents (the data of) a single row within a theta::Table. It exposes getter
@@ -194,6 +171,8 @@ public:
     const std::string & get_column_string(const Column & col) const;
     const Histogram1D & get_column_histogram(const Column & col) const;
     ///@}
+
+    void clear();
 private:
     std::map<Column, double> doubles;
     std::map<Column, int> ints;
@@ -276,40 +255,28 @@ private:
  */
 class ProductsTable: public ProductsSink {
 public:
-        ///@{
-        /** \brief Forwards to Table::set_column
-         */
-        virtual void set_product(const Column & c, double d);
-        virtual void set_product(const Column & c, int i);
-        virtual void set_product(const Column & c, const std::string & s);
-        virtual void set_product(const Column & c, const theta::Histogram1D & histo);
-        ///@}
-        
-        /** \brief Add a column to this table
-         *
-         * Similar to Table::add_column, but expects an additional name of the caller. The caller class
-         * must derive from ProducerTableWriter and pass themselves as first argument.
-         *
-         * The actual column name used in the table will be
-         * \code
-         *   source.getName() + "__" + column_name
-         * \endcode
-         */
-        virtual Column declare_product(const theta::ProductsSource & source, const std::string & product_name, const data_type & type);
-        
-        /** \brief Construct a new ProductsTable based on the given table
-         *
-         * Ownership of object held by table will be transferred.
-         */
-        ProductsTable(std::auto_ptr<Table> & table);
-        
-        /** \brief Add a row to the table, given the current run
-         *
-         * This is called by theta::Run after a producer has executed.
-         */
-        void add_row(int runid, int eventid);
+    virtual void set_product(const Column & c, double d);
+    virtual void set_product(const Column & c, int i);
+    virtual void set_product(const Column & c, const std::string & s);
+    virtual void set_product(const Column & c, const theta::Histogram1D & histo);
+    
+    /** \brief Construct a new ProductsTable based on the given table
+     *
+     * Memory ownership of table will be transferred to this.
+     */
+    ProductsTable(std::auto_ptr<Table> & table);
+    
+    /** \brief Add a row to the table, given the current run
+     *
+     * This is called by theta::Run after a producer has executed.
+     */
+    void add_row(int runid, int eventid);
+
+    virtual ~ProductsTable(){}
         
 private:
+    virtual Column declare_column_impl(const std::string & full_product_name, const data_type & type);
+
     std::auto_ptr<Table> table;
     Row current_row;
     Column c_runid, c_eventid;

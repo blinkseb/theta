@@ -35,11 +35,22 @@ class rootfile:
         if type(th1) not in (ROOT.TH1F, ROOT.TH1D): return None
         return rootfile.th1_to_histo(th1)
 
-# represents a model as in theta, plus
+
+## \brief A statistical Model
+#
+# This class contains all information about a statistical model, including:
 # * data histograms (if any)
 # * additional likelihood terms
 # * observables, with xmin, xmax, ranges
-# * which processes are signal
+# * which processes are potentially signal
+#
+# In general, more than one process is marked as 'signal' (such as different masses), but only
+# a subset of these, the signal process group, is actually used to build a concrete, usable model. In this
+# sense, the Model class represents a collection of <em>potential</em> models. In order to write a concrete
+# model configuration, some additional informations are required, namely:
+# * which processes are to be considered as signal; these will all be scaled by the 'beta_signal' parameter
+# * the prior distribution for beta_signal for model.parameter_distribution
+#
 #
 # notes:
 # * the coefficients should be chosen such that their mean / most probable value is 1.0 as this is assumed e.g. in model_summary
@@ -140,7 +151,7 @@ class Model:
         if procname not in self.observable_to_pred[obsname]: return None
         return self.observable_to_pred[obsname][procname]['histogram']
     
-    # make sure all histogram bins iof histogram h contain at least
+    # make sure all histogram bins of histogram h contain at least
     # epsilon * (average bin content of histogram h)
     def fill_histogram_zerobins(self, epsilon = 0.001):
         for o in self.observable_to_pred:
@@ -164,6 +175,16 @@ class Model:
                 found_match = True
                 self.observable_to_pred[o][p]['histogram'].scale(factor)
         if not found_match: raise RuntimeError, 'did not find obname, procname = %s, %s' % (obsname, procname)
+
+    def rebin(self, obsname, rebin_factor):
+        xmin, xmax, nbins_old = self.observables[obsname]
+        assert nbins_old % rebin_factor == 0
+        self.observables[obsname] = (xmin, xmax, nbins_old / rebin_factor)
+        pred = self.observable_to_pred[obsname]
+        for p in pred:
+            pred[p]['histogram'].rebin(rebin_factor)
+        if obsname in self.data_histos:
+            rebin_hlist(self.data_histos[obsname][2], rebin_factor)
     
     # procs is a list / set of glob patterns (or a single pattern)
     def set_signal_processes(self, procs):
@@ -177,8 +198,10 @@ class Model:
                     self.signal_processes.add(p)
             if not found_match: raise RuntimeError, "no match found for pattern '%s'" % pattern
     
-    # adds a gaussian parameter delta_<u_name> and factors for the processes
-    # can be called more than once to set the same uncertainty for different observables / processes
+    # Adds a new parameter with name \c u_name tio the distribution (unless it already exists) with
+    # a Gauss prior around 0.0 with width 1.0 and adds a factor exp(u_name * rel_uncertainty) for the 
+    # processes and observables specified by procname and obsname. If u_name has a Gaussian prior with
+    # width 1.0 and mean 0.0 this is effectively a log-normal uncertainty.
     def add_lognormal_uncertainty(self, u_name, rel_uncertainty, procname, obsname='*'):
         found_match = False
         par_name = u_name
@@ -197,8 +220,6 @@ class Model:
     # Distribution.get_cfg.
     def get_parameters(self, signal_processes):
         result = set()
-        signal_processes = set(signal_processes)
-        signal_processes.discard('__fakesp__')
         for sp in signal_processes:
             assert sp in self.signal_processes
         for o in self.observable_to_pred:
@@ -228,7 +249,6 @@ class Model:
         result = {}
         if options.get('use_llvm', False): result['type'] = 'llvm_model'
         for sp in signal_processes:
-            if sp == '__fakesp__': continue
             assert sp in self.signal_processes
         for o in self.observable_to_pred:
             result[o] = {}
@@ -304,6 +324,33 @@ class Function:
     def get_parameters(self):
         return self.factors.keys()
 
+# modifies l(!)
+def rebin_hlist(l, factor):
+    assert len(l) % factor == 0
+    new_len = len(l) / factor
+    new_l = [sum(l[factor*i:factor*(i+1)]) for i in range(new_len)]
+    while len(l) > new_len: del l[new_len]
+    l[0:new_len] = new_l
+
+def close_to(x1, x2):
+    # if one is zero, both should be:
+    if x1*x2 == 0: return x1==0.0 and x2==0.0
+    # otherwise: relative difference small:
+    return abs(x1-x2) / max(abs(x1), abs(x2)) < 1e-10
+
+# returns a new h_triple. xmin, xmax might be slightly different from the requested values;
+# the returned values are guaranteed to coincide with the bin borders
+def set_hrange(h_triple, new_xmin, new_xmax):
+    xmin, xmax, data = h_triple
+    binsize = (xmax - xmin) / len(data)
+    imin = int(new_xmin - xmin / binsize)
+    imax = int(new_xmax - xmin / binsize)
+    actual_new_xmin = xmin + imin * binsize
+    actual_new_xmax = xmin + imax * binsize
+    assert close_to(actual_new_xmin, new_xmin)
+    assert close_to(actual_new_xmax, new_xmax)
+    return (actual_new_xmin, actual_new_xmax, data[imin:imax])
+
 # for morphing histos:
 class HistogramFunction:
     def __init__(self, typ = 'cubiclinear'):
@@ -346,6 +393,12 @@ class HistogramFunction:
                 hp[2][i] = hp[2][i] * factor
                 hm[2][i] = hm[2][i] * factor
         
+    def rebin(self, rebin_factor):
+        rebin_hlist(self.nominal_histo[2], rebin_factor)
+        for hp, hm in self.syst_histos.itervalues():
+            rebin_hlist(hp, rebin_factor)
+            rebin_hlist(hm, rebin_factor)
+
     def get_cfg(self):
         if len(self.syst_histos) == 0:
             return get_histo_cfg(self.nominal_histo)
@@ -481,9 +534,12 @@ class Distribution:
 #   returns either True (=keep histogram) or False (do not keep histogram). the default is to keep all histograms.
 # * root_hname_to_convention maps histogram names (as in the root file) to histogram names as expected by the
 #    naming convention as described above. The default is to not modify the names.
+# * transform_histo should transform the tuple (name, xmin, xmax, data) to a new tuple (name, xmin, xmax, data). name is not allowed to change.
+#   name is the "internal" name  (=according to convention, after root_hname_to_convention).
+#   This can be used e.g. to rebin histograms, set the range differently, etc.
 #
 # filenames can be either a string or a list of strings
-def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s):
+def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s, transform_histo = lambda h: h):
     if type(filenames)==str: filenames = [filenames]
     result = Model()
     histos = {}
@@ -495,6 +551,9 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
         for hexternal in templates:
             if not histogram_filter(hexternal): continue
             hinternal = root_hname_to_convention(hexternal)
+            xmin, xmax, data = templates[hexternal]
+            dummy_name, xmin, xmax, data = transform_histo((hinternal, xmin, xmax, data))
+            assert dummy_name == hinternal, "transform_histo changed the name. This is not allowed; use root_hname_to_convention!"
             l = hinternal.split('__')
             observable, process, uncertainty, direction = [None]*4
             if len(l)==2:
@@ -511,14 +570,14 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
                 continue
             if process == 'DATA':
                 assert len(l)==2
-                result.set_data_histogram(observable, templates[hexternal])
+                result.set_data_histogram(observable, (xmin, xmax, data))
                 continue
             if uncertainty is not None: uncertainties.add(uncertainty)
             if direction=='up': direction='plus'
             if direction=='down': direction='minus'
             if uncertainty is not None: h_new = '%s__%s__%s__%s' % (observable, process, uncertainty, direction)
             else: h_new = '%s__%s' % (observable, process)
-            histos[h_new] = templates[hexternal]
+            histos[h_new] = (xmin, xmax, data)
 
     # build histogram functions from templates, and make some sanity checks:
     for o in observables:

@@ -1,6 +1,5 @@
 #include "plugins/add.hpp"
 #include "interface/plugin.hpp"
-#include "interface/redirect_stdio.hpp"
 
 using namespace theta;
 using namespace std;

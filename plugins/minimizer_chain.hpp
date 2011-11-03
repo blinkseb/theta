@@ -10,6 +10,9 @@
 
 /** \brief Run a sequence of minimizers, until the first succeeds
  *
+ * Running a chain of minimizers increases the success rate, see below for a concrete
+ * proposal how to configure it.
+ *
  * Configuration is done via a setting group like
  * \code
  * minimizer = {
@@ -42,6 +45,41 @@
  * The main use case for \c last_minimizer is to provide error estimates: the minimizers in the chain
  * will probably not all provide an error estimate. Specifying a Minimizer here which provides errors
  * as \c last_minimizer ensures that all (successful) minimizations have an error estimate for the parameters.
+ *
+ * The default configuration used by theta-auto is
+ * \code
+ *     minimizer = {
+ *       type = "minimizer_chain";
+ *       minimizers = ({
+ *               type = "root_minuit";
+ *          },{
+ *               type = "mcmc_minimizer";
+ *               iterations = 1000;
+ *               name = "mcmc_min0";
+ *               after_minimizer = {
+ *                   type = "root_minuit";
+ *               };
+ *           },{
+ *               type = "root_minuit";
+ *               method = "simplex";
+ *           },{
+ *               type = "mcmc_minimizer";
+ *               iterations = 1000;
+ *               name = "mcmc_min1";
+ *               after_minimizer = {
+ *                   type = "root_minuit";
+ *                   method = "simplex";
+ *               };
+ *           });
+ *       last_minimizer = {
+ *           type = "root_minuit";
+ *       };
+ *   };
+ * \endcode
+ *
+ * This will first try MINUIT migrad, the mcmc+MINUIT migrad, then MINUIT simplex,
+ * then MCMC+MINUIT simplex and always run MINUIT migrad int the end to
+ * get the error estimates. (If you do not need error estimates, just remove the 'last_minimizer' setting.)
  */
 class minimizer_chain: public theta::Minimizer {
 public:

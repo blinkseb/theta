@@ -4,9 +4,9 @@
 #include "interface/phys.hpp"
 #include "interface/model.hpp"
 #include "interface/plugin.hpp"
-#include "interface/redirect_stdio.hpp"
 
 #include <iomanip>
+#include <iostream>
 
 using namespace theta;
 using namespace std;
@@ -66,14 +66,14 @@ void Run::run(){
     if(log_report){
         const int* n_messages = logtable->get_n_messages();
         LogTable::e_severity s = logtable->get_loglevel();
-        theta::cout << endl << endl << "Log report:" << endl;
-        theta::cout << "  errors:   " << setw(6) << n_messages[0] << endl;
+        cout << endl << endl << "Log report:" << endl;
+        cout << "  errors:   " << setw(6) << n_messages[0] << endl;
         if(s > 0)
-            theta::cout << "  warnings: " << setw(6) << n_messages[1] << endl;
+            cout << "  warnings: " << setw(6) << n_messages[1] << endl;
         if(s > 1)
-            theta::cout << "  infos:    " << setw(6) << n_messages[2] << endl;
+            cout << "  infos:    " << setw(6) << n_messages[2] << endl;
         if(s > 2)
-            theta::cout << "  debug:    " << setw(6) << n_messages[3] << endl;
+            cout << "  debug:    " << setw(6) << n_messages[3] << endl;
     }
 }
 
@@ -136,4 +136,5 @@ Run::Run(const Configuration & cfg){
 }
 
 REGISTER_PLUGIN_DEFAULT(Run)
+
 

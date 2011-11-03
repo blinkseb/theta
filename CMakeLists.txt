@@ -50,7 +50,7 @@ else()
    enable_language(ASM-ATT)
 endif()
 
-find_package(Boost COMPONENTS regex program_options filesystem system iostreams)
+find_package(Boost COMPONENTS regex program_options filesystem system iostreams thread)
 
 if(NOT Boost_FOUND)
    message(SEND_ERROR "boost not found")

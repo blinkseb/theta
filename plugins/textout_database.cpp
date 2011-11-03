@@ -1,7 +1,8 @@
 #include "plugins/textout_database.hpp"
 #include "interface/plugin.hpp"
-#include "interface/redirect_stdio.hpp"
 #include "interface/histogram.hpp"
+
+#include <iostream>
 
 using namespace std;
 using namespace theta;
@@ -69,28 +70,28 @@ ostream & operator<<(ostream & out, const theta::Histogram1D & h){
 }
 
 void textout_database::textout_table::add_row(const Row & row){
-    theta::cout << endl << "Table '" << name << "', row " << ++irow << ":" << endl;
+    cout << endl << "Table '" << name << "', row " << ++irow << ":" << endl;
     for(int i=0; i<next_colid; ++i){
         Column c(i);
-        theta::cout << column_infos[c].name << "=";
+        cout << column_infos[c].name << "=";
         data_type type = column_infos[c].type;
         switch(type){
             case typeInt:
-                theta::cout << row.get_column_int(c);
+                cout << row.get_column_int(c);
                 break;
             case typeDouble:
-                theta::cout << row.get_column_double(c);
+                cout << row.get_column_double(c);
                 break;
             case typeString:
-                theta::cout << row.get_column_string(c);
+                cout << row.get_column_string(c);
                 break;
             case typeHisto:
-                theta::cout << row.get_column_histogram(c);
+                cout << row.get_column_histogram(c);
                 break;
         }
-        theta::cout << endl;
-        //<< current_col_values[i] << endl;
+        cout << endl;
     }
 }
 
 REGISTER_PLUGIN(textout_database)
+

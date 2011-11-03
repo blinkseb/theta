@@ -52,6 +52,14 @@ class plotdata:
             if ibin < 0 or ibin >= nbins: continue
             self.y[ibin] += 1
 
+    # scale all y values by factor
+    def scale_y(self, factor):
+        self.y = [y*factor for y in self.y]
+        if self.bands is None: return
+        for band in self.bands:
+            band[0][:] = [y * factor for y in band[0]]
+            band[1][:] = [y * factor for y in band[1]]
+
     # set data according to the "histo triple" h = (xmin, xmax, data)
     def histo_triple(self, h):
         binwidth = (h[1] - h[0]) / len(h[2])

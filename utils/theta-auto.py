@@ -32,7 +32,7 @@ class ProducerBase:
         return result
     
     def __init__(self, parameter_dist, name):
-        self.override_parameter_distribution = None
+        self.override_parameter_distribution = parameter_dist
         self.name = name
     
 
@@ -46,6 +46,17 @@ class MleProducer(ProducerBase):
         model_parameters = model.get_parameters(signal_processes)
         if parameters_write is None: parameters_write = model_parameters
         result = {'type': 'mle', 'minimizer': minimizer(), 'parameters': list(parameters_write)}
+        result.update(self.get_cfg_base(model, signal_processes))
+        return result
+
+class PliProducer(ProducerBase):
+    def __init__(self, parameter_dist, cls, name = 'pli'):
+        ProducerBase.__init__(self, parameter_dist, name)
+        self.cls = cls[:]
+        self.parameter = 'beta_signal'
+
+    def get_cfg(self, model, signal_processes, parameters_write = None):
+        result = {'type': 'deltanll_intervals', 'minimizer': minimizer(need_error = False), 'parameter': self.parameter, 'clevels': self.cls}
         result.update(self.get_cfg_base(model, signal_processes))
         return result
 
@@ -85,6 +96,13 @@ def model_signal_prior_dist(input_spec):
     result = Distribution()
     result.set_distribution('beta_signal', 'gauss', beta_signal_value, 0.0, [beta_signal_value, beta_signal_value])
     return result
+
+
+def default_signal_processes(model, signal_processes):
+    if signal_processes is not None: return signal_processes
+    signal_processes = [[sp] for sp in model.signal_processes]
+    if len(signal_processes)==0: signal_processes.append('')
+    return signal_processes
 
 def signal_prior_dist(spec):
     result = Distribution()
@@ -141,22 +159,64 @@ def write_cfg2(main, model, signal_processes, method, input, id = None, **option
     
 
 def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 'shape:fix', signal_processes = None, n = 1, **options):
-    if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
+    signal_processes = default_signal_processes(model, signal_processes)
     nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
     signal_prior_spec = signal_prior
     signal_prior = signal_prior_dist(signal_prior)
     model_signal_prior = model_signal_prior_dist(input)
     data_source_dict, model_dist_signal_dict = utils.data_source_dict(model, input)
+    cfg_names_to_run = []
     for sp in signal_processes:
         main = Run(n, data_source_dict, model_signal_prior)
         mle = MleProducer(Distribution.merge(signal_prior, nuisance_constraint))
         main.add_producer(mle)
         name = write_cfg2(main, model, sp, 'ml_fit', input)
-        print name
-        
-    
-    
+        cfg_names_to_run.append(name)
+    run_theta_ = options.get('run_theta', True)
+    if run_theta_: run_theta(cfg_names_to_run)
+    else: return None
 
+    cachedir = os.path.join(config.workdir, 'cache')    
+    result = {}
+    result_table = table()
+    result_table.add_column('process', 'signal process')
+    
+    nuisance_parameters = sorted(list(model.get_parameters('')))
+    for p in nuisance_parameters:
+        suffix = ''
+        if nuisance_constraint.get_distribution(p)['width'] == 0.0: suffix = ' (fixed)'
+        result_table.add_column(p, '%s%s' % (p, suffix))
+    suffix = ''
+    if signal_prior_spec.startswith('fix:'): suffix = ' (fixed)'
+    result_table.add_column('beta_signal', 'beta_signal%s' % suffix)
+    for icfg in range(len(cfg_names_to_run)):
+        sp = signal_processes[icfg]
+        name = cfg_names_to_run[icfg]
+        method, sp_id, dummy = name.split('-',2)
+        result[sp_id] = {}
+        result_table.set_column('process', sp_id)
+        model_parameters = model.get_parameters(sp)
+        sqlfile = os.path.join(cachedir, '%s.db' % name)
+        cols = ['mle__%s, mle__%s_error' % (p, p) for p in model_parameters]
+        data = sql(sqlfile, 'select %s from products' % ', '.join(cols))
+        if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
+        i = 0
+        for p in model_parameters:
+            result[sp_id][p] = [(row[2*i], row[2*i+1]) for row in data]
+            i += 1
+            sorted_res = sorted([res[0] for res in result[sp_id][p]])
+            n = len(sorted_res)
+            if n >= 10:
+                result_table.set_column(p, '%.3g (%.3g, %.3g)' % (sorted_res[int(0.5*n)], sorted_res[int(0.16*n)], sorted_res[int(0.84*n)]))
+            else: result_table.set_column(p, '%.3g' % sorted_res[int(0.5*n)])
+        for p in nuisance_parameters + ['beta_signal']:
+            if p in model_parameters: continue
+            result_table.set_column(p, 'n/a')
+        result_table.add_row()
+    config.report.new_section("Maximum Likelihood fit on ensemble '%s'" % input)
+    config.report.add_p('The table entries give the median (and, if n>=10 the central 68%) of the parameter values at the found maximum of the likelihood function.')
+    config.report.add_html(result_table.html())
+    return result
 
 
 ## \page theta_auto_intro Introduction to theta-auto
@@ -419,17 +479,16 @@ def ml_fit(model, input = 'data', signal_prior = 'flat', nuisance_constraint = '
     config.report.add_html(result_table.html())
     return result
     
-## \brief Perfoem a maximum likelihood fit and get the coefficient function values for all processes / channels
+## \brief Perform a maximum likelihood fit and get the coefficient function values for all processes / channels
 #
-# 
 #
 # options: see ml_fit
 #
 # returns a dictionary
-# (signal process) --> (observable name) --> (process name) --> (factor)
+# (signal process id) --> (observable name) --> (process name) --> (factor)
 #
 # Does not write anything to the report.
-def ml_fit_coefficiencts(model, **options):
+def ml_fit_coefficients(model, **options):
     result = {}
     res = ml_fit(model, **options)
     for sp in res:
@@ -565,42 +624,25 @@ def ks_test_individual_channels(model, fit_yield = False, **options):
 #
 # If write_report is true, it will only write out the result of the first fit. This usually makes only sense for data,
 # not for toy MC.
-def pl_intervals(model, input = 'toys:0', n = 100, nuisance_constraint = '', cls = [0.90], signal_processes = None, write_report = None, **options):
-    if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
+def pl_intervals(model, input = 'toys:0', n = 100, signal_prior = 'flat', nuisance_constraint = '', cls = [0.90], signal_processes = None, write_report = None, **options):
+    signal_processes = default_signal_processes(model, signal_processes)
     if write_report is None: write_report = input == 'data'
-    beta_signal_value = 0.0
-    if input.startswith('toys:'): beta_signal_value = float(input[5:])
-    elif input!='data': raise RuntimeError, "unexpected value for 'input': %s (expected 'toys:...' or 'data')" % input
-    signal_prior_dict = {'type': 'flat_distribution', 'beta_signal': {'range': [1e-12, float("inf")], 'fix-sample-value': 1.0}}
     nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
-    main = {'n-events': n, 'model': '@model', 'producers': ('@deltanll_interval',), 'output_database': sqlite_database(), 'log-report': False}
-    deltanll_interval = {'type': 'deltanll_intervals', 'name': 'deltanll', 'parameter': 'beta_signal',
-       'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_constraint", "@additional_pars_dist"),
-       'clevels': cls, 'minimizer': minimizer(need_error = False)}
-    if model.additional_nll_term is not None:
-        deltanll_interval['additional-nll-term'] = model.additional_nll_term.get_cfg()
-    cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
-    toplevel_settings = {'signal_prior': signal_prior_dict, 
-                'model-distribution-signal': delta_distribution(beta_signal = beta_signal_value), 'deltanll_interval': deltanll_interval, 'main': main,
-                'options': cfg_options}
+    signal_prior_spec = signal_prior
+    signal_prior = signal_prior_dist(signal_prior)
+    model_signal_prior = model_signal_prior_dist(input)
+    data_source_dict, model_dist_signal_dict = utils.data_source_dict(model, input)
     cfg_names_to_run = []
-    main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, input)
     for sp in signal_processes:
-        model_parameters = model.get_parameters(sp)
-        toplevel_settings['nuisance_constraint'] = nuisance_constraint.get_cfg(model_parameters)
-        if 'beta_signal' in model_parameters: toplevel_settings['signal_prior'] = signal_prior_dict
-        else: toplevel_settings['signal_prior'] = product_distribution()
-        toplevel_settings['additional_pars_dist'] = {'type': 'flat_distribution'}
-        if model.additional_nll_term is not None:
-            additional_pars = set(model.additional_nll_term.get_parameters()).difference(model_parameters)
-            for p in additional_pars:
-                toplevel_settings['additional_pars_dist'][p] = {'range': ("-inf", "inf"), "fix-sample-value": 0.0 }
-        name = write_cfg(model, sp, 'deltanll_intervals', input, additional_settings = toplevel_settings)
+        main = Run(n, data_source_dict, model_signal_prior)
+        pl = PliProducer(Distribution.merge(signal_prior, nuisance_constraint), cls)
+        main.add_producer(pl)
+        name = write_cfg2(main, model, sp, 'pl_intervals', input)
         cfg_names_to_run.append(name)
-    if 'run_theta' not in options or options['run_theta']:
-        run_theta(cfg_names_to_run)
+    run_theta_ = options.get('run_theta', True)
+    if run_theta_: run_theta(cfg_names_to_run)
     else: return None
-    
+
     result_table = Report.table()
     result_table.add_column('signal process')
     result_table.add_column('mle', 'mle')
@@ -618,9 +660,9 @@ def pl_intervals(model, input = 'toys:0', n = 100, nuisance_constraint = '', cls
         sqlfile = os.path.join(cachedir, '%s.db' % name)
         colnames = []
         for cs in col_suffixes:
-            colnames.append('deltanll__lower%s' % cs)
-            colnames.append('deltanll__upper%s' % cs)
-        data = sql(sqlfile, 'select deltanll__maxl, %s from products' % (', '.join(colnames)))
+            colnames.append('pli__lower%s' % cs)
+            colnames.append('pli__upper%s' % cs)
+        data = sql(sqlfile, 'select pli__maxl, %s from products' % (', '.join(colnames)))
         first_row = True
         for row in data:
             result[sp_id]['mle'].append(row[0])
@@ -636,6 +678,7 @@ def pl_intervals(model, input = 'toys:0', n = 100, nuisance_constraint = '', cls
         config.report.new_section("deltanll intervals")
         config.report.add_html(result_table.html())
     return result
+
 
 # runs deltanll_intervals and measures coverage as a function of the true beta_signal
 # Returns: dictionary: (spid) --> (true beta signal) --> |  (cl) --> coverage
@@ -691,8 +734,6 @@ def main():
     config.report = html_report(os.path.join(config.workdir, 'index.html'))
     variables = globals()
     variables['report'] = config.report
-    utils.info("workdir is %s" % config.workdir)
-    utils.info("cachedir is %s" % os.path.join(config.workdir, 'cache'))
     utils.info("executing script %s" % scriptname)
     try:
         execfile(scriptname, variables)
@@ -700,6 +741,7 @@ def main():
         print "error while trying to execute analysis script %s:" % scriptname
         traceback.print_exc()
         sys.exit(1)
+    utils.info("workdir is %s" % config.workdir)
         
 if __name__ == '__main__': main()
 

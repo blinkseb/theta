@@ -27,6 +27,21 @@ bool nameOk(const std::string & name){
 
 }
 
+Column ProductsSink::declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
+    std::string fullname = source.getName() + "__" + product_name;
+    return declare_column(fullname, type);
+}
+
+Column ProductsSink::declare_column(const std::string & fullname, const data_type & type){
+    Column result = declare_column_impl(fullname, type);
+    name_to_column_type[fullname] = std::make_pair(result, type);
+    return result;    
+}
+
+const std::map<std::string, std::pair<Column, data_type> > & ProductsSink::get_name_to_column_type() const{
+    return name_to_column_type;
+}
+
 
 const std::string & ProductsSource::getName() const{
    return name;

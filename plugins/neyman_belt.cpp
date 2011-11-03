@@ -3,7 +3,6 @@
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
 #include "interface/distribution.hpp"
-#include "interface/redirect_stdio.hpp"
 
 #include <string>
 #include <sstream>
@@ -32,7 +31,7 @@ private:
 public:
     SaveDoubleProducts(): next_icol(0){}
     
-    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
+    virtual Column declare_column_impl(const std::string & product_name, const data_type & type){
         Column result(next_icol++);
         column_names[result] = product_name;
         return result;
@@ -565,10 +564,10 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
     new_ensemble.reserve(ttos.size());
     for(set<double>::const_iterator truth_it=truth_values.begin(); truth_it!=truth_values.end(); ++truth_it){
         const double truth = *truth_it;
-        theta::cout << "starting interpolation for truth " << truth << endl;
-        theta::cout << "getting range for interpolation" << endl;
+        //cout << "starting interpolation for truth " << truth << endl;
+        //cout << "getting range for interpolation" << endl;
         tto_ensemble::tto_range r_interpolation = ensemble_for_interpolation.get_ttos(truth, tto_ensemble::sorted_by_ts);
-        theta::cout << "getting range" << endl;
+        //cout << "getting range" << endl;
         tto_ensemble::tto_range tto_range = ttos.get_ttos(truth, tto_ensemble::sorted_by_ts);
         theta_assert(distance(tto_range.first, tto_range.second) >= 2);
         tto_ensemble::const_tto_iterator it1 = r_interpolation.first;
@@ -652,7 +651,7 @@ void neyman_belt::run(){
     truth_range.first = *truth_values.begin();
     truth_range.second = *truth_values.rbegin();
     progress_total = truth_values.size() * cls.size();
-    theta::cout << "ordering" << endl;
+    //cout << "ordering" << endl;
     if(ordering_rule=="lower" || ordering_rule=="upper"){
         add_ordering_lu(ttos, ordering_rule);
     }
@@ -669,7 +668,7 @@ void neyman_belt::run(){
        truth_values = ttos.get_truth_values();
     }
     
-    theta::cout << "intervals" << endl;
+    //cout << "intervals" << endl;
     //find intervals:
     std::auto_ptr<Table> belt_table = output_database->create_table("belt");
     Column c_truth = belt_table->add_column("truth", typeDouble);
@@ -719,3 +718,4 @@ void neyman_belt::run(){
 }
 
 REGISTER_PLUGIN(neyman_belt)
+

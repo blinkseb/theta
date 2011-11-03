@@ -18,12 +18,20 @@ namespace theta {
  */
 class ProductsSink: private boost::noncopyable{
 public:
-    virtual Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type) = 0;
+    Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type);
+    Column declare_column(const std::string & full_column_name, const data_type & type);
+    const std::map<std::string, std::pair<Column, data_type> > & get_name_to_column_type() const;
+
     virtual void set_product(const Column & c, double d) = 0;
     virtual void set_product(const Column & c, int i) = 0;
     virtual void set_product(const Column & c, const std::string & s) = 0;
     virtual void set_product(const Column & c, const Histogram1D & h) = 0;
     virtual ~ProductsSink(){}
+
+protected:
+    std::map<std::string, std::pair<Column, data_type> > name_to_column_type;
+    // this is to be implemented by subclasses:
+    virtual Column declare_column_impl(const std::string & full_column_name, const data_type & type) = 0;
 };
 
 

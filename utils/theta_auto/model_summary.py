@@ -132,10 +132,10 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
                        rminus = -model.distribution.get_distribution(par)['width']
                 cell = ''
                 if splus is not None:
-                    cell += '<sup>%+.f</sup><sub>%+.f</sub> (s) ' % (splus * 100, sminus * 100)
+                    cell += '<sup>%+.2f</sup><sub>%+.2f</sub> (s) ' % (splus * 100, sminus * 100)
                 if (rplus, rminus) != (0.0, 0.0):
-                    if rplus==-rminus:  cell += '&#xb1;%.f (r)' % (rplus * 100)
-                    else: cell += '<sup>%+.f</sup><sub>%+.f</sub> (r) ' % (rplus * 100, rminus * 100)
+                    if rplus==-rminus:  cell += '&#xb1;%.2f (r)' % (rplus * 100)
+                    else: cell += '<sup>%+.2f</sup><sub>%+.2f</sub> (r) ' % (rplus * 100, rminus * 100)
                 if cell == '': cell = '---'
                 rate_impact_table.set_column(par, cell)
             rate_impact_table.add_row()

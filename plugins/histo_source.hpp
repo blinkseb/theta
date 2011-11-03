@@ -13,6 +13,7 @@
  * \code
  * data_source = {
  *   type = "histo_source";
+ *   name = "source";
  *   obs1 = { // assuming "obs1" is an observable
  *        type = "root_histogram"; filename = "DATA.root"; histoname = "h_obs1";
  *    }; // or some other constant histogram specification
@@ -21,6 +22,9 @@
  * \endcode
  *
  * \c type must be "histo_source" to select this DataSource type
+ *
+ * \c name is the name of the data source. (It is not actually used for this type but every DataSource
+ * requires the name setting).
  *
  * For all observables, a setting specifying the (constant) HistogramFunction must be specified,
  * with the name of that observable.

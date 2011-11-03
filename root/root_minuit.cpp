@@ -2,6 +2,8 @@
 #include "interface/plugin.hpp"
 #include "interface/phys.hpp"
 
+#include "TError.h"
+
 using namespace theta;
 using namespace std;
 
@@ -174,6 +176,7 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
 
 root_minuit::root_minuit(const Configuration & cfg): tolerance(NAN), printlevel(0),
         max_iterations(0), max_function_calls(0), n_retries(2) {
+       gErrorIgnoreLevel = kFatal + 1;
        if(cfg.setting.exists("printlevel")){
            printlevel = cfg.setting["printlevel"];
        }

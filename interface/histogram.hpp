@@ -5,8 +5,6 @@
 #include "interface/utils.hpp"
 #include <cstring>
 
-void get_allocs_frees(int & n_alls, int & n_frs);
-
 namespace theta{
     
 /** \brief Container for a vector of doubles

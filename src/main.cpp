@@ -6,13 +6,18 @@ using namespace theta;
 
 REGISTER_PLUGIN_BASETYPE(Main);
 
-bool theta::stop_execution = false;
+volatile bool theta::stop_execution = false;
 
-static void sigint_handler(int sig){
+
+namespace{
+
+void sigint_handler(int sig){
    if(stop_execution){
       throw ExitException("user insisted with several SIGINT");
    }
    stop_execution = true;
+}
+
 }
 
 void theta::install_sigint_handler(){
@@ -31,3 +36,4 @@ void Main::set_progress_listener(const boost::shared_ptr<ProgressListener> & l){
 }
 
 Main::~Main(){}
+
