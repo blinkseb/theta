@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import math
 import utils
 from Model import *
@@ -89,6 +90,8 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
     rf = add_shapes_rootfiles[filename]
     theta_obs = transform_name_to_theta(obs)
     theta_proc = transform_name_to_theta(proc)
+    hname = hname.replace('$CHANNEL', obs)
+    hname_with_systematics = hname_with_systematics.replace('$CHANNEL', obs)
     if proc == 'DATA':
         hname_tmp = hname.replace('$PROCESS', 'DATA')
         histo = rf.get_histogram(hname_tmp)
@@ -105,8 +108,6 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
     assert len(old_nominal_histogram[2])==1, "expected a counting-only histogram with only one bin"
     hname = hname.replace('$PROCESS', proc)
     hname_with_systematics = hname_with_systematics.replace('$PROCESS', proc)
-    hname = hname.replace('$CHANNEL', obs)
-    hname_with_systematics = hname_with_systematics.replace('$CHANNEL', obs)
     nominal_histogram = rf.get_histogram(hname)
     if utils.reldiff(sum(old_nominal_histogram[2]), sum(nominal_histogram[2])) > 0.01: raise RuntimeError, "add_shapes: histogram in file and rate differ too much (>1%)"
     hf.set_nominal_histo(nominal_histogram, reset_binning = True)

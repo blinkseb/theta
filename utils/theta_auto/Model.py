@@ -218,7 +218,7 @@ class Model:
     # get the set of parameters the model predictions depends on, given the signal_processes.
     # This does not cover additional_nll_terms; it is useful to pass the result to
     # Distribution.get_cfg.
-    def get_parameters(self, signal_processes):
+    def get_parameters(self, signal_processes, include_additional_nll = False):
         result = set()
         for sp in signal_processes:
             assert sp in self.signal_processes
@@ -231,6 +231,8 @@ class Model:
                 for par in histo_pars: result.add(par)
                 for par in coeff_pars: result.add(par)
         if len(signal_processes) > 0: result.add('beta_signal')
+        if include_additional_nll and self.additional_nll_term is not None:
+            result.update(self.additional_nll_term.get_parameters())
         return result
     
     # returns two sets: the rate and shape changing parameters (can overlap!)
@@ -440,6 +442,9 @@ class Distribution:
     def get_distribution(self, par_name): return copy.deepcopy(self.distributions[par_name])
     
     def get_parameters(self): return self.distributions.keys()
+
+    def remove_parameter(self, par_name):
+        del self.distributions[par_name]
     
     # merged two distribution by preferring the distribution from dist1 over those from dist0.
     # override controls how merging of the distribution for a parameter in both dist1 and dist2 is done:

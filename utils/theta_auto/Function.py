@@ -82,7 +82,7 @@ class MultiplyFunction(FunctionBase):
         return MultiplyFunction(factors)
 
 
-# linear combination of other functions; coefficiencts are parameters or constants.
+# add some other functions
 class AddFunction(FunctionBase):
     def __init__(self, funcs):
         parameters = set()
@@ -104,6 +104,21 @@ class AddFunction(FunctionBase):
     def __str__(self):
         return '(' + ' + '.join(map(str, self.functions)) + ')'
 
+
+# sqrt(w1*p1**2 + w2*p2**2 + ...)
+class AddSquared(FunctionBase):
+    def __init__(self, pars, weights):
+        assert len(pars) == len(weights)
+        self.parameters = tuple([str(p) for p in pars])
+        self.weights = tuple([float(w) for w in weights])
+
+    def get_cfg(self):
+        result = {'type': 'add_squared', 'parameters': self.parameters, 'weights': self.weights}
+        return result
+
+    def get_parameters(self):
+        return self.parameters
+
 # some methods working with FunctionBase objects and strings:
 def get_cfg(f):
     if type(f) == str: return f
@@ -112,6 +127,10 @@ def get_cfg(f):
 def get_parameters(f):
     if type(f) == str: return set([f])
     else: return f.get_parameters()
+
+def close(a, b):
+    if a*b==0: return a==0 and b==0
+    return abs(a-b) / max(abs(a), abs(b)) < 1e-10
 
 # the negative logarithm of a multivariate Gauss
 class NLGauss(FunctionBase):
@@ -127,13 +146,17 @@ class NLGauss(FunctionBase):
             parameters.update(get_parameters(r))
         self.parameters = frozenset(parameters)
         for irow in range(n):
-            row = tuple([float(e) for e in covariance[irow]])
+            row = [float(e) for e in covariance[irow]]
             assert len(row) == n
             cov.append(row)
+        #print cov
         for i in range(n):
-            for j in range(n):
-                assert cov[i][j] == cov[j][i]
-        self.covariance = tuple(cov)
+            for j in range(i, n):
+                assert close(cov[i][j], cov[j][i]), "covariance not symmetric (i,j) = (%d, %d); elements: %f, %f" % (i,j,cov[i][j], cov[j][i])
+                symm_elem = 0.5 * (cov[i][j] + cov[j][i])
+                cov[i][j] = symm_elem
+                cov[j][i] = symm_elem
+        self.covariance = tuple([tuple(row) for row in cov])
 
     def get_cfg(self):
         result = {'type': 'nl_gauss', 'rows': [get_cfg(r) for r in self.rows], 'mu': self.mu, 'covariance': self.covariance}

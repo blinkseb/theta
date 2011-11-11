@@ -28,7 +28,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     if(not start_step_ranges_init){
         const Distribution & d = nll->get_parameter_distribution();
         DistributionUtils::fillModeSupport(start, ranges, d);
-        step.set(asimov_likelihood_widths(model, override_parameter_distribution));
+        step.set(asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term));
         start_step_ranges_init = true;
     }
     MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);

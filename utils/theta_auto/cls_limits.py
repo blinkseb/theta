@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import config, utils, os.path, datetime, math, bisect
 
 import scipy.special
@@ -417,14 +418,14 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'type': 'cls_limits', 'model': '@model', 'producer': '@ts_producer', 'expected_bands' : 0,
         'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True),
-        'tol_cls': 0.025, 'clb_cutoff': 0.02, 'debuglog': 'debug.txt'}
+        'tol_cls': 0.025, 'clb_cutoff': 0.001, 'debuglog': '@debuglog-name'}
     if what in ('expected', 'all'):
-        main['expected_bands'] = 1000
+        main['expected_bands'] = 2000
     elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what
     if what in ('observed', 'all'):
         main['data_source'], dummy = data_source_dict(model, 'data')
     ts_producer, main['ts_column'] = ts_producer_dict(ts, signal_prior_bkg)
-    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, 'minimizer': minimizer(need_error = False),
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, 'minimizer': minimizer(need_error = False), 'debuglog-name': 'XXX',
        'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
     if ts == 'lhclike': del toplevel_settings['signal_prior']
     toplevel_settings.update(get_common_toplevel_settings(**options))
@@ -432,7 +433,9 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     cfg_names_to_run = []
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
+        spid = ''.join(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
+        toplevel_settings['debuglog-name'] = 'debuglog' + spid + '.txt'
         spid = ''.join(sp)
         if spid in reuse_toys:
             reuse_names = reuse_toys[spid]
@@ -464,9 +467,11 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
         if what in ('all', 'expected'):
             # sort by limit:
             limits = sorted([r[1] for r in data])
+            limits_noinf = sorted([r[1] for r in data if r[1] != float("inf")])
+            limits = limits_noinf
             n = len(limits)
             n_inf = len([x for x in limits if x==float("inf")])
-            if n_inf * 1.0 / n >= 0.025: print "WARNING: too many results are infinity."
+            if n_inf * 1.0 / n >= 0.025: print "WARNING: too many results are infinity: %f%% (acceptable: 2.5%%)" % (n_inf * 100. / n)
             expected_results[sp] = (limits[n/2], (limits[int(0.16*n)], limits[int(0.84*n)]), (limits[int(0.025*n)], limits[int(0.975*n)]))                
         if debug_cls:
             debug_cls_plots(sqlfile, main['ts_column'])

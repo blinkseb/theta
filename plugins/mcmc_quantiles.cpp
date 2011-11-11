@@ -61,11 +61,15 @@ class MCMCPosteriorQuantilesResult{
 void mcmc_quantiles::produce(const Data & data, const Model & model) {
     if(!init || (re_init > 0 && itoy % re_init == 0)){
         try{
-            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution);
+            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, additional_nll_term);
             //find the number of the parameter of interest:
-            ParIds model_pars = model.getParameters();
+            ParIds pars = model.getParameters();
+            if(additional_nll_term){
+                ParIds add_pars = additional_nll_term->getParameters();
+                pars.insert(add_pars.begin(), add_pars.end());
+            }
             ipar=0;
-            for(ParIds::const_iterator it=model_pars.begin(); it!=model_pars.end(); ++it, ++ipar){
+            for(ParIds::const_iterator it=pars.begin(); it!=pars.end(); ++it, ++ipar){
                 if(*it == par_id) break;
             }
             //now ipar has the correct value ...

@@ -89,15 +89,21 @@ bool jump_rates_converged(const vector<double> & jump_rates){
 
 
 Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & startvalues,
-                    const boost::shared_ptr<theta::Distribution> & override_parameter_distribution){
+                    const boost::shared_ptr<theta::Distribution> & override_parameter_distribution,
+                    const boost::shared_ptr<theta::Function> & additional_nll_term){
     const size_t max_passes = 50;
     const size_t iterations = 8000;
-    const size_t n = model.getParameters().size();
+    ParIds parameters = model.getParameters();
+    if(additional_nll_term){
+        ParIds add_pars = additional_nll_term->getParameters();
+        parameters.insert(add_pars.begin(), add_pars.end());
+    }
+    const size_t n = parameters.size();
     Matrix sqrt_cov(n, n);
     Matrix cov(n, n);
     startvalues.resize(n);
     
-    ParValues widths = asimov_likelihood_widths(model, override_parameter_distribution);
+    ParValues widths = asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term);
     
     ParIds par_ids = model.getParameters();
     size_t k=0;

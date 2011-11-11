@@ -105,7 +105,7 @@ void mcmc_posterior_histo::produce(const Data & data, const Model & model) {
     if(!init){
         try{
             //get the covariance for average data:
-            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution);
+            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, additional_nll_term);
             //find ipars:
             ParIds nll_pars = model.getParameters();
             ipars.resize(parameters.size());

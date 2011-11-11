@@ -43,7 +43,7 @@ class MleProducer(ProducerBase):
     # parameters_write is the list of parameters to write the mle for in the db. The default (None) means
     # to use all parameters.
     def get_cfg(self, model, signal_processes, parameters_write = None):
-        model_parameters = model.get_parameters(signal_processes)
+        model_parameters = model.get_parameters(signal_processes, True)
         if parameters_write is None: parameters_write = model_parameters
         result = {'type': 'mle', 'minimizer': minimizer(), 'parameters': list(parameters_write)}
         result.update(self.get_cfg_base(model, signal_processes))
@@ -181,7 +181,7 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
     result_table = table()
     result_table.add_column('process', 'signal process')
     
-    nuisance_parameters = sorted(list(model.get_parameters('')))
+    nuisance_parameters = sorted(list(model.get_parameters('', True)))
     for p in nuisance_parameters:
         suffix = ''
         if nuisance_constraint.get_distribution(p)['width'] == 0.0: suffix = ' (fixed)'
@@ -195,13 +195,13 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
         method, sp_id, dummy = name.split('-',2)
         result[sp_id] = {}
         result_table.set_column('process', sp_id)
-        model_parameters = model.get_parameters(sp)
+        parameters = set(model.get_parameters(sp, True))
         sqlfile = os.path.join(cachedir, '%s.db' % name)
-        cols = ['mle__%s, mle__%s_error' % (p, p) for p in model_parameters]
+        cols = ['mle__%s, mle__%s_error' % (p, p) for p in parameters]
         data = sql(sqlfile, 'select %s from products' % ', '.join(cols))
         if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
         i = 0
-        for p in model_parameters:
+        for p in parameters:
             result[sp_id][p] = [(row[2*i], row[2*i+1]) for row in data]
             i += 1
             sorted_res = sorted([res[0] for res in result[sp_id][p]])
@@ -210,7 +210,7 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
                 result_table.set_column(p, '%.3g (%.3g, %.3g)' % (sorted_res[int(0.5*n)], sorted_res[int(0.16*n)], sorted_res[int(0.84*n)]))
             else: result_table.set_column(p, '%.3g' % sorted_res[int(0.5*n)])
         for p in nuisance_parameters + ['beta_signal']:
-            if p in model_parameters: continue
+            if p in parameters: continue
             result_table.set_column(p, 'n/a')
         result_table.add_row()
     config.report.new_section("Maximum Likelihood fit on ensemble '%s'" % input)

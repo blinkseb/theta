@@ -28,8 +28,8 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
         if(not (s_plus_b->getParameters() == model_pars) or not (b_only->getParameters() == model_pars)){
             throw std::invalid_argument("parameters in s+b / b only distributions do not coincide with model parameters");
         }
-        s_plus_b_width.set(asimov_likelihood_widths(model, s_plus_b));
-        b_only_width.set(asimov_likelihood_widths(model, b_only));
+        s_plus_b_width.set(asimov_likelihood_widths(model, s_plus_b, additional_nll_term));
+        b_only_width.set(asimov_likelihood_widths(model, b_only, additional_nll_term));
         init = true;
     }
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);

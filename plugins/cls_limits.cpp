@@ -22,6 +22,8 @@ using namespace std;
 using namespace theta;
 using namespace libconfig;
 
+using boost::shared_ptr;
+
 // the negative log likelihood to fit the function
 // y = target_cls * exp(lambda * (x - limit)), with fixed target_cls and parameters lambda, limit
 // to a dataset with correlated uncertainties for y.
@@ -927,7 +929,7 @@ void cls_limits::run_set_limits(){
     // 0. determine signal width
     double signal_width = limit_hint.second - limit_hint.first;
     if(!isfinite(limit_hint.first) || !isfinite(limit_hint.second)){
-        ParValues widths = asimov_likelihood_widths(*model);
+        ParValues widths = asimov_likelihood_widths(*model, shared_ptr<Distribution>(), shared_ptr<Function>());
         signal_width = widths.get(truth_parameter);
         debug_out << "signal_width = " << signal_width << "\n";
         if(signal_width <= 0.0){
@@ -959,9 +961,16 @@ void cls_limits::run_set_limits(){
     fitexp_parameters pars(*minimizer, pid_limit, pid_lambda);
     size_t n_results = 0;
     const size_t N_maxit = 200;
+    double clb_cutoff0 = clb_cutoff;
     // idata == 0 means from data_source; all other for expected_bands.
     for(int idata=0; idata <= expected_bands; ++idata){
         if(idata==0 && data_source.get()==0) continue;
+        if(idata==0){
+            clb_cutoff = 0.0;
+        }
+        else{
+            clb_cutoff = clb_cutoff0;
+        }
         debug_out << "starting idata " << idata  << "\n";
         flush(debug_out);
         try{

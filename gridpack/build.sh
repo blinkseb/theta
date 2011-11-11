@@ -41,7 +41,7 @@ if [ ! -f gridpack-tmp/extlib/ld-linux.so ]; then
 fi
 
 echo "[3] stripping all symbols to reduce size"
-strip -s gridpack-tmp/bin/theta.exe gridpack-tmp/lib/* gridpack-tmp/extlib/*
+#strip -s gridpack-tmp/bin/theta.exe gridpack-tmp/lib/* gridpack-tmp/extlib/*
 
 echo "[4] creating gridpack.tgz from gridpack-tmp"
 rm -f gridpack.tgz

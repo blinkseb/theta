@@ -13,8 +13,12 @@ using namespace std;
 //the result class for the metropolisHastings routine.
 class MCMCMeanPredictionResult{
     public:
-        MCMCMeanPredictionResult(const Model & model_, const ObsIds & observables, size_t npar_): model(model_), npar(npar_), obs_ids(observables), n(0){
+        MCMCMeanPredictionResult(const Model & model_, const Function * additional_nll_term, const ObsIds & observables, size_t npar_): model(model_), npar(npar_), obs_ids(observables), n(0){
             par_ids = model.getParameters();
+            if(additional_nll_term){
+                ParIds add_pars = additional_nll_term->getParameters();
+                par_ids.insert(add_pars.begin(), add_pars.end());
+            }
             theta_assert(par_ids.size() == npar);
             nll_min = std::numeric_limits<double>::infinity();
         }
@@ -94,7 +98,7 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
     if(!init){
         try{
             //get the covariance for average data:
-            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution);
+            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, additional_nll_term);
             init = true;
         }
         catch(Exception & ex){
@@ -104,7 +108,7 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
     }
     
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
-    MCMCMeanPredictionResult result(model, observables, nll->getnpar());
+    MCMCMeanPredictionResult result(model, additional_nll_term.get(), observables, nll->getnpar());
     metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
     
     size_t i=0;

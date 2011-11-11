@@ -53,8 +53,8 @@ class MCMCPosteriorRatioResult{
 void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model & model) {
     if(!init){
         try{
-            sqrt_cov_sb = get_sqrt_cov2(*rnd_gen, model, startvalues_sb, s_plus_b);
-            sqrt_cov_b = get_sqrt_cov2(*rnd_gen, model, startvalues_b, b_only);
+            sqrt_cov_sb = get_sqrt_cov2(*rnd_gen, model, startvalues_sb, s_plus_b, additional_nll_term);
+            sqrt_cov_b = get_sqrt_cov2(*rnd_gen, model, startvalues_b, b_only, additional_nll_term);
             init = true;
         }catch(Exception & ex){
             ex.message = "initialization failed: " + ex.message;
