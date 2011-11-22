@@ -407,7 +407,8 @@ def cls_limits_grid(model, beta_signal_range, n_beta_signal = 21, n_toys_sb = 20
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
-def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, reuse_toys = {}, debug_cls = False, **options):
+def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
+   signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     assert len(signal_processes) > 0
     if signal_prior_bkg is None:
@@ -419,6 +420,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     main = {'type': 'cls_limits', 'model': '@model', 'producer': '@ts_producer', 'expected_bands' : 0,
         'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True),
         'tol_cls': 0.025, 'clb_cutoff': 0.001, 'debuglog': '@debuglog-name'}
+    if truth_max is not None: main['truth_max'] = float(truth_max)
     if what in ('expected', 'all'):
         main['expected_bands'] = 2000
     elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what

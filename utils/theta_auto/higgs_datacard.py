@@ -125,8 +125,8 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
         else:
             hname_plus = hname_with_systematics.replace('$SYSTEMATIC', u + 'Up')
             hname_minus = hname_with_systematics.replace('$SYSTEMATIC', u + 'Down')
-        histo_plus = rf.get_histogram(hname_plus)
-        histo_minus = rf.get_histogram(hname_minus)
+        histo_plus = rf.get_histogram(hname_plus, True)
+        histo_minus = rf.get_histogram(hname_minus, True)
         # make the rate uncertainty part of the coefficient function, i.e., normalize plus and minus histograms
         # to nominal and add a lognormal uncertainty to the coefficient function:
         lambda_plus = math.log(sum(histo_plus[2]) / sum(nominal_histogram[2])) * uncs[u]

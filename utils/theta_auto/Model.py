@@ -30,9 +30,11 @@ class rootfile:
             result[str(key.GetName())] = rootfile.th1_to_histo(th1)
         return result
         
-    def get_histogram(self, hname):
+    def get_histogram(self, hname, fail_with_exception = False):
         th1 = self.tfile.Get(hname)
-        if type(th1) not in (ROOT.TH1F, ROOT.TH1D): return None
+        if type(th1) not in (ROOT.TH1F, ROOT.TH1D):
+            if fail_with_exception: raise RuntimeError, "did not find histogram '%s' in file '%s'" % (hname, self.filename)
+            return None
         return rootfile.th1_to_histo(th1)
 
 

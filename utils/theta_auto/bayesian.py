@@ -129,6 +129,7 @@ def report_limit_band_plot(expected_limits, observed_limits, name, shortname, wr
         observed_limits.legend = 'observed limit'
         plots.append(observed_limits)
     if len(plots) == 0: return
+    config.report.new_section('Limits %s' % name)
     if write_table:
         result_table = Report.table()
         result_table.add_column('process', 'signal process')
@@ -153,7 +154,6 @@ def report_limit_band_plot(expected_limits, observed_limits, name, shortname, wr
         config.report.add_html(result_table.html())
     plot(plots, 'signal process', 'upper limit', os.path.join(plotsdir, 'limit_band_plot-%s.png' % shortname), extra_legend_items=extra_legend_items)
     plot(plots, 'signal process', 'upper limit', os.path.join(plotsdir, 'limit_band_plot-log-%s.png' % shortname), logy = True, extra_legend_items=extra_legend_items)
-    config.report.new_section('Limits %s' % name)
     config.report.add_html('<p><img src="plots/limit_band_plot-%s.png" /></p>' % shortname)
     config.report.add_html('<p><img src="plots/limit_band_plot-log-%s.png" /></p>' % shortname)
     return plots

@@ -182,6 +182,7 @@ private:
     double reltol_limit, tol_cls;
     double clb_cutoff;
     double cl;
+    double truth_max; // maximum truth value ever tried in toys. If larger values seem necessary, the toy is declared as outlier. TODO: should get rid of underlying numerical issue instead ...
 
     std::auto_ptr<theta::DatabaseInput> input_database;
     std::string input_truth_colname, input_poi_colname, input_ts_colname;

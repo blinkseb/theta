@@ -645,6 +645,8 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
     if(s_mode == "set_limits") mode = m_set_limits;
     else if(s_mode == "generate_grid") mode = m_generate_grid;
     else throw ConfigurationException("unknown mode '" + s_mode +"'");
+
+    truth_max = std::numeric_limits<double>::infinity();
     
     //1. setup common stuff:
     db = PluginManager<Database>::build(Configuration(cfg, s["output_database"]));
@@ -702,6 +704,9 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
         cls_limits__limit_uncertainty = cls_limits_table->add_column("limit_uncertainty", typeDouble);
         minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));
         tts.reset(new truth_ts_values());
+        if(s.exists("truth_max")){
+            truth_max = s["truth_max"];
+        }
         if(s.exists("expected_bands")){
             expected_bands = s["expected_bands"];
         }
@@ -992,6 +997,10 @@ void cls_limits::run_set_limits(){
             data = tts->get_cls_vs_truth(truth_to_ts);
             while(not cls_is_significantly_smaller(data, data.cls_values().size()-1, 1 - cl, tol_cls)){
                  double next_value = data.truth_values().back()*2.0;
+                 if(next_value > truth_max){
+                     debug_out << "to high truth value: " << next_value << ". Marking as outlier\n";
+                     throw OutlierException();
+                 }
                  debug_out << "making toys at high truth values to find upper limit on limit; next is truth=" << next_value << "\n";
                  flush(debug_out);
                  run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_value);
