@@ -199,12 +199,16 @@ class Model:
                     found_match = True
                     self.signal_processes.add(p)
             if not found_match: raise RuntimeError, "no match found for pattern '%s'" % pattern
-    
+
+
     # Adds a new parameter with name \c u_name tio the distribution (unless it already exists) with
     # a Gauss prior around 0.0 with width 1.0 and adds a factor exp(u_name * rel_uncertainty) for the 
     # processes and observables specified by procname and obsname. If u_name has a Gaussian prior with
     # width 1.0 and mean 0.0 this is effectively a log-normal uncertainty.
-    def add_lognormal_uncertainty(self, u_name, rel_uncertainty, procname, obsname='*'):
+    #
+    # note that rel_uncertainty_plus and rel_uncertainty_minus usually have the same sign(!), unless the change in acceptance
+    # goes in the same direction for both directions of the underlying uncertainty parameters.
+    def add_asymmetric_lognormal_uncertainty(self, u_name, rel_uncertainty_minus, rel_uncertainty_plus, procname, obsname='*'):
         found_match = False
         par_name = u_name
         if par_name not in self.distribution.get_parameters():
@@ -213,9 +217,15 @@ class Model:
             if obsname != '*' and o!=obsname: continue
             for p in self.observable_to_pred[o]:
                 if procname != '*' and procname != p: continue
-                self.observable_to_pred[o][p]['coefficient-function'].add_factor('exp', parameter = par_name, lambda_plus = rel_uncertainty, lambda_minus = rel_uncertainty)
+                self.observable_to_pred[o][p]['coefficient-function'].add_factor('exp', parameter = par_name, lambda_plus = rel_uncertainty_plus, lambda_minus = rel_uncertainty_minus)
                 found_match = True
         if not found_match: raise RuntimeError, 'did not find obname, procname = %s, %s' % (obsname, procname)
+    
+
+    # shortcut for add_asymmetric_lognormal_uncertainty for the symmetric case.
+    def add_lognormal_uncertainty(self, u_name, rel_uncertainty, procname, obsname='*'):
+        self.add_asymmetric_lognormal_uncertainty(u_name, rel_uncertainty, rel_uncertainty, procname, obsname)
+
         
     # get the set of parameters the model predictions depends on, given the signal_processes.
     # This does not cover additional_nll_terms; it is useful to pass the result to
