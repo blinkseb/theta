@@ -77,8 +77,8 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
 # If ret is 'cfg_names', returns a list of config file names.
 # All other values of ret are ignored for now; in that case, None is returned
 #
-# bkg_only_toys is a special setting for the lhclike test statistic which depends on beta_signal. If set to true, the toys
-# are always background only and the beta_signal_values are only used in the evaluation of the test statistic. Otherwise,
+# bkg_only_toys is a special setting for the lhclike test statistic, as this test statistic in general depends on beta_signal. If bkg_only_toys
+# is set to True, the toys are always background only and the beta_signal_values are only used in the evaluation of the test statistic. Otherwise,
 # the beta_signal_values are used both, for toy generation, and as parameter for evaluating the test statistic.
 #
 def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, bkg_only_toys = False, ret = 'data', **options):

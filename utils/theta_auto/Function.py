@@ -1,5 +1,5 @@
-# all classes here are immutable: once constructed, the contents cannot be changed.
-# (instead, the methods return new instances).
+# all classes here are immutable: once constructed, the content cannot be changed.
+# Instead, the methods which you would usually suspect to modify the instance return a new instance.
 
 class FunctionBase:
     def get_cfg(self): pass
@@ -105,20 +105,6 @@ class AddFunction(FunctionBase):
         return '(' + ' + '.join(map(str, self.functions)) + ')'
 
 
-# sqrt(w1*p1**2 + w2*p2**2 + ...)
-class AddSquared(FunctionBase):
-    def __init__(self, pars, weights):
-        assert len(pars) == len(weights)
-        self.parameters = tuple([str(p) for p in pars])
-        self.weights = tuple([float(w) for w in weights])
-
-    def get_cfg(self):
-        result = {'type': 'add_squared', 'parameters': self.parameters, 'weights': self.weights}
-        return result
-
-    def get_parameters(self):
-        return self.parameters
-
 # some methods working with FunctionBase objects and strings:
 def get_cfg(f):
     if type(f) == str: return f
@@ -158,25 +144,48 @@ class NLGauss(FunctionBase):
                 cov[j][i] = symm_elem
         self.covariance = tuple([tuple(row) for row in cov])
 
+    # replace a parameter in the row by a new row. This will
+    # only works if the current function contains that parameter directly in exactly one row; this will be checked.
+    #
+    # new_row can either be a Function instance or a string.
+    #
+    # Returns the new NLGauss instance
+    def replace_row(self, old_pname, new_row):
+        rows = list(self.rows)
+        found = 0
+        for r in rows:
+            if old_pname == r: found += 1
+        if found != 1: raise RuntimeError, "did not find parameter '%s'" % old_pname
+        for i in range(len(rows)):
+            if old_pname == rows[i]: rows[i] = new_row
+        return NLGauss(rows, self.mu, self.covariance)
+
+    def get_mean(self, par): return self.mu[self._get_index(par)]
+
+    def get_cov(self, p1, p2): return self.covariance[self._get_index(p1)][self._get_index(p2)]
+
+    def __str__(self):
+        result = "NLGauss rows; mu:\n"
+        n = len(self.rows)
+        for i in range(n):
+            result += "row %d: %s; %f\n" % (i, self.rows[i], self.mu[i])
+        result += "Covariance:\n"
+        for i in range(n):
+            result += "row %d: " % i
+            for j in range(n):
+                 result += "%10f" % self.covariance[i][j]
+            result += "\n"
+        return result
+
+
+    def _get_index(self, par):
+        for i in range(len(self.rows)):
+            if self.rows[i] == par: return i
+        raise RuntimeError, "no such row: %s" % par
+
     def get_cfg(self):
         result = {'type': 'nl_gauss', 'rows': [get_cfg(r) for r in self.rows], 'mu': self.mu, 'covariance': self.covariance}
         return result
-    """
-    def __add__(self, other):
-        if isinstance(other, NLGauss):
-            overlapping_rows = set(self.rows).intersection(other.rows)
-            new_rows = list(overlapping_rows)
-            for r in self.rows:
-                if r not in overlapping_rows: new_rows.append(r)
-            for r in other.rows:
-                if r not in overlapping_rows: new_rows.append(r)
-            n = len(new_rows)
-            for i in range(n):
-                r = new_rows[i]
-                if r in self.rows and r in other.rows: 
-                    
-        else: FunctionBase.__add__(self, other)
-    """
 
     def get_parameters(self): return self.parameters
 

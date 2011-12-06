@@ -45,6 +45,7 @@ class plotdata:
         
     # make a histogram of the given values
     def histogram(self, values, xmin, xmax, nbins):
+        xmin, xmax = float(xmin), float(xmax)
         self.x = [xmin + (xmax - xmin) / nbins * i for i in range(nbins)]
         self.y = [0.0] * nbins
         for v in values:
