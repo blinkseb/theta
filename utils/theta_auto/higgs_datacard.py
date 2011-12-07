@@ -18,7 +18,7 @@ def transform_name_to_theta(name):
         if c >= 'a' and c <= 'z' or c >= 'A' and c <= 'Z' or c >='0' and c <='9' or c in ('-', '_'): result += c
         else: result += '_'
     result = result.replace('__', '_')
-    if result[0] >= '0' and result[0] <= '9' or result[0]=='-': result = '_' + result
+    if result[0] >= '0' and result[0] <= '9' or result[0]=='-': result = 'tn_' + result
     return result
     
 # add entries to the dictionary d. For example,
