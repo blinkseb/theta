@@ -4,6 +4,7 @@ from Model import *
 
 
 # returns a model with a counting experiment in one bin with the given backgruond with a log-normal uncertainty.
+# b_uncertainty is the absolute uncertainty on b.
 #
 # If s2 is not None, will return a model with two signal processes, "s" and "s2"
 def simple_counting(s, n_obs, b=0.0, b_uncertainty=0.0, s2 = None):

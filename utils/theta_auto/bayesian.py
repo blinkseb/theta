@@ -204,7 +204,7 @@ def bayesian_limits(model, what = 'all', **options):
 ## \brief Calculate the marginal posterior of the given parameters
 #
 #
-# histogram_specs is a dictionary of (parameter name) -> tupe(int nbins, float xmin, float max) and determines for which
+# histogram_specs is a dictionary of (parameter name) -> tuple(int nbins, float xmin, float max) and determines for which
 # parameters the poterior is computed on which range and binning. Note that the computational complexity is roughly
 # proportional to nbins * mcmc_iterations. Therefore, use large values only if you have to / for the final result. It is suggested
 # to use 10--20 bins as a start and mcmc_iterations = 10000.

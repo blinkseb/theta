@@ -56,6 +56,16 @@ def mul_list(l, c):
     for i in range(len(l)):
         l[i] *= c
 
+# in theta, names must begin with a letter and consist only of A-Za-z0-9_- and not contain '__'
+def transform_name_to_theta(name):
+    result = ''
+    for c in name:
+        if c >= 'a' and c <= 'z' or c >= 'A' and c <= 'Z' or c >='0' and c <='9' or c in ('-', '_'): result += c
+        else: result += '_'
+    result = result.replace('__', '_')
+    if result[0] >= '0' and result[0] <= '9' or result[0]=='-': result = 'tn_' + result
+    return result
+
 # returns a Distribution object, given the model, signal process and nuisance_prior specification ('shape:X;rate:Y'...)
 def nuisance_prior_distribution(model, spec):
     if spec.__class__ == Model.Distribution: result = Model.Distribution.merge(spec, spec)  # note: merging copies ...
@@ -148,7 +158,7 @@ def signal_prior_dict(spec):
         signal_prior_dict = spec
     return signal_prior_dict
 
-# returns a tuple (data_source dict, beta_signal distribution dict), given the input_spec ('toys:X' / 'toys-scan:N,min,max' / 'data')
+# returns a tuple (data_source dict, beta_signal distribution dict), given the input_spec ('toys:X' / 'toys-asimov:X' / 'data')
 # the name is always 'source'.
 #
 # possible options: 'toydata_seed'

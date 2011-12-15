@@ -81,7 +81,8 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
 # is set to True, the toys are always background only and the beta_signal_values are only used in the evaluation of the test statistic. Otherwise,
 # the beta_signal_values are used both, for toy generation, and as parameter for evaluating the test statistic.
 #
-def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, bkg_only_toys = False, ret = 'data', **options):
+def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
+   signal_processes = None, bkg_only_toys = False, ret = 'data', asimov = False, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     if signal_prior_bkg is None:
         if ts == 'lhclike': signal_prior_bkg = 'flat'
@@ -93,7 +94,9 @@ def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuis
     ts_producer, ts_colname = ts_producer_dict(ts, signal_prior_bkg)
     toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
     toplevel_settings.update(get_common_toplevel_settings(**options))
-    main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, 'toys:0', **options)
+    inp_spec = 'toys:0'
+    if asimov: inp_spec = 'toys-asimov:0'
+    main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, inp_spec, **options)
     #print toplevel_settings
     cfg_names_to_run = []
     for beta_signal_value in beta_signal_values:

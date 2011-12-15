@@ -117,6 +117,7 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
             if hf is None: continue
             coeff = model.get_coeff(o,p)
             histo_nominal_integral = sum(hf.get_nominal_histo()[2])
+            if histo_nominal_integral == 0.0: histo_nominal_integral = float("nan")
             for par in parameters:
                 splus, sminus = None, None
                 if par in hf.syst_histos:

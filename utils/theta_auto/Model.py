@@ -574,11 +574,12 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
             l = hinternal.split('__')
             observable, process, uncertainty, direction = [None]*4
             if len(l)==2:
-                observable, process = l
+                observable, process = map(utils.transform_name_to_theta, l)
                 observables.add(observable)
                 processes.add(process)
             elif len(l)==4:
                 observable, process, uncertainty, direction = l
+                observable, process = map(utils.transform_name_to_theta, [observables, process])
             else:
                 print "Warning: ignoring template %s (was: %s) which does not obey naming convention!" % (hinternal, hexternal)
                 continue
