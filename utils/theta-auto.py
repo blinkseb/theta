@@ -394,6 +394,54 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
 #
 
 
+
+## \brief Quantify the approximate impact of an unertainty on the result
+#
+# This will run
+#    method(model, input = 'toys-asimov:1.0', n = 1, signal_processes = ..., nuisance_constraint = <see below>, **method_options)
+# for each systematic uncertainty parameter twice, setting this parameter to +1sigma and -1sigma resp, 
+# fixing all other parameters to their nominal value.
+#
+# It is possible to change this default of scanning -1sigma and +1sigma by setting sigma_factors.
+#
+# nuisance_constraint is set to a copy of model.distribution; if method_options contain
+# 'nuisance_constraint', this will be considered as usual.
+#
+#
+# returns a dictionary
+# (spid) --> (parameter name) --> (sigma factor) --> (method result)
+def individual_uncertainties(model, method, signal_processes = None, sigma_factors = [-1.0, 1.0],  **method_options):
+    assert 'signal_processes' not in method_options
+    if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
+    dist_for_method = copy.deepcopy(model.distribution)
+    if 'nuisance_constraint' in method_options:
+        constr = nuisance_prior_distribution(mmethod_optionsodel, method_options['nuisance_constraint'])
+        dist_for_method = Distribution.merge(dist_for_method, constr)
+        del method_options['nuisance_constraint']
+    model_dist_orig = copy.deepcopy(model.distribution)
+    result = {}
+    for sp in signal_processes:
+        spid = ''.join(sp)
+        result[spid] = {}
+        for par in model.get_parameters(sp):
+            if par == 'beta_signal': continue
+            result[spid][par] = {}
+            # fix all parameters but par:
+            model.distribution = copy.deepcopy(model_dist_orig)
+            for par2 in model.get_parameters(sp):
+                if par == par2 or par2 == 'beta_signal': continue
+                model.distribution.set_distribution_parameters(par2, width=0.0)
+            # find out mean and width of par:
+            dist_pars = model.distribution.get_distribution(par)
+            mean, width = dist_pars['mean'], dist_pars['width']
+            for sf in sigma_factors:
+                result[spid][par]
+                model.distribution.set_distribution_parameters(par, mean = mean + sf * width, width=0.0, range = (mean + sf * width, mean + sf * width))
+                res = method(model, input = 'toys-asimov:1.0', n=1, nuisance_constraint = dist_for_method, signal_processes = sp, **method_options)
+                result[spid][par][sf] = res
+    return result
+
+
 ## \brief Perform a maximum likelihood fit
 #
 # Finds the parameter values for all model parameters at the maximum of the likelihood, using
