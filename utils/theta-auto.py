@@ -415,7 +415,7 @@ def individual_uncertainties(model, method, signal_processes = None, sigma_facto
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     dist_for_method = copy.deepcopy(model.distribution)
     if 'nuisance_constraint' in method_options:
-        constr = nuisance_prior_distribution(mmethod_optionsodel, method_options['nuisance_constraint'])
+        constr = nuisance_prior_distribution(model, method_options['nuisance_constraint'])
         dist_for_method = Distribution.merge(dist_for_method, constr)
         del method_options['nuisance_constraint']
     model_dist_orig = copy.deepcopy(model.distribution)
