@@ -405,12 +405,12 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
 # It is possible to change this default of scanning -1sigma and +1sigma by setting sigma_factors.
 #
 # nuisance_constraint is set to a copy of model.distribution; if method_options contain
-# 'nuisance_constraint', this will be considered as usual.
+# 'nuisance_constraint', this will be considered as usual (i.e., you can set it to 'shape:fix', ...).
 #
 #
 # returns a dictionary
 # (spid) --> (parameter name) --> (sigma factor) --> (method result)
-def individual_uncertainties(model, method, signal_processes = None, sigma_factors = [-1.0, 1.0],  **method_options):
+def individual_uncertainties(model, method, signal_processes = None, sigma_factors = [-1.0, 1.0], parameters = None,  **method_options):
     assert 'signal_processes' not in method_options
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     dist_for_method = copy.deepcopy(model.distribution)
@@ -420,10 +420,13 @@ def individual_uncertainties(model, method, signal_processes = None, sigma_facto
         del method_options['nuisance_constraint']
     model_dist_orig = copy.deepcopy(model.distribution)
     result = {}
+    if 'n' not in method_options: method_options['n'] = 1
     for sp in signal_processes:
         spid = ''.join(sp)
         result[spid] = {}
-        for par in model.get_parameters(sp):
+        if parameters is None: pars = model.get_parameters(sp)
+        else: pars = parameters
+        for par in pars:
             if par == 'beta_signal': continue
             result[spid][par] = {}
             # fix all parameters but par:
@@ -435,10 +438,10 @@ def individual_uncertainties(model, method, signal_processes = None, sigma_facto
             dist_pars = model.distribution.get_distribution(par)
             mean, width = dist_pars['mean'], dist_pars['width']
             for sf in sigma_factors:
-                result[spid][par]
                 model.distribution.set_distribution_parameters(par, mean = mean + sf * width, width=0.0, range = (mean + sf * width, mean + sf * width))
-                res = method(model, input = 'toys-asimov:1.0', n=1, nuisance_constraint = dist_for_method, signal_processes = sp, **method_options)
+                res = method(model, input = 'toys-asimov:1.0', nuisance_constraint = dist_for_method, signal_processes = [sp], **method_options)
                 result[spid][par][sf] = res
+    model.distribution = model_dist_orig
     return result
 
 
