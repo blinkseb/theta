@@ -410,6 +410,14 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
 #
 # returns a dictionary
 # (spid) --> (parameter name) --> (sigma factor) --> (method result)
+#
+#
+# Example: to see how the result changes if "switching on" the uncertainty in the toys and fixing the same parameter
+# in the evaluation, you can use something along these line:
+# for p in parameters:
+#    fixp = Distribution()
+#    fixp.set_distribution(p, 'gauss', 0.0, 0.0, [0., 0.])
+#    individual_uncertainties(model, ..., nuisance_constraint = fixp, parameters = [p])
 def individual_uncertainties(model, method, signal_processes = None, sigma_factors = [-1.0, 1.0], parameters = None,  **method_options):
     assert 'signal_processes' not in method_options
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]

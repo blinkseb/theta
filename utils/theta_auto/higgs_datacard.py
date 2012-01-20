@@ -109,7 +109,8 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
     hname = hname.replace('$PROCESS', proc)
     hname_with_systematics = hname_with_systematics.replace('$PROCESS', proc)
     nominal_histogram = rf.get_histogram(hname)
-    if utils.reldiff(sum(old_nominal_histogram[2]), sum(nominal_histogram[2])) > 0.01: raise RuntimeError, "add_shapes: histogram in file and rate differ too much (>1%)"
+    if utils.reldiff(sum(old_nominal_histogram[2]), sum(nominal_histogram[2])) > 0.01 and abs(sum(old_nominal_histogram[2]) - sum(nominal_histogram[2])) > 1e-4:
+        raise RuntimeError, "add_shapes: histogram normalisation given in datacard and from root file differ by more than >1% (and absolute difference is > 1e-4)"
     hf.set_nominal_histo(nominal_histogram, reset_binning = True)
     model.reset_binning(theta_obs, nominal_histogram[0], nominal_histogram[1], len(nominal_histogram[2]))
     if len(uncs) == 0: return

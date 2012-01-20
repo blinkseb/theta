@@ -395,7 +395,7 @@ def cls_limits_grid(model, beta_signal_range, n_beta_signal = 21, n_toys_sb = 20
 # the s+b model, beta_signal is always fixed to r. 'signal_prior_bkg' is applied. You would usually set it to 'flat' in this case
 # so that the b-only fit varies beta_signal on [0, r].
 #
-# For ts='mle', signal_prior_bkg has no meaning. The nuisance prior for the s+b / b only likelihood is always the same (so far).
+# For ts='mle', signal_prior_bkg is ignored. The nuisance prior for the s+b / b only likelihood is always the same.
 #
 # what controls which limits are computed. Valid vaues are:
 # * 'observed': compute observed limit on data only
@@ -422,7 +422,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'type': 'cls_limits', 'model': '@model', 'producer': '@ts_producer', 'expected_bands' : 0,
         'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True),
-        'tol_cls': 0.025, 'clb_cutoff': 0.001, 'debuglog': '@debuglog-name'}
+        'tol_cls': 0.025, 'clb_cutoff': 0.001, 'debuglog': '@debuglog-name', 'rnd_gen': {'seed': options.get('toydata_seed', 1)}}
     if truth_max is not None: main['truth_max'] = float(truth_max)
     if what in ('expected', 'all'):
         main['expected_bands'] = 2000
