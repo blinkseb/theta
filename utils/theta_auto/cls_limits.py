@@ -44,11 +44,11 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
     toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, "minimizer": minimizer(need_error = False)}
     toplevel_settings.update(get_common_toplevel_settings(**options))
     main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, 'data')
+    cfg_names_to_run = []
     for sp in signal_processes:
         model_parameters = model.get_parameters(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
         name = write_cfg(model, sp, 'ts_data', '', additional_settings = toplevel_settings, **options)
-        cfg_names_to_run = []
         cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
         run_theta(cfg_names_to_run)
