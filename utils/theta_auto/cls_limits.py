@@ -422,7 +422,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'type': 'cls_limits', 'model': '@model', 'producer': '@ts_producer', 'expected_bands' : 0,
         'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True),
-        'tol_cls': 0.025, 'clb_cutoff': 0.001, 'debuglog': '@debuglog-name', 'rnd_gen': {'seed': options.get('toydata_seed', 1)}}
+        'tol_cls': 0.025, 'clb_cutoff': 0.02, 'debuglog': '@debuglog-name', 'rnd_gen': {'seed': options.get('toydata_seed', 1)}}
     if truth_max is not None: main['truth_max'] = float(truth_max)
     if what in ('expected', 'all'):
         main['expected_bands'] = 2000
@@ -471,12 +471,8 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
             del data[0] # so rest is expected ...
         if what in ('all', 'expected'):
             # sort by limit:
-            limits = sorted([r[1] for r in data])
-            limits_noinf = sorted([r[1] for r in data if r[1] != float("inf")])
-            limits = limits_noinf
+            limits = sorted([r[1] for r in data if r[1] != float("inf")])
             n = len(limits)
-            n_inf = len([x for x in limits if x==float("inf")])
-            if n_inf * 1.0 / n >= 0.025: print "WARNING: too many results are infinity: %f%% (acceptable: 2.5%%)" % (n_inf * 100. / n)
             expected_results[sp] = (limits[n/2], (limits[int(0.16*n)], limits[int(0.84*n)]), (limits[int(0.025*n)], limits[int(0.975*n)]))                
         if debug_cls:
             debug_cls_plots(sqlfile, main['ts_column'])
