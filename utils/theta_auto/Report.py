@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import datetime, os.path, shutil, config
 
 class table:
@@ -12,14 +13,43 @@ class table:
       self.columns.append(colname)
       self.pretty_colnames.append(pretty_colname)
    
+   # the html formatted stuff here:
    def set_column(self, colname, value):
-       self.current_row[colname] = value
+       self.current_row[colname] = {'html': value}
+       
+   def set_column_multiformat(self, colname, raw, **values):
+       self.current_row[colname] = values
+       self.current_row[colname]['raw'] = raw
    
    def add_row(self):
        row = []
        for c in self.columns: row.append(self.current_row[c])
        self.rows.append(row)
        self.current_row = {}
+       
+   def tex(self):
+       result = r'\begin{tabular}{|'
+       for c in self.pretty_colnames: result += "l|"
+       result += "}\hline\n"
+       result += " & ".join(self.pretty_colnames)
+       result += r"\\" + "\n \hline \n"
+       for r in self.rows:
+           try:  result += ' & '.join([table._cellval(col, 'tex') for col in r])
+           except KeyError: raise RuntimeError, "no tex content for column found"
+           result += r"\\" + "\n"
+       result += r"\hline" + "\n" +  r"\end{tabular}"
+       return result
+
+   def get_raw_rows(self):
+       result = []
+       for r in self.rows: result.append([cell['raw'] for cell in r])
+       return result
+       
+   @staticmethod
+   def _cellval(cell, format):
+       if format in cell: return cell[format]
+       else: return cell['raw']
+       
 
    def html(self):
        result = '<table cellpadding="2" border="1">\n<tr>'
@@ -28,7 +58,7 @@ class table:
        result += '</tr>\n'
        for r in self.rows:
           result += '<tr><td>'
-          result += '</td><td>'.join(r)
+          result += '</td><td>'.join([table._cellval(col, 'html') for col in r])
           result += '</td></tr>\n'
        result += '</table>\n'
        return result

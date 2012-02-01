@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import config, os, math
 
 from Report import *
@@ -14,8 +15,11 @@ import utils
 # If in addition to create_plots, 'all_nominal_plots' is also true, all nominal processes will be plottet separately. This is switched
 #   off by default as there usually are a lot of nominal processes.
 #
-# Does not return anything; just writes to the report.
+# Returns a dictionary containing instances of Report.table:
+# * 'rate_table' the rate table
+# * 'sysrate_tables' --> (observable name): the systematics table for the given observable
 def model_summary(model, create_plots = True, all_nominal_templates = False):
+    result = {}
     observables = sorted(list(model.observables))
     processes = sorted(list(model.processes))
     #general info
@@ -55,42 +59,45 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
         o_bkg_sum[o] = 0.0
     for p in processes:
         if p in model.signal_processes: continue
-        rate_table.set_column('process', p)
+        rate_table.set_column_multiformat('process', p)
         for o in observables:
            hf = model.get_histogram_function(o,p)
            if hf is None:
-               rate_table.set_column(o, '---')
+               rate_table.set_column_multiformat(o, '---')
                continue
            s = sum(hf.get_nominal_histo()[2])
            o_bkg_sum[o] += s
-           rate_table.set_column(o, '%.5g' % s)
+           rate_table.set_column_multiformat(o, s, html = '%.5g' % s, tex = '%.5g' % s)
         rate_table.add_row()
-    rate_table.set_column('process', '<b>total background</b>')
-    for o in observables: rate_table.set_column(o, '%.5g' % o_bkg_sum[o])
+    rate_table.set_column_multiformat('process', 'bkg_tot', html = '<b>total background</b>', tex = r'\textbf{total background}')
+    for o in observables: rate_table.set_column_multiformat(o, o_bkg_sum[o], html = '%.5g' % o_bkg_sum[o], tex = '%.5g' % o_bkg_sum[o])
     rate_table.add_row()
     for p in processes:
         if p not in model.signal_processes: continue
-        rate_table.set_column('process', p)
+        rate_table.set_column_multiformat('process', p)
         for o in observables:
            hf = model.get_histogram_function(o,p)
            if hf is None:
-               rate_table.set_column(o, '---')
+               rate_table.set_column_multiformat(o, '---')
                continue
            s = sum(hf.get_nominal_histo()[2])
-           rate_table.set_column(o, '%.5g' % s)
+           rate_table.set_column_multiformat(o, s, html = '%.5g' % s, tex = '%.5g' % s)
         rate_table.add_row()
     #always show data row (even if there is no DATA ...):
-    rate_table.set_column('process', '<b>DATA</b>')
+    rate_table.set_column_multiformat('process', 'data', html = '<b>DATA</b>', tex = r'\textbf{data}')
     for o in observables:
         histo = model.get_data_histogram(o)
-        if histo is None: entry = '---'
-        else: entry = '%.5g' % sum(histo[2])
-        rate_table.set_column(o, entry)
+        if histo is None: rate_table.set_column_multiformat(o, '---')
+        else: rate_table.set_column_multiformat(o, sum(histo[2]), html = '%.5g' % sum(histo[2]), tex = '%.5g' % sum(histo[2]))
+        
     rate_table.add_row()
     f = open(os.path.join(config.workdir, "model_summary_rates.thtml"), 'w')
     print >> f, "<p>Rates for all observables and processes as given by the 'nominal' templates:</p>"
     print >> f, rate_table.html()
+    result['rate_table'] = rate_table
     f.close()
+    
+    result['sysrate_tables'] = {}
     
     # rate impact of systematic uncertainties on the processes. One table per observable:
     f = open(os.path.join(config.workdir, "model_summary_rate_impacts.thtml"), 'w')
@@ -112,7 +119,7 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
             d = model.distribution.get_distribution(par)
             rate_impact_table.add_column(par, '%s (%s)' % (par, d['typ']))
         for p in processes:
-            rate_impact_table.set_column('process', p)
+            rate_impact_table.set_column_multiformat('process', p)
             hf = model.get_histogram_function(o,p)
             if hf is None: continue
             coeff = model.get_coeff(o,p)
@@ -132,15 +139,27 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
                        rplus = model.distribution.get_distribution(par)['width']
                        rminus = -model.distribution.get_distribution(par)['width']
                 cell = ''
+                texcell = ''
+                rawcell = {}
                 if splus is not None:
                     cell += '<sup>%+.2f</sup><sub>%+.2f</sub> (s) ' % (splus * 100, sminus * 100)
+                    texcell = '$^{%+.2f}_{%+.2f}$ (s) ' % (splus * 100, sminus * 100)
+                    rawcell['shape_plus'] = splus * 100
+                    rawcell['shape_minus'] = sminus * 100
                 if (rplus, rminus) != (0.0, 0.0):
-                    if rplus==-rminus:  cell += '&#xb1;%.2f (r)' % (rplus * 100)
-                    else: cell += '<sup>%+.2f</sup><sub>%+.2f</sub> (r) ' % (rplus * 100, rminus * 100)
-                if cell == '': cell = '---'
-                rate_impact_table.set_column(par, cell)
+                    rawcell['rate_plus'] = (rplus * 100)
+                    rawcell['rate_minus'] = (rminus * 100)
+                    if rplus==-rminus:
+                        cell += '&#xb1;%.2f (r)' % (rplus * 100)
+                        texcell += "$\\pm %.2f$ (r)" % (rplus * 100)
+                    else:
+                        cell += '<sup>%+.2f</sup><sub>%+.2f</sub> (r) ' % (rplus * 100, rminus * 100)
+                        texcell += '$^{%+.2f}_{%+.2f}$ (r) ' % (rplus * 100, rminus * 100)
+                if cell == '': cell, texcell = '---', '---'
+                rate_impact_table.set_column_multiformat(par, rawcell, html = cell, tex = texcell)
             rate_impact_table.add_row()
         print >> f, rate_impact_table.html()
+        result['sysrate_tables'][o] = rate_impact_table
     f.close()
     
     # nuisance parameter priors
@@ -169,6 +188,8 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
     config.report.new_section('Nuisance Parameter Priors', nuisance_priors)
     if create_plots:
         config.report.new_section('Basic Model Plots', file(os.path.join(config.workdir, 'model_plots.thtml')).read())
+        
+    return result
 
 def pretty_dict(d):  return '; '.join(['%s = %s' % (k, str(d[k])) for k in d])
 
