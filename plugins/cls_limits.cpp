@@ -967,9 +967,13 @@ void cls_limits::run_set_limits(){
     size_t n_results = 0;
     const size_t N_maxit = 200;
     double clb_cutoff0 = clb_cutoff;
-    // idata == 0 means from data_source; all other for expected_bands.
-    for(int idata=0; idata <= expected_bands; ++idata){
-        if(idata==0 && data_source.get()==0) continue;
+    // idata == 0 means from data_source; 1..expected_baend are for the bands.
+    // Note that the case idata=0 is moved to the end to have a more robust result for data
+    for(int idata=1; ; ++idata){
+        if(idata==expected_bands+1){
+            idata=0;
+        }
+        if(idata==0 && data_source.get()==0) break;
         if(idata==0){
             clb_cutoff = 0.0;
         }
@@ -1124,20 +1128,22 @@ void cls_limits::run_set_limits(){
             r.set_column(cls_limits__limit_uncertainty, latest_res.limit_error);
             cls_limits_table->add_row(r);
             debug_out << "final limit for idata = " << idata << ": " << latest_res.limit << " +- " << latest_res.limit_error << "\n";
+            if(idata==0) break;
         }
         catch(OutlierException & ex){
             if(isnan(ex.limit)){ 
                 debug_out << "idata " << idata  << " identified as outlier; skipping.\n";
-                continue;
             }
-            debug_out << "idata " << idata  << " identified as outlier, limit is " << ex.limit << " \n";
-            flush(debug_out);
-            ++n_results;
-            Row r;
-            r.set_column(cls_limits__index, idata);
-            r.set_column(cls_limits__limit, ex.limit);
-            r.set_column(cls_limits__limit_uncertainty, 0.0);
-            cls_limits_table->add_row(r);
+            else{ // an infinity outlier
+                debug_out << "idata " << idata  << " identified as outlier, limit is " << ex.limit << " \n";
+                flush(debug_out);
+                ++n_results;
+                Row r;
+                r.set_column(cls_limits__index, idata);
+                r.set_column(cls_limits__limit, ex.limit);
+                r.set_column(cls_limits__limit_uncertainty, 0.0);
+                cls_limits_table->add_row(r);
+            }
         }
         catch(MinimizationException & ex){
             debug_out << "idata " << idata << " had minimizationexception; skipping.\n";
