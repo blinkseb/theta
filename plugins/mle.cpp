@@ -68,44 +68,33 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
         }
         products_sink->set_product(c_ks_ts, ks_ts);
     }
-    if(write_bh_ts){
+    if(write_pchi2){
         ObsIds obs = data.getObservables();
         Data pred;
         model.get_prediction(pred, minres.values);
-        double bh_ts = 0.0;
-        const Histogram1D & data_o = data[*bh_ts_obsid];
-        const Histogram1D & pred_o = pred[*bh_ts_obsid];
-        data_o.check_compatibility(pred_o);
-        for(size_t i=0; i<data_o.get_nbins(); ++i){
-            double bump = 0.0;
-            for(size_t j=i; j<data_o.get_nbins(); ++j){
-                bump += data_o.get(j) - pred_o.get(j);
-                bh_ts = max(bh_ts, bump);
+        double pchi2 = 0.0;
+        for(ObsIds::const_iterator it=obs.begin(); it!=obs.end(); ++it){
+            const Histogram1D & data_o = data[*it];
+            const Histogram1D & pred_o = pred[*it];
+            data_o.check_compatibility(pred_o);
+            for(size_t i=0; i<data_o.get_nbins(); ++i){
+                const double n = data_o.get(i);
+                const double mu = pred_o.get(i);
+                if(mu > 0){
+                    pchi2 += n * utils::log(n / mu) + mu - n;
+                }
+                else if(n > 0){
+                    pchi2 = numeric_limits<double>::infinity();
+                    break;
+                }
             }
         }
-        products_sink->set_product(c_bh_ts, bh_ts);
+        pchi2 *= 2;
+        products_sink->set_product(c_pchi2, pchi2);
     }
 }
 
-
-void mle::declare_products(){
-    c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
-    for(size_t i=0; i<save_ids.size(); ++i){
-        parameter_columns.push_back(products_sink->declare_product(*this, parameter_names[i], theta::typeDouble));
-        error_columns.push_back(products_sink->declare_product(*this, parameter_names[i] + "_error", theta::typeDouble));
-    }
-    if(write_covariance){
-       c_covariance = products_sink->declare_product(*this, "covariance", theta::typeHisto);
-    }
-    if(write_ks_ts){
-       c_ks_ts = products_sink->declare_product(*this, "ks_ts", theta::typeDouble);
-    }
-    if(write_bh_ts){
-       c_bh_ts = products_sink->declare_product(*this, "bh_ts", theta::typeDouble);
-    }
-}
-
-mle::mle(const theta::Configuration & cfg): Producer(cfg), start_step_ranges_init(false), write_covariance(false), write_ks_ts(false), write_bh_ts(false){
+mle::mle(const theta::Configuration & cfg): Producer(cfg), start_step_ranges_init(false), write_covariance(false), write_ks_ts(false), write_pchi2(false){
     SettingWrapper s = cfg.setting;
     minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
@@ -121,11 +110,23 @@ mle::mle(const theta::Configuration & cfg): Producer(cfg), start_step_ranges_ini
     if(s.exists("write_ks_ts")){
        write_ks_ts = s["write_ks_ts"];
     }
-    if(s.exists("bh")){
-        bh_ts_obsid.reset(new ObsId(vm->getObsId(s["bh"])));
-        write_bh_ts = true;
+    if(s.exists("write_pchi2")){
+        write_pchi2 = s["write_pchi2"];
     }
-    declare_products();
+    c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
+    for(size_t i=0; i<save_ids.size(); ++i){
+        parameter_columns.push_back(products_sink->declare_product(*this, parameter_names[i], theta::typeDouble));
+        error_columns.push_back(products_sink->declare_product(*this, parameter_names[i] + "_error", theta::typeDouble));
+    }
+    if(write_covariance){
+       c_covariance = products_sink->declare_product(*this, "covariance", theta::typeHisto);
+    }
+    if(write_ks_ts){
+       c_ks_ts = products_sink->declare_product(*this, "ks_ts", theta::typeDouble);
+    }
+    if(write_pchi2){
+       c_pchi2 = products_sink->declare_product(*this, "pchi2", theta::typeDouble);
+    }
 }
 
 REGISTER_PLUGIN(mle)

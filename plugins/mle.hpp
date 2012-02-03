@@ -57,8 +57,6 @@ public:
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
 private:
-    void declare_products();
-    
     std::auto_ptr<theta::Minimizer> minimizer;
     std::vector<theta::ParId> save_ids;
     std::vector<std::string> parameter_names;
@@ -69,14 +67,12 @@ private:
     
     bool write_covariance;
     bool write_ks_ts;
-    bool write_bh_ts;
-
-    std::auto_ptr<theta::ObsId> bh_ts_obsid;
+    bool write_pchi2;
     
     //the two columns per parameter with value and error:
     std::vector<theta::Column> parameter_columns;
     std::vector<theta::Column> error_columns;
-    theta::Column c_nll, c_covariance, c_ks_ts, c_bh_ts;
+    theta::Column c_nll, c_covariance, c_ks_ts, c_pchi2;
 };
 
 #endif

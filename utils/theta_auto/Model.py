@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import ROOT, re, fnmatch, math
 import os, os.path
 from theta_interface import *
@@ -36,6 +37,31 @@ class rootfile:
             if fail_with_exception: raise RuntimeError, "did not find histogram '%s' in file '%s'" % (hname, self.filename)
             return None
         return rootfile.th1_to_histo(th1)
+
+
+# par_values is a dictionary (parameter name) --> (floating point value)
+#
+# use_signal is either the boolean True or a list/set which contains the process names
+# to include. If the model contains a process considered as signal, beta_signal must be set in
+# par_values.
+#
+# returns a dictionary
+# (observable name) --> (process name) --> (xmin, xmax, data)
+def get_shifted_templates(model, par_values, use_signal = True):
+    result = {}
+    for obs in model.observables:
+        result[obs] = {}
+        for p in model.get_processes(obs):
+            f = model.get_coeff(obs, p)
+            factor = f.get_value(par_values)
+            if p in model.signal_processes:
+                if use_signal is True or p in use_signal: factor *= par_values['beta_signal']
+            hf = model.get_histogram_function(obs, p)
+            histo = hf.evaluate(par_values)
+            for i in range(len(histo[2])):
+                histo[2][i] *= factor
+            result[obs][p] = histo
+    return result
 
 
 ## \brief A statistical Model
@@ -365,6 +391,17 @@ def set_hrange(h_triple, new_xmin, new_xmax):
     assert close_to(actual_new_xmax, new_xmax)
     return (actual_new_xmin, actual_new_xmax, data[imin:imax])
 
+
+# l+= coeff * l2 where l, l2 are lists of floats
+def add_inplace(l, l2, coeff = 1.0):
+    assert len(l) == len(l2)
+    for i in range(len(l)): l[i] += coeff * l2[i]
+
+# returns l + coeff * l2, without modifying l, l2
+def add(l, l2, coeff = 1.0):
+    assert len(l) == len(l2)
+    return [l[i] + coeff * l2[i] for i in range(len(l))]
+
 # for morphing histos:
 class HistogramFunction:
     def __init__(self, typ = 'cubiclinear'):
@@ -376,8 +413,35 @@ class HistogramFunction:
         self.normalize_to_nominal = False
         self.syst_histos = {} # map par_name -> (plus histo, minus_histo)
         self.histrb = None # xmin, xmax nbins
+        self.decorr_delta_width = 0.0
+        self.nominal_uncertainty_histo = None
         
     def get_nominal_histo(self): return self.nominal_histo
+    
+    # return a histogram triplet (xmin, xmax, data)
+    def evaluate(self, par_values):
+        if self.typ == 'cubiclinear':
+            result = copy.deepcopy(self.nominal_histo)
+            for p in self.parameters:
+                delta = par_values[p] * self.factors[p]
+                if abs(delta) > 1:
+                    if delta > 0: h = add(self.syst_histos[p][0][2],self.nominal_histo[2], -1.0)
+                    else: h = add(self.syst_histos[p][1][2],self.nominal_histo[2], -1.0)
+                    add_inplace(result[2], h, abs(delta))
+                else:
+                    hsum = add(self.syst_histos[p][0][2], self.syst_histos[p][1][2])
+                    add_inplace(hsum, self.nominal_histo[2], -2.0)
+                    hdiff = add(self.syst_histos[p][0][2], self.syst_histos[p][1][2], -1.0)
+                    diff = [0.5 * delta * x for x in hdiff]
+                    add_inplace(diff, hsum, delta**2 - 0.5 * abs(delta)**3)
+                    add_inplace(result[2], diff)
+            for i in range(len(result[2])):
+                result[2][i] = max(0.0, result[2][i])
+            if self.normalize_to_nominal:
+                factor = sum(self.nominal_histo[2]) / sum(result[2])
+                for i in range(len(result[2])): result[2][i] *= factor
+            return result
+        raise RuntimeError, "unknown typ '%s'" % self.typ
     
     # nominal_histo is a triple (xmin, xmax, data)
     def set_nominal_histo(self, nominal_histo, reset_binning = False):
@@ -388,6 +452,12 @@ class HistogramFunction:
         if self.histrb is None: self.histrb = histrb
         assert histrb == self.histrb, "histogram range / binning inconsistent!"
         self.nominal_histo = nominal_histo
+    
+    def set_nominal_uncertainty_histo(self, histo):
+        histrb = histo[0], histo[1], len(histo[2])
+        if self.histrb is None: self.histrb = histrb
+        assert histrb == self.histrb, "histogram range / binning inconsistent!"
+        self.nominal_uncertainty_histo = histo
     
     def set_syst_histos(self, par_name, plus_histo, minus_histo, factor = 1.0):
         self.parameters.add(par_name)
@@ -418,6 +488,10 @@ class HistogramFunction:
             return get_histo_cfg(self.nominal_histo)
         result = {'type': 'cubiclinear_histomorph', 'parameters': sorted(list(self.parameters)),
            'nominal-histogram': get_histo_cfg(self.nominal_histo), 'normalize_to_nominal': self.normalize_to_nominal}
+        if self.decorr_delta_width != 0.0:
+            result['decorr_delta_width'] = self.decorr_delta_width
+        if self.nominal_uncertainty_histo is not None:
+            result['nominal-uncertainty-histogram'] = get_histo_cfg(self.nominal_uncertainty_histo)
         if set(self.factors.values()) != set([1.0]):
             result['factors'] = []
             for p in result['parameters']:

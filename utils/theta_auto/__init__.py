@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 from Report import *
 from Model import *
-from model_summary import model_summary
+from model_summary import *
 import config
 import plotutil
 import utils

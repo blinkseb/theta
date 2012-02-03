@@ -210,6 +210,77 @@ def model_summary_nuisance(dist, fname):
        t.add_row()
     print >> f, t.html()
     f.close()
+    
+    
+# creates plots at certain parameter values
+def model_plots_at(model, par_values, signal_stacked = False):
+    plotdir = os.path.join(config.workdir, 'plots')
+    processes = sorted(list(model.processes))
+    #TODO: more / better colors
+    h = str(hash(str(par_values)))
+    background_colors = ['#edd400', '#f57900', '#c17d11', '#73d216', '#3465a4', '#75507b', '#d3d7cf', '#555753']
+    signal_colors = ['#ef2929', '#cc0000', '#a40000']
+    if not os.path.exists(plotdir): os.mkdir(plotdir)
+    text = '<p>Templates evaluated at:<p><ul>'
+    for p in par_values:
+        text+='<li>%s = %.2g</li>\n' % (p, par_values[p])
+    text += '</ul>'
+    text += "<p>Everything normalized to expectation, i.e., to the normalization in the template input file, possibly scaled via the python script file.</p>"
+    text += "<p>Color Code:</p><ul>"
+    i_bkg_col = 0
+    i_signal_col = 0
+    for p in processes:
+        if p in model.signal_processes:
+            color = signal_colors[i_signal_col]
+            i_signal_col = (i_signal_col + 1) % len(signal_colors)
+        else:
+            color = background_colors[i_bkg_col]
+            i_bkg_col = (i_bkg_col + 1) % len(background_colors)
+        text += '<li><span style="background: %s;">&nbsp;&nbsp;&nbsp;</span> %s</li>' % (color, p)
+    text += '</ul>'
+    templates = get_shifted_templates(model, par_values)
+    for o in templates:
+        background_pds = []
+        signal_pds = []
+        i_bkg_col = 0
+        i_signal_col = 0
+        for p in templates[o]:
+            pd = plotutil.plotdata()
+            pd.histo_triple(templates[o][p])
+            xmin, xmax, data = templates[o][p]
+            binwidth = (xmax - xmin) / len(data)
+            if p in model.signal_processes:
+                pd.color = signal_colors[i_signal_col]
+                i_signal_col = (i_signal_col + 1) % len(signal_colors)
+                signal_pds.append(pd)
+            else:
+                pd.fill_color = background_colors[i_bkg_col]
+                pd.lw = 1
+                pd.color = '#000000'
+                i_bkg_col = (i_bkg_col + 1) % len(background_colors)
+                background_pds.append(pd)
+        data_histo = model.get_data_histogram(o)
+        data_pd = None
+        if data_histo is not None:
+            xmin, xmax, data = data_histo
+            data_pd = plotutil.plotdata()
+            data_pd.color = '#000000'
+            data_pd.histo_triple(data_histo)
+            data_pd.yerrors = map(math.sqrt, data_pd.y)
+            data_pd.circle = 'o'
+        plots = background_pds
+        if signal_stacked:
+            plots.extend(signal_pds)
+            plotutil.make_stack(background_pds)
+        else:
+            plotutil.make_stack(background_pds)
+            plots.extend(signal_pds)
+        if data_pd is not None: plots.append(data_pd)
+        plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack%s.png' % (o, h)), xmin=xmin, xmax=xmax)
+        text += "<p>Observable '%s':<br /><img src=\"plots/%s_stack%s.png\" /></p>" % (o, o, h)
+    config.report.new_section('Model Plots at parameter values', text)
+       
+    
 
 # creates plots and model_plots.thtml
 # observable units is a dictionary (observable name) --> (caption to use for plots)
@@ -244,11 +315,10 @@ def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
         for p in processes:
             hf = model.get_histogram_function(o, p)
             if hf is None: continue
+            pd = plotutil.plotdata()
+            pd.histo_triple(hf.get_nominal_histo())
             xmin, xmax, data = hf.get_nominal_histo()
             binwidth = (xmax - xmin) / len(data)
-            pd = plotutil.plotdata()
-            pd.x = [xmin + i*binwidth for i in range(len(data))]
-            pd.y = data[:]
             if p in model.signal_processes:
                 pd.color = signal_colors[i_signal_col]
                 i_signal_col = (i_signal_col + 1) % len(signal_colors)
@@ -262,12 +332,9 @@ def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
         data_histo = model.get_data_histogram(o)
         data_pd = None
         if data_histo is not None:
-            xmin, xmax, data = data_histo
-            binwidth = (xmax - xmin) / len(data)
             data_pd = plotutil.plotdata()
             data_pd.color = '#000000'
-            data_pd.x = [xmin + i*binwidth for i in range(len(data))]
-            data_pd.y = data[:]
+            data_pd.histo_triple(data_histo)
             data_pd.yerrors = map(math.sqrt, data_pd.y)
             data_pd.circle = 'o'
         plotutil.make_stack(background_pds)
