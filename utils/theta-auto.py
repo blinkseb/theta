@@ -50,6 +50,7 @@ class MleProducer(ProducerBase):
         result.update(self.get_cfg_base(model, signal_processes))
         return result
 
+
 class PliProducer(ProducerBase):
     def __init__(self, parameter_dist, cls, name = 'pli'):
         ProducerBase.__init__(self, parameter_dist, name)
@@ -58,6 +59,19 @@ class PliProducer(ProducerBase):
 
     def get_cfg(self, model, signal_processes, parameters_write = None):
         result = {'type': 'deltanll_intervals', 'minimizer': minimizer(need_error = False), 'parameter': self.parameter, 'clevels': self.cls}
+        result.update(self.get_cfg_base(model, signal_processes))
+        return result
+        
+class NllScanProducer(ProducerBase):
+    def __init__(self, parameter_dist, parameter = 'beta_signal', name = 'nll_scan', range = [0.0, 3.0], npoints = 101):
+        ProducerBase.__init__(self, parameter_dist, name)
+        self.parameter = parameter
+        self.range = range
+        self.npoints = npoints
+
+    def get_cfg(self, model, signal_processes, parameters_write = None):
+        result = {'type': 'nll_scan', 'minimizer': minimizer(need_error = False), 'parameter': self.parameter,
+               'parameter-values': {'start': self.range[0], 'stop': self.range[1], 'n-steps': self.npoints}}
         result.update(self.get_cfg_base(model, signal_processes))
         return result
 
@@ -672,10 +686,44 @@ def chi2_test(model, signal_process_group, input = 'toys:1.0', n = 5000, signal_
     data = sql(sqlfile, 'select mle__pchi2 from products')
     if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
     chi2_value_data = data[0][0]
-    print "chi2 in data: ", chi2_value_data
     p = len([x for x in chi2_values_bkg if x >= chi2_value_data]) * 1.0 / len(chi2_values_bkg)
     return p
+
+
+# range and npoints define the scan points for beta_signal
+#
+# returns a map
+# (signal process id) --> (list of pd instances)
+def nll_scan(model, input='data', n = 1, nuisance_constraint = '', signal_prior = 'flat', signal_processes = None, par_range = [0.0, 3.0], npoints = 101, **options):
+    signal_processes = default_signal_processes(model, signal_processes)
+    nuisance_constraint = nuisance_prior_distribution(model, nuisance_constraint)
+    signal_prior_spec = signal_prior
+    signal_prior = signal_prior_dist(signal_prior)
+    model_signal_prior = model_signal_prior_dist(input)
+    data_source_dict, model_dist_signal_dict = utils.data_source_dict(model, input)
+    cfg_names_to_run = []
+    for sp in signal_processes:
+        main = Run(n, data_source_dict, model_signal_prior)
+        nll = NllScanProducer(Distribution.merge(signal_prior, nuisance_constraint), range = par_range, npoints = npoints)
+        main.add_producer(nll)
+        name = write_cfg2(main, model, sp, 'nll_scan', input)
+        cfg_names_to_run.append(name)
+    run_theta_ = options.get('run_theta', True)
+    if run_theta_: run_theta(cfg_names_to_run)
+    else: return None
     
+    cachedir = os.path.join(config.workdir, 'cache')
+    result = {}
+    for i in range(len(cfg_names_to_run)):
+        name = cfg_names_to_run[i]
+        method, sp_id, dummy = name.split('-',2)
+        sqlfile = os.path.join(cachedir, '%s.db' % name)
+        data = sql(sqlfile, 'select nll_scan__nll from products')
+        pds = [plotdata_from_histoColumn(row[0]) for row in data]
+        for pd in pds: pd.as_function = True
+        result[sp_id] = pds
+    return result
+
 
 ## \brief Perform a KS compatibility test for all individual channels of the given model
 #

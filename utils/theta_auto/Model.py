@@ -577,6 +577,17 @@ class Distribution:
         return result
 
 
+# return a Distribution object in which all parameters are fixed to their default values, using the Distribution
+# template_dist.
+def get_fixed_dist(template_dist):
+    result = Distribution()
+    for p in template_dist.get_parameters():
+        val = template_dist.get_distribution(p)['mean']
+        result.set_distribution(p, 'gauss', val, 0.0, [val, val])
+    return result
+
+
+
 ## \brief Build a multi-channel model based on template morphing from histograms in a root file
 #
 # This root file is expected to contain all the templates of the model adhering to a certain naming scheme:
