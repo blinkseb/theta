@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # coding=utf8
 
 import matplotlib
@@ -23,16 +24,16 @@ def add_ylabel(axes, text, *args, **kwargs):
 
 # plotdata represents the data of a single curve in a plot, including drawing options, legend, etc.
 class plotdata:
-    def __init__(self):
+    def __init__(self, color = '#000000', legend = None, as_function = False, lw = 2):
         self.x = []
         self.y = []
-        self.legend = None
+        self.legend = legend
         self.yerrors = None
         self.xerrors = None
         self.fill_color = None
-        self.color = '#000000'
+        self.color = color
         self.marker = 'None'
-        self.lw = 2
+        self.lw = lw
         self.fmt = '-'
         # an array of bands; a band is a three-tuple (y1, y2, color). y1 and y2 are 
         # arrays of y values.
@@ -40,7 +41,7 @@ class plotdata:
         self.bands = None
         self.band_lw = 0
         self.bands_fill = True
-        self.as_function = False
+        self.as_function = as_function
         self.draw_line = True
         
     # make a histogram of the given values

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import config, sqlite3, os.path, glob, re
 import numpy.linalg, array, math
 
@@ -210,6 +211,12 @@ def extract_number(s):
     m = r.search(s)
     if m is None: return None
     return float(m.group(1))
+
+
+def get_p(n, n0):
+    p = n*1.0 / n0
+    p_error = max(math.sqrt(p*(1-p) / n0), 1.0 / n0)
+    return p, p_error
 
 
 def info(s):

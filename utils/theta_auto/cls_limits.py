@@ -13,16 +13,12 @@ from utils import *
 # to the global settings "signal_prior", "nuisance_prior" and "minimizer"
 def ts_producer_dict(ts, signal_prior_bkg='flat'):
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
-    if ts == 'mle':
-        ts_producer = {'type': 'mle', 'name': 'mle', 'minimizer': "@minimizer", 'parameter': 'beta_signal',
-           'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior")}
-        ts_colname = 'mle__beta_signal'
-    elif ts == 'lr':
+    if ts == 'lr':
         ts_producer = {'type': 'deltanll_hypotest', 'name': 'lr', 'minimizer': "@minimizer",
         'signal-plus-background-distribution': product_distribution("@signal_prior", "@nuisance_prior"),
         'background-only-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior")}
         ts_colname = 'lr__nll_diff'
-    elif ts == 'lhclike':
+    elif ts.startswith('lhclike'):
         ts_producer = {'type': 'deltanll_hypotest', 'name': 'lr', 'minimizer': "@minimizer",
         'signal-plus-background-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior"),
         'background-only-distribution': product_distribution(signal_prior_bkg, "@nuisance_prior"),
@@ -34,7 +30,7 @@ def ts_producer_dict(ts, signal_prior_bkg='flat'):
 ## \brief Calculate the test statistic value for data
 #
 # \return dictionary (spid) -> ts value
-def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
+def ts_data(model, ts = 'lhclike', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg='fix:0', signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
@@ -81,11 +77,11 @@ def ts_data(model, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal
 # is set to True, the toys are always background only and the beta_signal_values are only used in the evaluation of the test statistic. Otherwise,
 # the beta_signal_values are used both, for toy generation, and as parameter for evaluating the test statistic.
 #
-def ts_toys(model, beta_signal_values, n, ts = 'lr', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
+def ts_toys(model, beta_signal_values, n, ts = 'lhclike', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
    signal_processes = None, bkg_only_toys = False, ret = 'data', asimov = False, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     if signal_prior_bkg is None:
-        if ts == 'lhclike': signal_prior_bkg = 'flat'
+        if ts.startswith('lhclike'): signal_prior_bkg = 'flat'
         else: signal_prior_bkg = 'fix:0'
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
@@ -149,7 +145,8 @@ def count_above(the_list, threshold):
 #
 # \return A tuple (expected significance, observed significance). Each entry in the tuple is in turn a triple (central value, error_minus, error_plus)
 # where the error for the expected significance are the expected 1sigma spread and for the observed one the error from limited toy MC.
-def discovery(model, use_data = True, Z_error_max = 0.05, **options):
+#TODO: lr
+def discovery(model, ts = 'lr', use_data = True, Z_error_max = 0.05, **options):
     options['signal_prior']='flat'
     options['signal_prior_bkg'] = 'fix:0'
     ts_expected = ts_toys(model, [1.0], 10000, **options)
@@ -221,45 +218,88 @@ class truth_ts_values:
             ts = b[int(q*len(b))]
             result[t] = ts
         return result
-
-    def get_cls_vs_truth(self, truth_to_ts):
-        pd = plotutil.plotdata()
-        pd.color = '#000000'
-        pd.draw_line = False
-        pd.x = sorted(list(self.truth_values()))
-        pd.y = []
-        pd.as_function = True
-        pd.yerrors = []
-        for t in pd.x:
+        
+    # return a tuple (cls+b, clb, cls) of plotutil instances which are
+    # the CLs+b, clb and cls curves as a function of the "truth" (beta_signal)
+    def get_cl_vs_truth(self, truth_to_ts):
+        pd_clsb, pd_clb, pd_cls = plotutil.plotdata(as_function = True, legend = 'CLs+b', color = '#0000ff'), plotutil.plotdata(as_function = True, legend = 'CLb'), plotutil.plotdata(as_function = True, color = '#ff0000', legend = 'CLs')
+        pd_clsb.x = sorted(list(self.truth_values()))
+        pd_clb.x, pd_cls.x = pd_clsb.x, pd_clsb.x
+        for t in pd_clb.x:
             ts = truth_to_ts[t]
             n_b = len(self.truth_to_ts_b[t])
             clb = len([x for x in self.truth_to_ts_b[t] if x < ts]) * 1.0 / n_b
             clb_error = max(math.sqrt(clb * (1 - clb) / n_b), 1.0 / n_b)
+            pd_clb.y.append(clb)
             n_sb = len(self.truth_to_ts_sb[t])
             clsb = len([x for x in self.truth_to_ts_sb[t] if x < ts]) * 1.0 / n_sb
             clsb_error = max(math.sqrt(clsb * (1 - clsb) / n_sb), 1.0 / n_sb)
+            pd_clsb.y.append(clsb)
             if clb==0: clb += clb_error
             cls = clsb / clb
-            pd.y.append(cls)
+            pd_cls.y.append(cls)
             cls_error = math.sqrt((clsb_error / clb)**2 + (clb_error * cls / clb)**2)
-            pd.yerrors.append(cls_error)
-        return pd
+        return pd_clsb, pd_clb, pd_cls
             
 
-# make some plots of the test statistic for the report, using the given db filename
-def debug_cls_plots(dbfile, ts_column):
+# make some plots of the test statistic for the report, using the given db filename#
+#
+# returns a list of four plotutil.plotdata instances:
+# for data: cls+b, clsb, cls; the fourth is the expected CLs curve (including 1sigma and 2sigma bands)
+def debug_cls_plots(dbfile, ts_column = 'lr__nll_diff'):
     limits = sql(dbfile, 'select "index", "limit", limit_uncertainty from cls_limits')
     indices = [row[0] for row in limits]
     have_data = 0 in indices
-    data = sql(dbfile, 'select runid, lr__poi, source__truth, "%s" from products' % ts_column)
+    data = sql(dbfile, 'select runid, lr__poi, source__truth, "%s" from products order by runid, eventid' % ts_column)
     tts = truth_ts_values()
+    truth_to_ts_data = {}
     for row in data:
-        if row[0] == 0: continue
+        if row[0] == 0:
+            truth_to_ts_data[row[1]] = row[3]
+            continue
         if row[2] > 0:  tts.add_point_sb(row[2], row[3])
         else: tts.add_point_b(row[1], row[3])
-    truth_values = sorted(list(tts.truth_values()))
+        
+    #truth_values = sorted(list(tts.truth_values()))
     plotsdir = os.path.join(config.workdir, 'plots')
     config.report.new_section('debug_cls for file %s' % dbfile)
+    pd_clsb, pd_clb, pd_cls = tts.get_cl_vs_truth(truth_to_ts_data)
+    
+    expected_pd_cls = plotutil.plotdata(as_function = True)
+    expected_pd_cls.x = pd_cls.x[:]
+    # use median as "expected":
+    truth_to_ts = tts.get_truth_to_ts(0.5)
+    pd_clsb, pd_clb, pd_cls = tts.get_cl_vs_truth(truth_to_ts)
+    expected_pd_cls.y[:] = pd_cls.y
+    #build the bands:
+    band1s = [[], [], '#00ff00']
+    band2s = [[], [], '#ffff00']
+    truth_to_ts = tts.get_truth_to_ts(0.025)
+    pd_clsb, pd_clb, pd_cls = tts.get_cl_vs_truth(truth_to_ts)
+    band2s[0][:] = pd_cls.y[:]
+    truth_to_ts = tts.get_truth_to_ts(0.975)
+    pd_clsb, pd_clb, pd_cls = tts.get_cl_vs_truth(truth_to_ts)
+    band2s[1][:] = pd_cls.y[:]
+    truth_to_ts = tts.get_truth_to_ts(0.16)
+    pd_clsb, pd_clb, pd_cls = tts.get_cl_vs_truth(truth_to_ts)
+    band1s[0][:] = pd_cls.y[:]
+    truth_to_ts = tts.get_truth_to_ts(0.84)
+    pd_clsb, pd_clb, pd_cls = tts.get_cl_vs_truth(truth_to_ts)
+    band1s[1][:] = pd_cls.y[:]        
+    expected_pd_cls.bands = [band2s, band1s]    
+    
+    #draw all:
+    pds = [pd_clsb, pd_clb, pd_cls, expected_pd_cls]
+    plotname = 'debug_cl-vs-truth-data.png'
+    plot(pds, 'beta_signal', 'p-value', os.path.join(plotsdir, plotname))
+    config.report.add_html('<p>For data: <br/><img src="plots/%s" /></p>' % plotname)
+    
+    return pds
+        
+    
+    
+    
+    """
     result_table = Report.table()
     #result_table.add_column('q')
     result_table.add_column('limit')
@@ -270,10 +310,7 @@ def debug_cls_plots(dbfile, ts_column):
         result_table.set_column('limit_uncertainty', '%g' % row[2])
         result_table.add_row()
     config.report.add_html(result_table.html())
-    pd = tts.get_cls_vs_truth(truth_to_ts_data)
-    plotname = 'debug_cls-cls-vs-truth-data.png'
-    plot([pd], 'beta_signal', 'CLs', os.path.join(plotsdir, plotname))
-    config.report.add_html('<p>For data: <br/><img src="plots/%s" /></p>' % plotname)
+    """
 
 """
     # plot the test statistic value for data versus truth value (constant, unless lhclike test stat.)
@@ -334,13 +371,12 @@ def debug_cls_plots(dbfile, ts_column):
 #
 # To make use of distributed grid calculation, three steps are necessary:
 # 1. In your analysis.py, call cls_limits_grid with run_theta=False. This returns a dictionary containing all config filenames to run. As usual, you find them in the working directory.
-# 2. Run (somewhere, distributed), all config filenames and put the output together with the original config file in the cache directory.
+# 2. Run (somewhere, distributed), theta on all files and put the output db-file together with the original config file into the cache directory.
 # 3. In analysis.py, call cls_limits, passing the dictionary from the (same!) call to cls_limits_grid as the reuse_toys parameter.
 #
 # Returns a dictionary (spid) -> (list of config names). This dictionary can be passed as the 'reuse_toys' parameter to cls_limits
 #
-# If options include 'run_theta = False', theta was not actually run. For each signal process
-# group, n_configs configuration files are created.
+# For each signal process group, n_configs configuration files are created.
 #
 def cls_limits_grid(model, beta_signal_range, n_beta_signal = 21, n_toys_sb = 2000, n_toys_b = 2000, n_configs = 1, ts = 'lr', signal_prior = 'flat',\
         nuisance_prior = '', signal_prior_bkg = None, signal_processes = None, **options):
@@ -415,7 +451,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     assert len(signal_processes) > 0
     if signal_prior_bkg is None:
-        if ts == 'lhclike': signal_prior_bkg = 'flat'
+        if ts.startswith('lhclike'): signal_prior_bkg = 'flat'
         else: signal_prior_bkg = 'fix:0'
     signal_prior = signal_prior_dict(signal_prior)
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
@@ -432,7 +468,9 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lr', signal_prior = 'flat'
     ts_producer, main['ts_column'] = ts_producer_dict(ts, signal_prior_bkg)
     toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, 'minimizer': minimizer(need_error = False), 'debuglog-name': 'XXX',
        'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
-    if ts == 'lhclike': del toplevel_settings['signal_prior']
+    if ts.startswith('lhclike'): del toplevel_settings['signal_prior']
+    if 'frequentist_bootstrapping' in ts:
+        main['toy_source'] = {'frequentist_bootstrapping': True, 'minimizer': minimizer(need_error = False)}
     toplevel_settings.update(get_common_toplevel_settings(**options))
     cachedir = os.path.join(config.workdir, 'cache')
     cfg_names_to_run = []

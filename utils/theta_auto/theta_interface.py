@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy, os.path, hashlib, shutil, copy, threading
 
 import config as global_config
@@ -104,7 +105,7 @@ def _run_theta_single(name, debug):
         return
     utils.info("Running 'theta %s'" % cfgfile)
     params = ""
-    if debug: params += " --redirect-io=False"
+    #if debug: params += " --redirect-io=False"
     retval = os.system(theta + params + " " + cfgfile_full)
     if retval != 0:
         if os.path.exists(dbfile) and not debug: os.unlink(dbfile)

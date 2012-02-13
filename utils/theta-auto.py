@@ -225,9 +225,12 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
         cols = ['mle__%s, mle__%s_error' % (p, p) for p in parameters]
         data = sql(sqlfile, 'select %s from products' % ', '.join(cols))
         if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
+        cols = ['source__%s' % p for p in parameters]
+        source_par_values = sql(sqlfile, 'select %s from products' % ', '.join(cols))
         i = 0
         for p in parameters:
             result[sp_id][p] = [(row[2*i], row[2*i+1]) for row in data]
+            result[sp_id]['source__%s' % p] = [row[i] for row in source_par_values]
             i += 1
             sorted_res = sorted([res[0] for res in result[sp_id][p]])
             n = len(sorted_res)

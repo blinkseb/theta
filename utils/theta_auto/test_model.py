@@ -46,3 +46,26 @@ def simple_counting_shape(s, n_obs, b=0.0, b_plus=0.0, b_minus=0.0):
     return model
 
 
+# a gaussian signal (mean 50, width 20) over flat background on a range 0--100, with 100 bins no data.
+# b_uncertainty is the (absolute!) uncertainty on the background yield, which will be handeled with a log-normal.
+def gaussoverflat(s, b, b_uncertainty = 0.0):
+    model = Model()    
+    # something proportional to a Gauss:
+    gauss = lambda x, mean, sigma: math.exp(-(x - mean)**2 / (2.0*sigma))
+    hf_s = HistogramFunction()
+    data = [gauss(x+0.5, 50, 20) for x in range(100)]
+    # normalize data to s:
+    n_data = sum(data)
+    data = [x*s/n_data for x in data]
+    hf_s.set_nominal_histo((0.0, 100.0, data))
+    model.set_histogram_function('obs', 's', hf_s)
+    
+    hf_b = HistogramFunction()
+    data = [b * 0.01] * 100
+    hf_b.set_nominal_histo((0.0, 100.0, data))
+    model.set_histogram_function('obs', 'b', hf_b)
+    if b_uncertainty > 0: model.add_lognormal_uncertainty('bunc', 1.0 * b_uncertainty / b, 'b')
+    
+    model.set_signal_processes('s*')
+    return model
+    
