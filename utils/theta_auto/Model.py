@@ -586,6 +586,14 @@ def get_fixed_dist(template_dist):
         result.set_distribution(p, 'gauss', val, 0.0, [val, val])
     return result
 
+# return a Distribution in which all parameters are fixed to the value given in par_values; par_values
+# is a dictionary (parameter name) -> (parameter value)
+def get_fixed_dist_at_values(par_values):
+    result = Distribution()
+    for p in par_values:
+        val = par_values[p]
+        result.set_distribution(p, 'gauss', val, 0.0, [val, val])
+    return result
 
 
 ## \brief Build a multi-channel model based on template morphing from histograms in a root file
