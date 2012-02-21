@@ -1125,9 +1125,15 @@ void cls_limits::run_set_limits(){
                 }
                 // for the (very rare) case that the fitted limit is not in the interval, make sure the new point is included in the fit range:
                 if(latest_res.limit < truth_low || latest_res.limit > truth_high){
-                    debug_out << "WARNING: fitted limit not contained in fit interval\n";
-                    truth_low = min(latest_res.limit, truth_low);
-                    truth_high = max(latest_res.limit, truth_high);
+                    debug_out << "WARNING: fitted limit not contained in fit interval, making fit interval larger\n";
+                    while(latest_res.limit < data.truth_values()[i_low] && i_low > 0){
+                        --i_low;
+                        truth_low = data.truth_values()[i_low];
+                    }
+                    while(latest_res.limit > data.truth_values()[i_high] && i_high < data.truth_values().size()-1){
+                        ++i_high;
+                        truth_high = data.truth_values()[i_high];
+                    }
                 }
 
                 // add a point at the estimated limit, but round to points we have already, if it makes sense ...
