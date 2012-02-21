@@ -138,14 +138,30 @@ public:
     explicit SaveDoubleColumn(const string & name): column_name(name), value(NAN), value_set(false){}
 };
 
-
+// uses the following configration settings:
+// * "truth_parameter"
+// * anything RandomConsumer (rnd_gen setting group, if present)
+// * "toy_source.frequentist_bootstrapping": if true, uses nuisance parameters at maximum, not sampled from model prior
+// * in case frequentist_bootstrapping is true: "toy_source.minimizer", the minimizer used to find the nuisance parameter values
 class data_filler: public theta::RandomConsumer, public theta::ProductsSource{
  private:
      boost::shared_ptr<Model> model;
      Column truth_column;
+     ParId truth_parameter;
+     bool frequentist_bootstrapping;
+     // in case of bootstrapping: save the nuisance parameter values found at a certain truth value:
+     std::auto_ptr<Minimizer> minimizer;
+     map<double, ParValues> truth_to_fitvalues;
+     bool start_step_ranges_init;
+     Data data;
+     theta::ParValues start, step;
+     std::map<theta::ParId, std::pair<double, double> > ranges;
+     
+     
+     ParValues get_values_at_minimum(double truth_value, const std::auto_ptr<ostream> & debug_out);
  public:
-     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_);
-     void fill(theta::Data & dat, const theta::ParId & truth_parameter, double truth_value);
+     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_, const Data & real_data);
+     void fill(theta::Data & dat, double truth_value, const std::auto_ptr<ostream> & debug_out);
 };
 
 // contains the (numerically derived) cls values and uncertainties as function of the truth value for a fixed ts value.
@@ -458,16 +474,63 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
     return result;
 }
 
-data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_): RandomConsumer(cfg, "source"),
-    ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_){
+data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_, const Data & real_data): RandomConsumer(cfg, "source"),
+    ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_), truth_parameter(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["truth_parameter"])),
+    frequentist_bootstrapping(false), data(real_data){
+        
     truth_column = products_sink->declare_product(*this, "truth", theta::typeDouble);
+    if(cfg.setting.exists("toy_source")){
+        SettingWrapper s = cfg.setting["toy_source"];
+        if(s.exists("frequentist_bootstrapping")){
+            frequentist_bootstrapping = s["frequentist_bootstrapping"];
+        }
+        if(frequentist_bootstrapping){
+            minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));        
+        }
+    }
 }
 
-void data_filler::fill(Data & dat, const ParId & truth_parameter, double truth_value){
+ParValues data_filler::get_values_at_minimum(double truth_value, const std::auto_ptr<ostream> & debug_out){
+    map<double, ParValues>::const_iterator it = truth_to_fitvalues.find(truth_value);
+    if(it!=truth_to_fitvalues.end()){
+        return it->second;
+    }
+    std::auto_ptr<NLLikelihood> nll = model->getNLLikelihood(data);
+    if(not start_step_ranges_init){
+        const Distribution & d = nll->get_parameter_distribution();
+        DistributionUtils::fillModeSupport(start, ranges, d);
+        boost::shared_ptr<theta::Distribution> override_parameter_distribution;
+        boost::shared_ptr<theta::Function> additional_nll_term;
+        step.set(asimov_likelihood_widths(*model, override_parameter_distribution, additional_nll_term));
+        step.set(truth_parameter, 0.0);
+        start_step_ranges_init = true;
+    }
+    start.set(truth_parameter, truth_value);
+    ranges[truth_parameter] = make_pair(truth_value, truth_value);
+    MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);
+    truth_to_fitvalues[truth_value].set(minres.values);
+    if(debug_out.get()){
+        debug_out << "fitted parameter values for truth=" << truth_value << ": ";
+        ParIds pars = minres.values.getParameters();
+        for(ParIds::const_iterator it=pars.begin(); it!=pars.end(); ++it){
+            debug_out << minres.values.get(*it) << " ";
+        }
+        debug_out << "\n";
+    }
+    return minres.values;
+}
+
+
+void data_filler::fill(Data & dat, double truth_value, const std::auto_ptr<ostream> & debug_out){
     dat.reset();
     Random & rnd = *rnd_gen;
     ParValues values;
-    model->get_parameter_distribution().sample(values, rnd);
+    if(frequentist_bootstrapping){
+        values.set(get_values_at_minimum(truth_value, debug_out));
+    }
+    else{ // from model distribution:
+        model->get_parameter_distribution().sample(values, rnd);
+    }
     values.set(truth_parameter, truth_value);
     products_sink->set_product(truth_column, truth_value);
     model->get_prediction(dat, values);
@@ -501,7 +564,7 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
     for (int eventid = 1; eventid <= n_event; eventid++) {
         if(stop_execution) break;
         ++n_toys;
-        source->fill(data, truth_parameter, bkg_only?0.0:truth);
+        source->fill(data, bkg_only?0.0:truth, debug_out);
         bool error = false;
         try {
             producer->produce(data, *model);
@@ -511,7 +574,6 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
             ss << "Producer '" << producer->getName() << "' failed: " << ex.message << ".";
             logtable->append(runid, eventid, LogTable::error, ss.str());
             ++n_toy_errors;
-            continue;
         }
         catch(std::logic_error & f){
               stringstream ss;
@@ -557,8 +619,8 @@ public:
 //
 // In mode==0 (seeding), the stopping criterion is that CLs uncertainty should be smaller than tol_cls OR CLs value is > 3sigma
 // away from target cls. Calling the method twice with the same truth and ts values does nothing(!).
-// In mode==1 (improvement), the number of toys at the given value is doubled. If no toys are at this value, the behaviour is the
-// same as mode==0.
+// In mode==1 (improvement), the number of toys at the given value is doubled, but not more than 2000 are made.
+// If no toys are at this value, the behaviour is the same as mode==0.
 void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, double ts_epsilon, double truth, int mode){
     if(!tts->contains_truth_value(truth)){
         run_single_truth(truth, true, 200);
@@ -630,7 +692,7 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
 
 cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->getParId(cfg.setting["truth_parameter"])),
   runid(1), n_toys(0), n_toy_errors(0), n_toys_total(-1), pid_limit(vm->createParId("__limit")), pid_lambda(vm->createParId("__lambda")), 
-  expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95) {
+  expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95){
     SettingWrapper s = cfg.setting;
 
     if(s.exists("debuglog")){
@@ -694,8 +756,6 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
         }
     }
 
-    source.reset(new data_filler(cfg, model));
-
     // A.
     if(mode == m_set_limits){
         cls_limits_table = db->create_table("cls_limits");
@@ -715,6 +775,7 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
             cfg.pm->set("default", boost::shared_ptr<ProductsSink>(new BlackholeProductsSink()));
             data_source = PluginManager<DataSource>::build(Configuration(cfg, s["data_source"]));
             cfg.pm->set("default", sink);
+            data_source->fill(data_source_data);
         }
         if(s.exists("reltol_limit")) reltol_limit = s["reltol_limit"];
         if(s.exists("limit_hint")){
@@ -762,6 +823,8 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
         if(n_sb_toys_per_truth <= 0 or n_b_toys_per_truth <= 0) throw ConfigurationException("toy_per_truth <= 0 not allowed");
         n_toys_total = n_truth * (n_sb_toys_per_truth + n_b_toys_per_truth);
     }
+    
+    source.reset(new data_filler(cfg, model, data_source_data));
 }
 
 
@@ -825,7 +888,7 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
         truth_to_ts[*it] = ts;
         //call source->fill to set products column
         Data dummy_data;
-        source->fill(dummy_data, truth_parameter, 0.0);
+        source->fill(dummy_data, 0.0, debug_out);
         products_table->add_row(0, eventid);
         // if ts value is constant, fill it to constant_ts, for the next iteration:
         if(pp_producer==0){
@@ -957,7 +1020,6 @@ void cls_limits::run_set_limits(){
     const double ts_epsilon = fabs(tts->get_ts_b_quantile(truth0, 0.68) - tts->get_ts_b_quantile(truth0, 0.16)) * 1e-3;
     debug_out << "ts_epsilon is " << ts_epsilon << "\n";
 
-
     // read in data from the input database, if set:
     if(input_database.get()){
         read_reuse_toys();
@@ -984,11 +1046,11 @@ void cls_limits::run_set_limits(){
         flush(debug_out);
         try{
             if(idata==0){
-                data_source->fill(current_data);
+                current_data = data_source_data;
             }
             else{
                 // make a background-only toy:
-                source->fill(current_data, truth_parameter, 0.0);
+                source->fill(current_data, 0.0, debug_out);
             }
             map<double, double> truth_to_ts;
             // run an update, to get the ts values at the truth points from previous idata iterations:
@@ -1061,6 +1123,12 @@ void cls_limits::run_set_limits(){
                     run_single_truth_adaptive(truth_to_ts, ts_epsilon, 0.5 * data.truth_values()[1]);
                     if(stop_execution) return;
                 }
+                // for the (very rare) case that the fitted limit is not in the interval, make sure the new point is included in the fit range:
+                if(latest_res.limit < truth_low || latest_res.limit > truth_high){
+                    debug_out << "WARNING: fitted limit not contained in fit interval\n";
+                    truth_low = min(latest_res.limit, truth_low);
+                    truth_high = max(latest_res.limit, truth_high);
+                }
 
                 // add a point at the estimated limit, but round to points we have already, if it makes sense ...
                 // double next_truth = latest_res.limit;
@@ -1079,12 +1147,6 @@ void cls_limits::run_set_limits(){
                 }
                 if(!isinf(min_diff)){
                     debug_out << "rounded next truth value to existing point " << next_truth << "\n";
-                }
-                // for the (very rare) case that the fitted limit is not in the interval, make sure the new point is included in the fit range:
-                if(next_truth < truth_low || next_truth > truth_high){
-                    debug_out << "WARNING: fitted limit not contained in fit interval\n";
-                    truth_low = min(next_truth, truth_low);
-                    truth_high = max(next_truth, truth_high);
                 }
                 run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_truth, 1);
                 if(stop_execution) return;
