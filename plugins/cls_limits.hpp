@@ -62,11 +62,6 @@ class truth_ts_values;
  *   tol_cls = 0.015; //optional; default; is 0.02
  *   limit_hint = (200.0, 240.0); //optional; default is finding out on its own
  *
- *   toy_source = { //optional.
- *     frequentist_bootstrapping = true; // optional. Default is false
- *     minimizer = { ... }; // must be given if frequentist_bootstrapping is true.
- *   };
- *
  *   // B. for grid generation mode (TODO: not implemented yet(!))
  *   mode = "generate_grid";
  *   truth_range = [0.0, 300.0];
@@ -89,12 +84,6 @@ class truth_ts_values;
  * desired CLs value 1 - cl. How many toys are drawn and where is done automatically and is driven by \c reltol_limit:
  * this is the relative 1sigma uncertainty tolerance for the limit. \c tol_cls is an absolute accuracy for the CLs value. It is used
  * internally only and does not affect the accuracy of the result directly. However, it can affect robustness of the method.
- *
- * \c toy_source contains options about how toys are generated:
- * if \c frequentist_bootstrapping is \c false (the default), the nuisance parameters are drawn from their priors.
- * If \c frequentist_bootstrapping is \c true, the toys are generated
- * using the nuisance parameter values at the maximum of the likelihood for data which is found using the given \c minimizer.
- * Setting this option to \c true requires specifying the observed data by setting \c data_source.
  *
  * If \c limit_hint is given, it should be an interval where the limits are probably contained.
  * It does not have to be exact, but wil be used for a starting point to make some toys which can make the

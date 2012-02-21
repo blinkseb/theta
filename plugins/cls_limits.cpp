@@ -138,30 +138,13 @@ public:
     explicit SaveDoubleColumn(const string & name): column_name(name), value(NAN), value_set(false){}
 };
 
-// uses the following configration settings:
-// * "truth_parameter"
-// * anything RandomConsumer (rnd_gen setting group, if present)
-// * "toy_source.frequentist_bootstrapping": if true, uses nuisance parameters at maximum, not sampled from model prior
-// * in case frequentist_bootstrapping is true: "toy_source.minimizer", the minimizer used to find the nuisance parameter values
 class data_filler: public theta::RandomConsumer, public theta::ProductsSource{
  private:
      boost::shared_ptr<Model> model;
      Column truth_column;
-     ParId truth_parameter;
-     bool frequentist_bootstrapping;
-     // in case of bootstrapping: save the nuisance parameter values found at a certain truth value:
-     std::auto_ptr<Minimizer> minimizer;
-     map<double, ParValues> truth_to_fitvalues;
-     bool start_step_ranges_init;
-     Data data;
-     theta::ParValues start, step;
-     std::map<theta::ParId, std::pair<double, double> > ranges;
-     
-     
-     ParValues get_values_at_minimum(double truth_value, const std::auto_ptr<ostream> & debug_out);
  public:
-     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_, const Data & real_data);
-     void fill(theta::Data & dat, double truth_value, const std::auto_ptr<ostream> & debug_out);
+     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_);
+     void fill(theta::Data & dat, const ParId & truth_parameter, double truth_value);
 };
 
 // contains the (numerically derived) cls values and uncertainties as function of the truth value for a fixed ts value.
@@ -412,6 +395,7 @@ void flush(const std::auto_ptr<std::ostream> & p_out){
 
 struct fitexp_result{
     double limit, limit_error;
+    fitexp_result():limit(NAN), limit_error(NAN){}
 };
 
 struct fitexp_parameters{
@@ -474,63 +458,16 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
     return result;
 }
 
-data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_, const Data & real_data): RandomConsumer(cfg, "source"),
-    ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_), truth_parameter(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["truth_parameter"])),
-    frequentist_bootstrapping(false), data(real_data){
-        
+data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_): RandomConsumer(cfg, "source"),
+    ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_){
     truth_column = products_sink->declare_product(*this, "truth", theta::typeDouble);
-    if(cfg.setting.exists("toy_source")){
-        SettingWrapper s = cfg.setting["toy_source"];
-        if(s.exists("frequentist_bootstrapping")){
-            frequentist_bootstrapping = s["frequentist_bootstrapping"];
-        }
-        if(frequentist_bootstrapping){
-            minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));        
-        }
-    }
 }
 
-ParValues data_filler::get_values_at_minimum(double truth_value, const std::auto_ptr<ostream> & debug_out){
-    map<double, ParValues>::const_iterator it = truth_to_fitvalues.find(truth_value);
-    if(it!=truth_to_fitvalues.end()){
-        return it->second;
-    }
-    std::auto_ptr<NLLikelihood> nll = model->getNLLikelihood(data);
-    if(not start_step_ranges_init){
-        const Distribution & d = nll->get_parameter_distribution();
-        DistributionUtils::fillModeSupport(start, ranges, d);
-        boost::shared_ptr<theta::Distribution> override_parameter_distribution;
-        boost::shared_ptr<theta::Function> additional_nll_term;
-        step.set(asimov_likelihood_widths(*model, override_parameter_distribution, additional_nll_term));
-        step.set(truth_parameter, 0.0);
-        start_step_ranges_init = true;
-    }
-    start.set(truth_parameter, truth_value);
-    ranges[truth_parameter] = make_pair(truth_value, truth_value);
-    MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);
-    truth_to_fitvalues[truth_value].set(minres.values);
-    if(debug_out.get()){
-        debug_out << "fitted parameter values for truth=" << truth_value << ": ";
-        ParIds pars = minres.values.getParameters();
-        for(ParIds::const_iterator it=pars.begin(); it!=pars.end(); ++it){
-            debug_out << minres.values.get(*it) << " ";
-        }
-        debug_out << "\n";
-    }
-    return minres.values;
-}
-
-
-void data_filler::fill(Data & dat, double truth_value, const std::auto_ptr<ostream> & debug_out){
+void data_filler::fill(Data & dat, const ParId & truth_parameter, double truth_value){
     dat.reset();
     Random & rnd = *rnd_gen;
     ParValues values;
-    if(frequentist_bootstrapping){
-        values.set(get_values_at_minimum(truth_value, debug_out));
-    }
-    else{ // from model distribution:
-        model->get_parameter_distribution().sample(values, rnd);
-    }
+    model->get_parameter_distribution().sample(values, rnd);
     values.set(truth_parameter, truth_value);
     products_sink->set_product(truth_column, truth_value);
     model->get_prediction(dat, values);
@@ -564,7 +501,7 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
     for (int eventid = 1; eventid <= n_event; eventid++) {
         if(stop_execution) break;
         ++n_toys;
-        source->fill(data, bkg_only?0.0:truth, debug_out);
+        source->fill(data, truth_parameter, bkg_only?0.0:truth);
         bool error = false;
         try {
             producer->produce(data, *model);
@@ -824,7 +761,7 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
         n_toys_total = n_truth * (n_sb_toys_per_truth + n_b_toys_per_truth);
     }
     
-    source.reset(new data_filler(cfg, model, data_source_data));
+    source.reset(new data_filler(cfg, model));
 }
 
 
@@ -843,6 +780,75 @@ bool cls_is_significantly_smaller(const cls_vs_truth_data & data, size_t i, doub
     // cls == 0 is a special case as the error estimate for CLs is not very good.
     if(cls_values[i]==0 && sqrt(pow(cls_uncertainties_n[i], 2) + pow(cls_uncertainties_n0[i], 2)) < tol_cls) return true;
     return cls_values[i] < target_cls && fabs(cls_values[i] - target_cls) / sqrt(pow(cls_uncertainties_n[i], 2) + pow(cls_uncertainties_n0[i], 2)) > 3;
+}
+
+
+// find an interval seed within [i_low_min, i_high_max] of cls vs. truth in data.
+// An interval seed has
+// * a significantly smaller CLs value for large truth
+// * a significantly larger CLs value for small truth
+// if this can be fulfilled within [i_low_min, i_high_max].
+pair<size_t, size_t> find_seed(const cls_vs_truth_data & data, double cl, double tol_cls, size_t i_low_min, size_t i_high_max, std::auto_ptr<ostream> & debug_out){
+    theta_assert(i_high_max < data.cls_values().size());    
+    // make a status vector: 1 = larger, -1 = smaller, 0 = none of these two.
+    vector<int> status(data.cls_values().size());
+    for(size_t i=0; i<status.size(); ++i){
+        if(cls_is_significantly_larger(data, i, 1-cl)){
+            status[i] = 1;
+        }
+        else if(cls_is_significantly_smaller(data, i, 1-cl, tol_cls)){
+            status[i] = -1;
+        }
+        else{
+            status[i] = 0;
+        }
+    }
+    // check and insert points, s.t. algorithm terminates:
+    if(status[i_low_min]!=1){
+        debug_out << "WARNING: lower interval seeding index " << i_low_min << " is a point not significantly larger than target CLs!\n";
+        status[i_low_min] = 1;
+    }
+    if(status[i_high_max]!=-1){
+        debug_out << "WARNING: upper interval seeding index " << i_high_max << " is a point not significantly smaller than target CLs!\n";
+        status[i_high_max] = -1;
+    }
+        
+    // for a typical CLs versus truth curve, we should have something like
+    // 1, 0, 1, 0, 0, -1, -1, 0, -1
+    // i.e. first the 1s, then the -1s, with zeros in between.
+    //
+    // So the shortest seed in a usual case is given by [last 1, first -1].
+    //
+    // In case there are outliers, like in
+    // 1, 1, -1, 1, 1, 1, 0, 0, -1, -1, -1
+    // this fails. In such a case, we choose to ignore the single -1 between the 1s. This is prefered
+    // over ignoring the three 1s after this -1, as this changes only one point.
+    //
+    // So the algorithm is: make the pair (last 1, first -1). Ideally this is an interval (=second number greater than first).
+    // If not, look at the points within the interval and let the majority decide which one is the "outlier" (the 1 or the -1, or both),
+    // and repeat the search, ignoring the outlier(s).
+    size_t last_1 = i_high_max;
+    size_t first_m1 = i_low_min;
+    while(status[last_1]!=1) --last_1;
+    while(status[first_m1]!=-1) ++ first_m1;
+    // while there is an outlier: remove it ...
+    while(last_1 > first_m1){
+        size_t n1 = 0, nm1 = 0;
+        for(size_t i = first_m1+1; i < last_1; ++i){
+            if(status[i]==-1) ++nm1;
+            else if(status[i]==1) ++n1;
+        }
+        // note that for n1 == nm1, both are outliers ...
+        if(nm1 >= n1){ // 1 is the outlier:
+            --last_1;
+            while(status[last_1]!=1) --last_1;
+        }
+        if(n1 >= nm1){ // -1 is the outlier:
+            ++first_m1;
+            while(status[first_m1]!=-1) ++ first_m1;
+        }
+    }
+    return make_pair(last_1, first_m1);
 }
 
 // update the truth_to_ts map to contain ts values for all truth_values in truth_to_ts using current_data.
@@ -888,7 +894,7 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
         truth_to_ts[*it] = ts;
         //call source->fill to set products column
         Data dummy_data;
-        source->fill(dummy_data, 0.0, debug_out);
+        source->fill(dummy_data, truth_parameter, 0.0);
         products_table->add_row(0, eventid);
         // if ts value is constant, fill it to constant_ts, for the next iteration:
         if(pp_producer==0){
@@ -1050,7 +1056,7 @@ void cls_limits::run_set_limits(){
             }
             else{
                 // make a background-only toy:
-                source->fill(current_data, 0.0, debug_out);
+                source->fill(current_data, truth_parameter, 0.0);
             }
             map<double, double> truth_to_ts;
             // run an update, to get the ts values at the truth points from previous idata iterations:
@@ -1073,18 +1079,13 @@ void cls_limits::run_set_limits(){
                  if(stop_execution) return;
                  data = tts->get_cls_vs_truth(truth_to_ts);
             }
-            size_t i_low, i_high;
-            i_low = 0;
-            i_high = data.cls_values().size()-1;
-            while(cls_is_significantly_smaller(data, i_high-1, 1-cl, tol_cls)) --i_high; //terminates because this at truth=0.0, point is not sign. smaller
-            while(cls_is_significantly_larger(data, i_low+1, 1-cl)) ++i_low; //terminates because we created a significantly smaller point in 3.a.i.
-            double truth_low = data.truth_values()[i_low];
-            double truth_high = data.truth_values()[i_high];
-            debug_out << idata << " seed: interval [" << truth_low << ", " << truth_high << "]; i_low, ihigh = (" << i_low << ", " << i_high << ")\n";
-            flush(debug_out);
             //3.b. iterate
             fitexp_result latest_res;
+            size_t i_low = 0, i_high = data.truth_values().size()-1;
+            double truth_low;
+            double truth_high;
             for(size_t i=0; i<=N_maxit; ++i){
+                // 0. debugging stuff:
                 if(i==N_maxit){
                     debug_out << idata << "." << i << ": maximum number of iterations reached. Marking as outlier.\n";
                     throw OutlierException();
@@ -1096,6 +1097,26 @@ void cls_limits::run_set_limits(){
                     flush(debug_out);
                     debug_out << "truth_to_ts:\n" << truth_to_ts << "\n";
                 }
+                // 1. find fit range within current interval (in the first iteration, this will be in whole range):
+                pair<size_t, size_t> seed = find_seed(data, cl, tol_cls, i_low, i_high, debug_out);
+                i_low = seed.first;
+                i_high = seed.second;
+                debug_out << "proposed fit interval: " << data.truth_values()[i_low] << "--" << data.truth_values()[i_high] << "\n";
+                // 1.b. make sure that fit range includes latest fit (if it converged ...):
+                if(!isnan(latest_res.limit) && (latest_res.limit < data.truth_values()[i_low] || latest_res.limit > data.truth_values()[i_high])){
+                    debug_out << "WARNING: latest fitted limit (" << latest_res.limit << ") not contained in proposed fit interval, making fit interval larger\n";
+                    while(latest_res.limit < data.truth_values()[i_low] && i_low > 0){
+                        --i_low;
+                        while(!cls_is_significantly_larger(data, i_low, 1-cl) && i_low > 0) --i_low;
+                    }
+                    while(latest_res.limit > data.truth_values()[i_high] && i_high < data.truth_values().size()-1){
+                        ++i_high;
+                        while(!cls_is_significantly_smaller(data, i_high, 1-cl, tol_cls) && i_high < data.truth_values().size()-1) ++i_high;
+                    }
+                }
+                truth_low = data.truth_values()[i_low];
+                truth_high = data.truth_values()[i_high];
+                // 2. make the fit
                 latest_res = fitexp(data, 1 - cl, pars, truth_low, truth_high, debug_out);
                 if(isnan(latest_res.limit)){
                     debug_out << "exp fit did not work; fill in some random point in fitted interval, with large error\n";
@@ -1107,8 +1128,6 @@ void cls_limits::run_set_limits(){
                 }
                 debug_out << idata << "." << i << ": fitted limit on range " << truth_low << "--" << truth_high << " using " << (i_high - i_low + 1) << " points:\n";
                 debug_out << "       limit = " << latest_res.limit << " +- " << latest_res.limit_error << "\n";
-                i_low = find(data.truth_values().begin(), data.truth_values().end(), truth_low) - data.truth_values().begin();
-                i_high = find(data.truth_values().begin(), data.truth_values().end(), truth_high) - data.truth_values().begin();
                 //accept result if truth=0 not included and error is small enough:
                 if(latest_res.limit_error / latest_res.limit < reltol_limit && latest_res.limit >= truth_low && latest_res.limit <= truth_high){
                     debug_out << "       limit accepted.\n";
@@ -1118,46 +1137,42 @@ void cls_limits::run_set_limits(){
                     debug_out << "       limit not accepted.\n";
                 }
                 flush(debug_out);
-                // If the CLs range includes 0, make a new truth point:
+                
+                // 3. make new toys
+                // 3.a. If the CLs range includes 0, make a new truth point close to 0:
                 if(i_low == 0){
                     run_single_truth_adaptive(truth_to_ts, ts_epsilon, 0.5 * data.truth_values()[1]);
                     if(stop_execution) return;
                 }
-                // for the (very rare) case that the fitted limit is not in the interval, make sure the new point is included in the fit range:
-                if(latest_res.limit < truth_low || latest_res.limit > truth_high){
-                    debug_out << "WARNING: fitted limit not contained in fit interval, making fit interval larger\n";
-                    while(latest_res.limit < data.truth_values()[i_low] && i_low > 0){
-                        --i_low;
-                        truth_low = data.truth_values()[i_low];
-                    }
-                    while(latest_res.limit > data.truth_values()[i_high] && i_high < data.truth_values().size()-1){
-                        ++i_high;
-                        truth_high = data.truth_values()[i_high];
-                    }
-                }
-
-                // add a point at the estimated limit, but round to points we have already, if it makes sense ...
-                // double next_truth = latest_res.limit;
+                // 3.b. add a new point randomly in the interval:
                 // add a random point in the fit interval:
-                double u = (((i + 17) * 1103515245 + 12345) % 4294967296) * 1.0 / 4294967296;
-                double next_truth = truth_low + u * (truth_high - truth_low);
+                const double u = (((i + 17) * 1103515245 + 12345) % 4294967296) * 1.0 / 4294967296;
+                const double next_truth0 = truth_low + u * (truth_high - truth_low);
+                double next_truth = next_truth0;
                 debug_out << "next truth for toys: " << next_truth << "\n";
-                // "round" to a neighboring value if within the target limit_uncertainty:
+                flush(debug_out);
+                // "round" to a neighboring value if within the target reltol_limit:
                 double min_diff = numeric_limits<double>::infinity();
                 for(size_t m=0; m < data.truth_values().size(); ++m){
                     double t = data.truth_values()[m];
-                    if(fabs(t - next_truth) < min_diff && fabs(t - next_truth) / max(t, next_truth) < reltol_limit){
+                    if(fabs(t - next_truth0) < min_diff && fabs(t - next_truth0) / max(t, next_truth0) < reltol_limit){
                         next_truth = t;
-                        min_diff = fabs(t - next_truth);
+                        min_diff = fabs(t - next_truth0);
                     }
                 }
                 if(!isinf(min_diff)){
                     debug_out << "rounded next truth value to existing point " << next_truth << "\n";
+                    flush(debug_out);
                 }
                 run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_truth, 1);
                 if(stop_execution) return;
-
-                // pruning phase:
+                
+                // 4. update data and i_low, i_high, as new indices might have appeared:
+                data = tts->get_cls_vs_truth(truth_to_ts);
+                i_low = find(data.truth_values().begin(), data.truth_values().end(), truth_low) - data.truth_values().begin();
+                i_high = find(data.truth_values().begin(), data.truth_values().end(), truth_high) - data.truth_values().begin();
+                
+                //5. pruning phase:
                 // make interval [truth_low, truth_high] smaller if (border is far away (>2sigma) from limit or border is 0) AND the next point can serve as new interval border
                 if((fabs(truth_low - latest_res.limit) / latest_res.limit_error > 2 or i_low==0) && i_low+1 < i_high){
                      debug_out << "lower border " << truth_low << " far away from current limit --> test if can be removed ...\n";
@@ -1187,7 +1202,6 @@ void cls_limits::run_set_limits(){
                          debug_out << "--> no, next point not valid.\n";
                      }
                 }
-                data = tts->get_cls_vs_truth(truth_to_ts);
             }
             ++n_results;
             Row r;
@@ -1196,6 +1210,7 @@ void cls_limits::run_set_limits(){
             r.set_column(cls_limits__limit_uncertainty, latest_res.limit_error);
             cls_limits_table->add_row(r);
             debug_out << "final limit for idata = " << idata << ": " << latest_res.limit << " +- " << latest_res.limit_error << "\n";
+            flush(debug_out);
             if(idata==0) break;
         }
         catch(OutlierException & ex){
