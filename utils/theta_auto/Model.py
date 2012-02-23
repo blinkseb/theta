@@ -96,8 +96,11 @@ class Model:
         self.distribution = Distribution()
         # data histograms: dictionary str obs -> histo
         self.data_histos = {}
+        # real-valued observable values: dictionary str -> float
+        self.data_rvobsvalues = {}
         # a FunctionBase instance or None:
         self.additional_nll_term = None
+        self.rvobs_distribution = Distribution()
     
     def reset_binning(self, obs, xmin, xmax, nbins):
         assert obs in self.observables
@@ -114,6 +117,7 @@ class Model:
         if strict: assert self.signal_processes == other_model.signal_processes, "signal processes not equal: left-right=%s; right-left=%s;" \
                        % (str(self.signal_processes.difference(other_model.signal_processes)), str(other_model.signal_processes.difference(self.signal_processes)))
         self.distribution = Distribution.merge(self.distribution, other_model.distribution, False)
+        self.rvobs_distribution = Distribution.merge(self.rvobs_distribution, other_model.rvobs_distribution, False)
         self.observables.update(other_model.observables)
         self.processes.update(other_model.processes)
         self.data_histos.update(other_model.data_histos)
@@ -514,9 +518,12 @@ class Distribution:
     # type does not matter
     def set_distribution(self, par_name, typ, mean, width, range):
         assert typ in ('gauss', 'gamma')
-        assert range[0] <= range[1] and range[0] <= mean and mean <= range[1] and width >= 0.0
-        if typ == 'lognormal': assert range[0] >= 0.0
-        self.distributions[par_name] = {'typ': typ, 'mean': mean, 'width': width, 'range': [float(range[0]), float(range[1])]}
+        assert range[0] <= range[1]
+        if type(mean) != str: # otherwise, the mean is a parameter ...
+            mean = float(mean)
+            assert range[0] <= mean and mean <= range[1] and width >= 0.0
+        else: assert typ == 'gauss', "using a parameter as mean is only supported for gauss"
+        self.distributions[par_name] = {'typ': typ, 'mean': mean, 'width': float(width), 'range': [float(range[0]), float(range[1])]}
         
     # Changes parameters of an existing distribution. pars can contain 'typ', 'mean', 'width', 'range'. Anything
     # not specified will be unchanged

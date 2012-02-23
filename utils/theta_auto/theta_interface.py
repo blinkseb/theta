@@ -41,10 +41,13 @@ def write_cfg(model, signal_processes, method, input, id = None, additional_sett
     all_parameters = set(model.get_parameters(signal_processes))
     if model.additional_nll_term is not None: all_parameters.update(model.additional_nll_term.get_parameters())
     all_parameters = sorted(list(all_parameters))
+    rvobservables = model.rvobs_distribution.get_parameters()
     additional_settings['main']['output_database']['filename'] = '@output_name'
     additional_settings = copy.deepcopy(additional_settings)
     config = ''
     config += "parameters = " + settingvalue_to_cfg(all_parameters, 0, ['parameters']) + ";\n"
+    if len(rvobservables) > 0:
+        config += "rvobservables = " + settingvalue_to_cfg(rvobservables, 0, ['rvobservables']) + ";\n"
     obs = {}
     for o in model.observables:
         xmin, xmax, nbins = model.observables[o]
@@ -56,6 +59,8 @@ def write_cfg(model, signal_processes, method, input, id = None, additional_sett
     else:
         if 'model-distribution-signal' in additional_settings: del additional_settings['model-distribution-signal']
         cfg_model['parameter-distribution'] = model.distribution.get_cfg(model_parameters)
+    if len(rvobservables) > 0:
+        cfg_model['rvobs-distribution'] = model.rvobs_distribution.get_cfg(rvobservables)
     config += "model = " + settingvalue_to_cfg(cfg_model, 0, ['model']) + ";\n"
     for s in additional_settings:
         config += s + " = " + settingvalue_to_cfg(additional_settings[s], 0, [s]) + ";\n"

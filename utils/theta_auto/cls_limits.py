@@ -13,7 +13,7 @@ from misc import *
 # returns a tuple (theta config dictionary, ts column name) for ts producer specification ts (either 'lr' or 'mle'). Refers
 # to the global settings "signal_prior", "nuisance_prior" and "minimizer"
 def ts_producer_dict(ts, signal_prior_bkg='flat'):
-    assert ts in ('lr', 'lhclike', 'lhclike:frequentist_bootstrapping')
+    assert ts in ('lr', 'lhclike')
     signal_prior_bkg = signal_prior_dict(signal_prior_bkg)
     if ts == 'lr':
         ts_producer = {'type': 'deltanll_hypotest', 'name': 'lr', 'minimizer': "@minimizer",
@@ -129,7 +129,7 @@ def ts_toys(model, beta_signal_values, n, ts, signal_prior = 'flat', nuisance_pr
 # returns (spid) --> (list of ts values)
 def ts_toys_frequentist_bootstrapping(model, beta_signal, n, ts = 'lhclike', nuisance_constraint = '', signal_processes = None, bkg_only_toys = False):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
-    dist = copy.deepcopy(model.distribution)
+    dist = model.distribution
     res = ml_fit(model, nuisance_constraint = nuisance_constraint, signal_prior = 'fix:%g' % beta_signal)
     result = {}
     for sp in signal_processes:
@@ -138,9 +138,13 @@ def ts_toys_frequentist_bootstrapping(model, beta_signal, n, ts = 'lhclike', nui
         par_values = {}
         for p in res[spid]: par_values[p] = res[spid][p][0][0]
         del par_values['beta_signal']
-        print par_values
+        #print par_values
         model.distribution = get_fixed_dist_at_values(par_values)
-        toys = ts_toys(model, [beta_signal], n, signal_processes = [sp], bkg_only_toys = bkg_only_toys, ts = ts)
+        #model.distribution = copy.deepcopy(model.distribution)
+        #for p in par_values:
+        #    model.distribution.set_distribution_parameters(p, mean = par_values[p], width=res[spid][p][0][1])
+        toys = ts_toys(model, [beta_signal], n, signal_processes = [sp], bkg_only_toys = bkg_only_toys, ts = ts, nuisance_prior = dist)
+        #toys = ts_toys(model, [beta_signal], n, signal_processes = [sp], bkg_only_toys = bkg_only_toys, ts = ts, nuisance_prior = model.distribution)
         model.distribution = dist
         result[spid] = toys[(spid, beta_signal)]
     return result
@@ -371,12 +375,16 @@ def cls_limits_grid(model, beta_signal_range, n_beta_signal = 21, n_toys_sb = 20
         run_theta(cfg_names_to_run, **options)
     return result
 
-
-# future toy_mode documentation:
-#   * 'bayesian_prior' will use the prior distributions to choose values for nuisance parameters (for each toy experiment, new, independent
-#      values are chosen randomly from the priors)
-#   * 'frequentist_bootstrapping' will use the nuisance parameter values fitted on data
-
+# returns a tuple of 6 limits:
+# observed, median expected, lower 1sigma expected, upper 1sigma expected, lower 2sigma expected, upper 2sigma expected
+def get_cls_limits_from_dbfile(dbfile):
+    data = sql(dbfile, 'select "index", "limit", limit_uncertainty from cls_limits order by "index"')
+    assert data[0][0] == 0, "no cls limit for data available!"
+    observed = data[0][1]
+    del data[0]
+    limits = sorted([r[1] for r in data if r[1] != float("inf")])
+    n = len(limits)
+    return observed, limits[n/2], limits[int(0.16*n)], limits[int(0.84*n)], limits[int(0.025*n)], limits[int(0.975*n)]
 
 ## \brief Calculate CLs limits.
 #
@@ -395,9 +403,6 @@ def cls_limits_grid(model, beta_signal_range, n_beta_signal = 21, n_toys_sb = 20
 # the s+b model, beta_signal is always fixed to r. 'signal_prior_bkg' is applied. You would usually set it to 'flat' in this case
 # so that the b-only fit varies beta_signal on [0, r].
 #
-# toy_mode controls how toy experiments are performed, or more specifically, which nuisance parameters are chosen to perform
-# toys. Currently, only 'bayesian_prior' is supported.
-#
 # what controls which limits are computed. Valid vaues are:
 # * 'observed': compute observed limit on data only
 # * 'expected': compute +-1sigma, +-2sigma limit bands for background only
@@ -411,10 +416,8 @@ def cls_limits_grid(model, beta_signal_range, n_beta_signal = 21, n_toys_sb = 20
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
-def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', toy_mode = 'bayesian_prior', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
+def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
    signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, **options):
-    if toy_mode not in ('bayesian_prior', 'frequentist_bootstrapping'):
-        raise RuntimeError, "invalid toy_mode='%s' passed (valid are only 'bayesian_prior', 'frequentist_bootstrapping')" % toy_mode
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     assert len(signal_processes) > 0
     if signal_prior_bkg is None:
@@ -427,6 +430,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', toy_mode = 'baye
         'output_database': sqlite_database(), 'truth_parameter': 'beta_signal', 'minimizer': minimizer(need_error = True),
         'tol_cls': 0.025, 'clb_cutoff': 0.02, 'debuglog': '@debuglog-name', 'rnd_gen': {'seed': options.get('toydata_seed', 1)}}
     if truth_max is not None: main['truth_max'] = float(truth_max)
+    if 'reltol_limit' in options: main['reltol_limit'] = float(options['reltol_limit'])
     if what in ('expected', 'all'):
         main['expected_bands'] = 2000
     elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what
@@ -436,8 +440,6 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', toy_mode = 'baye
     toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, 'minimizer': minimizer(need_error = False), 'debuglog-name': 'XXX',
        'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
     if ts == 'lhclike': del toplevel_settings['signal_prior']
-    if toy_mode == 'frequentist_bootstrapping':
-        main['toy_source'] = {'frequentist_bootstrapping': True, 'minimizer': minimizer(need_error = False)}
     toplevel_settings.update(get_common_toplevel_settings(**options))
     cachedir = os.path.join(config.workdir, 'cache')
     cfg_names_to_run = []
@@ -516,5 +518,3 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', toy_mode = 'baye
             pd_observed.yerrors.append(observed_unc)
     bayesian.report_limit_band_plot(pd_expected, pd_observed, 'CLs', 'cls')
     return pd_expected, pd_observed
-
-

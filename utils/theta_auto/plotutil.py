@@ -68,7 +68,7 @@ class plotdata:
         self.x = [h[0] + i * binwidth for i in range(len(h[2]))]
         self.y = h[2][:]
         
-    # ofile is a string (filename) or a handle to a open file
+    # ofile is a string (filename) or a handle to an open file
     def write_txt(self, ofile):
         if type(ofile)==str: ofile = open(ofile, 'w')
         ofile.write('# x; y')
@@ -82,6 +82,33 @@ class plotdata:
                 for k in range(len(self.bands)):
                     ofile.write("%10.5g %10.5g" % (self.bands[k][0][i], self.bands[k][1][i]))
             ofile.write("\n")
+    
+    # infile is the filename
+    def read_txt(self, infile):
+        # values is a list of lines in the file; each line is a list of floats
+        values = []
+        for line in file(infile):
+            if len(line) == 0: continue
+            if line[0] == '#': continue
+            line_values = map(lambda s: float(s), line.split())
+            # check that the number of values in the lines agree:
+            if len(values) > 0:
+                if len(values[0]) != len(line_values): raise RuntimeError, "number of values given is inconsistent!"
+            values.append(line_values)
+        n_values = len(values[0])
+        assert n_values % 2 == 0, "invalid number of values (has to be even)"
+        # read x, y values:
+        self.x = [row[0] for row in values]
+        self.y = [row[1] for row in values]
+        # read bands:
+        n_bands = (n_values - 2) / 2
+        self.bands = []
+        colors = ['#ffff00', '#00ff00']
+        for i in range(n_bands):
+            band = ([row[2+2*i] for row in values], [row[3+2*i] for row in values], colors[i % len(colors)])
+            self.bands.append(band)
+        
+        
 
 ## \brief Make a plot and write it to an output file
 #
@@ -101,7 +128,7 @@ class plotdata:
 #
 # xmin, xmax, ymin, ymax control the region shown in the plot. the default is to determine the region automatically (by matplotblib)
 def plot(histos, xlabel, ylabel, outname, logy = False, logx = False, ax_modifier=None, title_ul=None, title_ur = None,
-extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None):
+extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None, legend_args = {}):
     cm = 1.0/2.54
     fsize = 15*cm, 12*cm
     fp = fm.FontProperties(size=10)
@@ -166,7 +193,7 @@ extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None):
             if type(h)==str:
                 h = matplotlib.patches.Rectangle((0, 0), 1, 1, fc=h)
             handles.append(h)
-        ax.legend(handles, labels, prop = fp)
+        ax.legend(handles, labels, prop = fp, **legend_args)
     if ax.get_legend() is not None:
         map(lambda line: line.set_lw(1.5), ax.get_legend().get_lines())
 

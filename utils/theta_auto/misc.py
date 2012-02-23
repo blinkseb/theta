@@ -328,7 +328,7 @@ def ml_fit(model, input = 'data', signal_prior = 'flat', nuisance_constraint = '
     cachedir = os.path.join(config.workdir, 'cache')
     
     result = {}
-    result_table = table()
+    result_table = Report.table()
     result_table.add_column('process', 'signal process')
     
     nuisance_parameters = sorted(list(model.get_parameters('')))
@@ -371,6 +371,8 @@ def ml_fit(model, input = 'data', signal_prior = 'flat', nuisance_constraint = '
     
 ## \brief Perform a maximum likelihood fit and get the coefficient function values for all processes / channels
 #
+# This is useful to scale templates to make plots. The result should not be used
+# to extract cross sections or other results.
 #
 # options: see ml_fit
 #

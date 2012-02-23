@@ -88,7 +88,7 @@ inf = float("inf")
 # The Model class contains all relevant information of the model, including the observed data, and all the predictions including their dependence on the
 # model parameters in the different channels, and which of the processes is to be considered as signal.
 # The signal is always added to the prediction of the background yields with a multiplicative signal strength factor called "beta_signal" which corresponds
-# to the cross section in units of the configured signal yield. All model parameters except "beta_signal" are called "nuisance parameters" throughout the documentation.
+# to the cross section in units of the signal cross section assumed in the input. All model parameters except "beta_signal" are called "nuisance parameters" throughout the documentation.
 #
 # Note that the python Model class in theta-auto is slightly different from the C++ theta::Model class you spefify in the %theta
 # configuration files: theta::Model does not contain any information about data, nor about which process is considered as signal.

@@ -371,7 +371,7 @@ def build_model(fname, filter_channel = lambda chan: True):
                 add_shapes(model, obs, 'DATA', {}, l[2], l[3], '')
                 data_done.add(obs)
             if l[0]!='*' and l[0]!=proc: continue
-            uncs =  shape_systematics[obs][proc]
+            uncs = shape_systematics[obs].get(proc, {})
             #print "adding shapes for channel %s, process %s" % (obs, proc)
             add_shapes(model, obs, proc, uncs, l[2], l[3], l[4])
             found_matching_shapeline = True

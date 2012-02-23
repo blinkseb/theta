@@ -168,13 +168,15 @@ def data_source_dict(model, input_spec, **options):
         source_dict = {'type': 'histo_source', 'name': 'source'}
         for o in model.observables:
             source_dict[o] = theta_interface.get_histo_cfg(model.data_histos[o])
+        if len(model.data_rvobsvalues) > 0:
+            source_dict['rvobs-values'] = dict(model.data_rvobsvalues)
         return (source_dict, theta_interface.delta_distribution(beta_signal = 0.0))
     elif input_spec.startswith('toys:') or input_spec.startswith('toys-asimov:'):
         beta_signal_value = float(input_spec[input_spec.find(':') + 1:])
         seed = 1
         if 'toydata_seed' in options: seed = int(options['toydata_seed'])
         result = {'type': 'model_source', 'name': 'source', 'model': '@model', 'rnd_gen': {'seed': seed}}
-        if input_spec.startswith('toys-asimov:'): result['dice_poisson'] = False;
+        if input_spec.startswith('toys-asimov:'): result['dice_poisson'] = False
         return (result, theta_interface.delta_distribution(beta_signal = beta_signal_value))
     else: raise RuntimeError, 'data_source dict: not implemented for input = "%s"' % input_spec
 
