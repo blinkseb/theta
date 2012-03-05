@@ -9,6 +9,8 @@
 #include "interface/database.hpp"
 #include "interface/random-utils.hpp"
 
+#include <boost/optional.hpp>
+
 /** \brief A polynomial distribution where coefficients do not depend on any parameters
  *
  * Configuration is done with a setting group like
@@ -268,11 +270,9 @@ class gauss: public theta::Distribution{
 
 /** \brief A one-dimensional gauss-distribution
  *
- * It does the same as \link gauss gauss \endlink in the one-dimensional case, but is faster.
- *
- * It is cponfigured via a setting group like
+ * It is configured via a setting group like
  * \code
- * { 
+ * gauss = {
  *  type = "gauss1d";
  *  parameter = "p0";
  *  range = (0.0, 5.0);
@@ -287,6 +287,8 @@ class gauss: public theta::Distribution{
  *
  * \c mean is a floating point value specifying the mean value of the distribution, \c width is its standard deviation.
  *
+ * As special case, the \c mean can also be a string. In this case, it is interpreted as the name of a parameter which
+ * will be used as mean.
  */
 class gauss1d: public theta::Distribution{
    public:
@@ -302,6 +304,7 @@ class gauss1d: public theta::Distribution{
     private:
         double mu;
         double sigma;
+        boost::optional<theta::ParId> mu_pid;
         std::pair<double, double> range;
 };
 

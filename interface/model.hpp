@@ -55,8 +55,10 @@ namespace theta {
      *   <li>Exactly one settings group per observable to be modeled by this Model. It has to have the same name
      *      as the observable to be modeled and contains the observable specification.</li>
      *    <li>
-     *   <li>A \c parameter-distribution setting group which defines the overall parameter distribution of
+     *   <li>A \c parameter-distribution setting group, the prior parameter \link Distribution Distribution \endlink of
      *       all model parameters.</li>
+     *   <li>Optionally, a setting \c rvobs-distribution, the probablity \link Distribution Distribution \endlink for the real-valued
+     *     observables.
      * </ul>
      *
      * Each setting group representing an observable specification contains one or more component specifications.
@@ -72,11 +74,15 @@ namespace theta {
         
         /** \brief Get all parameters the model prediction depends upon
          */
-        ParIds getParameters() const;
+        const ParIds & getParameters() const;
         
         /** \brief Get all observables the model models a template for
          */
-        ObsIds getObservables() const;
+        const ObsIds & getObservables() const;
+        
+        /** \brief Get all real-valued observables of the model
+         */
+        const ParIds & getRVObservables() const;
         
         /** \brief Creates a likelihood function object for this model, given the data.
          *
@@ -114,10 +120,21 @@ namespace theta {
          */
         virtual const Distribution & get_parameter_distribution() const = 0;
         
+        
+        /** \brief Return the distribution for the real-valued observables, if any.
+         *
+         * If none is defined, a null-pointer is returned.
+         *
+         * The returned pointer refers to internal Model information; it becomes invalid if non-const methods
+         * are called; the memory belongs to the Model.
+         */
+        virtual const Distribution * get_rvobservable_distribution() const = 0;
+        
         virtual ~Model(){}
 
     protected:
         ParIds parameters;
+        ParIds rvobservables;
         ObsIds observables;
     };
     
@@ -135,10 +152,9 @@ namespace theta {
         histos_type histos;
         coeffs_type coeffs;
         std::auto_ptr<Distribution> parameter_distribution;
+        std::auto_ptr<Distribution> rvobservable_distribution;
         
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
-        
-        default_model(const default_model & model, const theta::PropertyMap & pm);
         
      public:
         default_model(const Configuration & cfg);
@@ -149,6 +165,10 @@ namespace theta {
         
         virtual const Distribution & get_parameter_distribution() const {
            return *parameter_distribution;
+        }
+        
+        virtual const Distribution * get_rvobservable_distribution() const{
+            return rvobservable_distribution.get();
         }
         
         virtual ~default_model();  

@@ -18,6 +18,8 @@
  *        type = "root_histogram"; filename = "DATA.root"; histoname = "h_obs1";
  *    }; // or some other constant histogram specification
  *   obs2 = { ... }; // some constant histogram specification to use for observable obs2
+ *
+ *   rvobs-values = { rv1 = 2.0; rv2 = 3.0; }; //optional
  * };
  * \endcode
  *
@@ -25,6 +27,8 @@
  *
  * \c name is the name of the data source. (It is not actually used for this type but every DataSource
  * requires the name setting).
+ *
+ * \c rvobs-values is optional and specifies the values for the real-valued observables.
  *
  * For all observables, a setting specifying the (constant) HistogramFunction must be specified,
  * with the name of that observable.

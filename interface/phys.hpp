@@ -85,16 +85,7 @@ namespace theta {
     };
     
     
-    /** \brief Contains data for one or more observables
-     *  
-     * A data object can be constructed:
-     * -# "by hand": use the default constructor and set data Histograms for a number of observables
-     * -# by using the DataFactory, which parses a configuration setting and typically reads data from root files
-     * -# by sampling from a \c Model using the \c samplePseudoData method.
-     *
-     * After construction, the Data object is typically used to get a likelihood function from a Model.
-     *
-     * \sa Model::getLikelihood(Data) DataFactory Model::samplePseudoData
+    /** \brief Contains data more histogram observables and real-values observables
      */
     class Data {
     private:
@@ -118,15 +109,24 @@ namespace theta {
             if(id.id >= data.size()) data.resize(id.id + 1);
             return data[id.id];
         }
+        
         const Histogram1D & operator[](const ObsId & id) const{
             if(id.id >= data.size() || data[id.id].get_nbins()==0) fail_get(id);
             return data[id.id];
         }
         ///@}
         
+        const theta::ParValues & getRVObsValues() const{
+            return rvobs_values;
+        }
+        
+        void setRVObsValues(const theta::ParValues & values){
+            rvobs_values = values;
+        }
         
         /// \brief reset all current Histograms, i.e., set to zero entry
         void reset(){
+            rvobs_values.clear();
             std::vector<Histogram1D>::iterator it = data.begin();
             for(; it!=data.end(); ++it){
                it->set_all_values(0.0);
@@ -135,6 +135,7 @@ namespace theta {
 
     private:
         std::vector<Histogram1D> data;
+        theta::ParValues rvobs_values;
     };
     
     /** \brief A data-providing class, can be used as base class in the plugin system

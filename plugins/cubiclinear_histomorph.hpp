@@ -57,33 +57,30 @@ public:
     /** \brief Constructor used by the plugin system to build an instance from settings in a configuration file
      */
     cubiclinear_histomorph(const theta::Configuration & ctx);
-        
-    /** Returns the interpolated Histogram as documented in the class documentation.
-     * throws a NotFoundException if a parameter is missing.
-     */
+    
     virtual const theta::Histogram1D & operator()(const theta::ParValues & values) const;
     
-    /// Return a Histogram of the same dimenions as the one returned by operator()
     virtual theta::Histogram1D get_histogram_dimensions() const{
        return h0;
     }
     
-private:
+    virtual const theta::Histogram1D & getRandomFluctuation(theta::Random & rnd, const theta::ParValues & values) const;
     
-    //cubiclinear_histomorph(const cubiclinear_histomorph & rhs, const theta::PropertyMap & pm);
+private:
     /** \brief Build a (constant) Histogram from a Setting block.
     *
     * Will throw an InvalidArgumentException if the Histogram is not constant.
     */
     static theta::Histogram1D getConstantHistogram(const theta::Configuration & ctx, theta::SettingWrapper s);
     
-    theta::Histogram1D h0;
+    theta::Histogram1D h0, h0err;
     double h0_sum;
     std::vector<theta::Histogram1D> hplus_diff; // hplus_diff[i] + h0 yields hplus
     std::vector<theta::Histogram1D> hminus_diff;
     
     std::vector<double> parameter_factors;
     bool normalize_to_nominal;
+    double decorr_delta_width;
     
     //diff and sum are the difference and sum of the hplus_diff and hminus_diff histos
     std::vector<theta::Histogram1D> diff;

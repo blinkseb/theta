@@ -374,34 +374,40 @@ void gauss1d::sample(ParValues & result, Random & rnd) const{
         result.set(*par_ids.begin(), range.first);
         return;
     }
-    for(size_t rep=0; rep <=100000; ++rep){
-         double value = rnd.gauss(sigma) + mu;
+    double mean = mu_pid ? result.get(*mu_pid) : mu;
+    for(size_t rep=0; rep <=1000000; ++rep){
+         double value = rnd.gauss(sigma) + mean;
          if(value >= range.first && value <= range.second){
              result.set(*par_ids.begin(), value);
              return;
          }
     }
-    throw Exception("gauss1d::sample: too many iterations necessary to fulfill configured range");
+    stringstream ss;
+    ss << "gauss1d::sample: too many iterations necessary to fulfill configured range (diced around "
+       << mean << " +- " << sigma << " in range [" << range.first << ", " << range.second << "])";
+    throw Exception(ss.str());
 }
 
 
 double gauss1d::evalNL(const ParValues & values) const{
+    double mean = mu_pid ? values.get(*mu_pid) : mu;
     double value = values.get_unchecked(*par_ids.begin());
     if(value > range.second || value < range.first){
         return std::numeric_limits<double>::infinity();
     }
-    double delta = (value - mu) / sigma;
+    double delta = (value - mean) / sigma;
     return 0.5 * delta * delta;
 }
 
 double gauss1d::evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const{
     const ParId & pid = *par_ids.begin();
+    double mean = mu_pid ? values.get(*mu_pid) : mu;
     double value = values.get(pid);
     if(value > range.second || value < range.first){
         derivatives.set(pid, 0.0);
         return std::numeric_limits<double>::infinity();
     }
-    double delta = (value - mu) / sigma;
+    double delta = (value - mean) / sigma;
     derivatives.set(pid, delta / sigma);
     return 0.5 * delta * delta;
 }
@@ -410,7 +416,15 @@ gauss1d::gauss1d(const Configuration & cfg){
    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
    string par_name = cfg.setting["parameter"];
    par_ids.insert(vm->getParId(par_name));
-   mu = cfg.setting["mean"];
+   libconfig::Setting::Type typ = cfg.setting["mean"].getType();
+   mu = NAN;
+   if(typ==libconfig::Setting::TypeFloat){
+       mu = cfg.setting["mean"];
+   }
+   else{
+       mu_pid = vm->getParId(cfg.setting["mean"]);
+       distribution_par_ids.insert(*mu_pid);
+   }
    sigma = cfg.setting["width"];
    if(sigma <= 0){
       throw ConfigurationException("invalid 'width' given (must be > 0)");
@@ -420,7 +434,7 @@ gauss1d::gauss1d(const Configuration & cfg){
    if(range.second < range.first){
       throw ConfigurationException("empty 'range' given");
    }
-   if(range.second < mu || mu < range.first){
+   if(!isnan(mu) && (range.second < mu || mu < range.first)){
       throw ConfigurationException("given range does not include mean");
    }
 }
@@ -431,7 +445,12 @@ const std::pair<double, double> & gauss1d::support(const ParId & p)const{
 }
 
 void gauss1d::mode(theta::ParValues & result) const{
-    result.set(*par_ids.begin(), mu);
+    if(mu_pid){
+        result.set(*par_ids.begin(), result.get(*mu_pid));
+    }
+    else{
+        result.set(*par_ids.begin(), mu);
+    }
 }
 
 
@@ -446,11 +465,12 @@ void product_distribution::add_distributions(const Configuration & cfg, const th
         }
         else{
             std::auto_ptr<Distribution> dist = PluginManager<Distribution>::build(Configuration(cfg, dist_setting));
-            ParIds new_pids = dist->getParameters();
-            // ignore 'empty' distributions which do not depent on any parameter:
+            const ParIds & new_pids = dist->getParameters();
             if(new_pids.size()==0) continue;
-            distributions.push_back(dist);
             par_ids.insert(new_pids.begin(), new_pids.end());
+            const ParIds & dist_pids = dist->getDistributionParameters();
+            distribution_par_ids.insert(dist_pids.begin(), dist_pids.end());
+            distributions.push_back(dist);
             for(ParIds::const_iterator it=new_pids.begin(); it!=new_pids.end(); ++it){
                 parid_to_index[*it] = distributions.size()-1;
             }
@@ -578,7 +598,14 @@ void model_source::fill(Data & dat){
         }
     }
     
-    //4. calculate nll value
+    //4. sample real-valued observables:
+    const Distribution * rvobs_dist = model->get_rvobservable_distribution();
+    if(rvobs_dist){
+        rvobs_dist->sample(values, rnd);
+        dat.setRVObsValues(ParValues(values, model->getRVObservables()));
+    }
+    
+    //5. calculate nll value
     if(save_nll){
        std::auto_ptr<NLLikelihood> nll = model->getNLLikelihood(dat);
        values.set(parameters_for_nll);

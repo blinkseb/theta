@@ -36,25 +36,27 @@ RandomConsumer::RandomConsumer(const theta::Configuration & cfg, const std::stri
        ptime t(microsec_clock::universal_time());
        time_duration td = t - ptime(date(1970, 1, 1));
        seed = td.total_microseconds();
-       // to avoid clashes with other RandomConsumers initialized in the same microsecond / clock resolution
-       // interval: use also the RandomConsumer's name which should be unique within one theta configuration.
-       for(size_t i=0; i<name.size(); ++i){
-           seed = seed * 33 + (int)name[i];
-       }
+       // to avoid clashes with other RandomConsumers initialized in the same process in the same
+       // clock resolution interval, use a static counter:
+       static int rnd_id = 0;
+       seed = seed * 33 + rnd_id;
+       ++rnd_id; // concurrency note: even if access is parallelized, and "++rnd_id" does not work correctly, this is not crucial for correct behaviour.
        // to avoid clashes in case of batch system usage with jobs starting in the same clock resolution
-       // interval with the same configuration (=same name), also use the hostname for the seed:
-       char hname[HOST_NAME_MAX + 1];
-       gethostname(hname, HOST_NAME_MAX + 1);
+       // interval, also use the hostname for the seed.
+       //Note that we should use a length of "HOST_NAME_MAX + 1" here, however, HOST_NAME_MAX is not defined on
+       // all POSIX systems, so just use the value HOST_NAME_MAX=255 ...
+       char hname[256];
+       gethostname(hname, 256);
        // In case the hostname does not fit into hname, the name is truncated but no error is returned.
-       // This should not happen, as we use HOST_NAME_MAX. On the other hand, we do not check for
-       // any errors potentially returned by gethostname ...
-       hname[HOST_NAME_MAX] = '\0';
+       // On the other hand, using some random bytes here for seeding is also Ok, just make sure we have a null byte
+       // somewhere:
+       hname[255] = '\0';
        int c;
-       size_t i=0;
-       while((c = hname[i++])){
-           seed = seed * 33 + (int)hname[i];
+       for(size_t i=0; (c = hname[i]); ++i){
+           seed = seed * 33 + c;
        }
-       
+       // and finally, also include the process id, if theta starts on the same host at the same time:
+       seed = seed * 33 + (int)getpid();
    }
    rnd_gen.reset(new Random(rnd_source));
    int runid = *(cfg.pm->get<int>("runid"));

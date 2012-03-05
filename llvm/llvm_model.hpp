@@ -29,6 +29,7 @@ private:
     coeffs_type coeffs;
     std::auto_ptr<theta::Distribution> parameter_distribution;
     bool llvm_always;
+    std::auto_ptr<theta::Distribution> rvobservable_distribution;
     
     mutable t_model_get_prediction model_get_prediction;
     mutable std::auto_ptr<llvm_module> module;
@@ -49,6 +50,10 @@ private:
     }
     virtual ~llvm_model();
     
+    virtual const theta::Distribution * get_rvobservable_distribution() const{
+          return rvobservable_distribution.get();
+    }
+    
 };
  
 class llvm_model_nll: public theta::NLLikelihood{
@@ -65,6 +70,8 @@ public:
     }        
 private:
     const llvm_model & model;
+    
+    theta::ParValues rvobs_values;
     
     boost::shared_ptr<theta::Function> additional_term;
     boost::shared_ptr<theta::Distribution> override_distribution;

@@ -86,8 +86,12 @@ class Model:
     def __init__(self):
         # observables is a dictionary str name ->  (float xmin, float xmax, int nbins)
         self.observables = {}
-        self.processes = set() # all processes
+        self.processes = set() # all processe
         self.signal_processes = set() # the subset of processes considered signal
+        # in addition to the signal_processes, we need to define which processes to consider together
+        # as signal. This is defined in signal_process_groups. It is a dictionary from the signal process group is to
+        # the list of signal processes to consider.
+        self.signal_process_groups = {}
         # observable_to_pred is a dictionary from (str observable) --> dictionary (str process)
         #  --> | 'histogram'            --> HistogramFunction instance
         #      | 'coefficient-function' --> Function instance
@@ -114,8 +118,10 @@ class Model:
     #   For shared nuisance parameters, the prior for self.distribution and other.distribution must be identical.
     def combine(self, other_model, strict=True):
         assert len(set(self.observables.keys()).intersection(set(other_model.observables.keys())))==0, "models to be combined share observables, but they must not!"
-        if strict: assert self.signal_processes == other_model.signal_processes, "signal processes not equal: left-right=%s; right-left=%s;" \
+        if strict:
+            assert self.signal_processes == other_model.signal_processes, "signal processes not equal: left-right=%s; right-left=%s;" \
                        % (str(self.signal_processes.difference(other_model.signal_processes)), str(other_model.signal_processes.difference(self.signal_processes)))
+            assert self.spid_to_signal_processes == other.spid_to_signal_processes
         self.distribution = Distribution.merge(self.distribution, other_model.distribution, False)
         self.rvobs_distribution = Distribution.merge(self.rvobs_distribution, other_model.rvobs_distribution, False)
         self.observables.update(other_model.observables)
@@ -218,7 +224,14 @@ class Model:
         if obsname in self.data_histos:
             rebin_hlist(self.data_histos[obsname][2], rebin_factor)
     
-    # procs is a list / set of glob patterns (or a single pattern)
+    ## \brief define which processes should be considered as signal processes
+    #
+    # Any process not defined explicitly as signal is considered to be background.
+    # Assumes that each signal process is independent, and sets the signal_process_groups accordingly.
+    # For more control in situations where the signal has multiple histograms to be used simultaneously,
+    # use the set_signal_process_groups.
+    #
+    # procs is a list / set of glob patterns (or a single pattern).
     def set_signal_processes(self, procs):
         if type(procs)==str: procs = [procs]
         self.signal_processes = set()
@@ -229,8 +242,22 @@ class Model:
                     found_match = True
                     self.signal_processes.add(p)
             if not found_match: raise RuntimeError, "no match found for pattern '%s'" % pattern
+        self.signal_process_groups = {}
+        for p in self.signal_processes: self.signal_process_groups[p] = [p]
+        
+    ## \brief Define the signal process groups
+    #
+    # groups is a dictionary (id) --> (list of processes)
+    def set_signal_process_groups(self, groups):
+        for spid in groups:
+            for p in groups[p]: assert type(p)==str and p in self.processes, "unknown process '%s'" % p
+        self.signal_processes = set()
+        for spid in groups:
+            self.signal_processes.update(groups[spid])
+        self.signal_process_groups = copy.deepcopy(groups)
 
-
+    ## \brief Add a new, rate-only uncertainty to the model
+    #
     # Adds a new parameter with name \c u_name tio the distribution (unless it already exists) with
     # a Gauss prior around 0.0 with width 1.0 and adds a factor exp(u_name * rel_uncertainty) for the 
     # processes and observables specified by procname and obsname. If u_name has a Gaussian prior with

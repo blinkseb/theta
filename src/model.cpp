@@ -10,11 +10,15 @@ using namespace theta::utils;
 
 REGISTER_PLUGIN_BASETYPE(Model);
 
-ParIds Model::getParameters() const{
+const ParIds & Model::getParameters() const{
     return parameters;
 }
 
-ObsIds Model::getObservables() const{
+const ParIds & Model::getRVObservables() const{
+    return rvobservables;
+}
+
+const ObsIds & Model::getObservables() const{
     return observables;
 }
 
@@ -96,7 +100,10 @@ void default_model::get_prediction_randomized(Random & rnd, Data & result, const
 
 std::auto_ptr<NLLikelihood> default_model::getNLLikelihood(const Data & data) const{
     if(not(data.getObservables()==observables)){
-        throw invalid_argument("Model::createNLLikelihood: observables of model and data mismatch!");
+        throw invalid_argument("Model::getNLLikelihood: observables of model and data mismatch!");
+    }
+    if(not(data.getRVObsValues().getParameters() == rvobservables)){
+        throw invalid_argument("Model::getNLLikelihood: real-values observables of model and data mismatch!");
     }
     return std::auto_ptr<NLLikelihood>(new default_model_nll(*this, data, observables));
 }
@@ -123,6 +130,26 @@ default_model::default_model(const Configuration & ctx) {
         }
         set_prediction(*obsit, coeffs, histos);
     }
+    if(ctx.setting.exists("rvobs-distribution")){
+        rvobservable_distribution = PluginManager<Distribution>::build(Configuration(ctx, ctx.setting["rvobs-distribution"]));
+        rvobservables = rvobservable_distribution->getParameters();
+        // add parameters:
+        const ParIds & dist_pars = rvobservable_distribution->getDistributionParameters();
+        parameters.insert(dist_pars.begin(), dist_pars.end());
+    }
+    // type checking for rvobs ParIds vs. parameter ParIds:
+    for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it){
+        if(vm->getType(*it) != "par"){
+            throw ConfigurationException("Type error: parameter '" + vm->getName(*it) + "' is used as model parameter, but was not declared as such.");
+        }
+    }
+    for(ParIds::const_iterator it=rvobservables.begin(); it!=rvobservables.end(); ++it){
+        if(vm->getType(*it) != "rvobs"){
+            throw ConfigurationException("Type error: parameter '" + vm->getName(*it) + "' is used as real-valued observable, but was not declared as such.");
+        }
+    }
+    
+    // parameter distribution:
     if(parameters.size() == 0){
         parameter_distribution.reset(new EmptyDistribution());
     }
@@ -186,7 +213,14 @@ double default_model_nll::operator()(const ParValues & values) const{
         const double * data_data = data[*obsit].getData();
         result += template_nllikelihood(data_data, pred_data, data[*obsit].get_nbins());
     }
-    //4. The additional likelihood terms, if set:
+    //4. the likelihood part for the real-valued observables, if set:
+    const Distribution * rvobs_dist = model.get_rvobservable_distribution();
+    if(rvobs_dist){
+        ParValues all_values(values);
+        all_values.set(data.getRVObsValues());
+        result += rvobs_dist->evalNL(all_values);
+    }
+    //5. The additional likelihood terms, if set:
     if(additional_term){
        result += (*additional_term)(values);
     }

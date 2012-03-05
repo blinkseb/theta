@@ -213,10 +213,16 @@ namespace theta {
         //@{
         /** \brief Creates a new parameter or observable ids (ParId, ObsId) and associates it with the given name.
          *
+         * Observable names on themselves and parameter names on themselves must be unique;
+         * using the same name for an observable and a parameter is allowed.
+         *
+         * \c type is the parameter type. The meaning is user-defined; the value of "type"
+         * is just saved here and returned by getType.
+         *
          * If the name is already used for another parameter / observable, an InvalidArgumentException is thrown.
          * In case of nbins==0 or xmax < xmin, an InvalidArgumentException will be thrown.
          */
-        ParId createParId(const std::string & name);
+        ParId createParId(const std::string & name, const std::string & type = "par");
         ObsId createObsId(const std::string & name, size_t nbins, double xmin, double xmax);
         //@}
         
@@ -240,6 +246,9 @@ namespace theta {
         std::string getName(const ParId & id) const;
         std::string getName(const ObsId & id) const;
         //@}
+        
+        /// Return the type of this parameter
+        std::string getType(const ParId & id) const;
         
         //@{
         /** \brief Return the number of bins and range for an observable identified by the ObsId id.
@@ -274,6 +283,7 @@ namespace theta {
     private:
         //ParIds:
         std::map<size_t, std::string> pid_to_name;
+        std::map<size_t, std::string> pid_to_type;
         std::map<std::string, size_t> name_to_pid;
         size_t next_pid_id;
         //ObsIds:
@@ -329,6 +339,16 @@ namespace theta {
            for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
                values[it->id] = data[i];
            }
+        }
+        
+        /** \brief Constructor initializing the values according to an existing ParValues instance, only using the given parameters
+         *
+         * Set the values according to rhs, but only those parameters given in \c pids.
+         */
+        ParValues(const ParValues & rhs, const ParIds & pids): values(rhs.values.size(), NAN){
+            for(ParIds::const_iterator it = pids.begin(); it!=pids.end(); ++it){
+                values[it->id] = rhs.values[it->id];
+            }
         }
         
         /** \brief Set a value.
@@ -410,15 +430,16 @@ namespace theta {
             const size_t id = pid.id;
             return id < values.size() && !std::isnan(values[id]);
         }
+        
+        void clear(){
+            std::fill(values.begin(), values.end(), NAN);
+        }
 
         /** \brief Return all \c ParIds of the variables in this \c VarValues.
          */
         ParIds getParameters() const;
 
     private:
-        //Make private an do not implement, because usually, one should not replace
-        // the values already set and should use "set(ParValues)" instead ...
-        const ParValues & operator=(const ParValues &);
         //values are stored using the ParId.id as index
         std::vector<double> values;
     };

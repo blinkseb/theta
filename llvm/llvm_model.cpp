@@ -285,6 +285,21 @@ llvm_model::llvm_model(const Configuration & ctx): vm(*ctx.pm->get<VarIdManager>
     if(ctx.setting.exists("llvm_always")){
         llvm_always = ctx.setting["llvm_always"];
     }
+    if(ctx.setting.exists("rvobs-distribution")){
+        rvobservable_distribution = PluginManager<Distribution>::build(Configuration(ctx, ctx.setting["rvobs-distribution"]));
+        rvobservables = rvobservable_distribution->getParameters();
+    }
+    // type checking:
+    for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it){
+        if(vm.getType(*it) != "par"){
+            throw ConfigurationException("Type error: parameter '" + vm.getName(*it) + "' is used as model parameter, but was not declared as such.");
+        }
+    }
+    for(ParIds::const_iterator it=rvobservables.begin(); it!=rvobservables.end(); ++it){
+        if(vm.getType(*it) != "rvobs"){
+            throw ConfigurationException("Type error: parameter '" + vm.getName(*it) + "' is used as real-valued observable, but was not declared as such.");
+        }
+    }
 }
 
 
@@ -295,6 +310,7 @@ llvm_model_nll::llvm_model_nll(const llvm_model & m, const Data & dat, t_model_g
     get_concatenated_from_data(data_concatenated, dat, model.vm);
     pred_concatenated.reset_n(data_concatenated.size());
     parameter_values.resize(par_ids.size());
+    rvobs_values = dat.getRVObsValues();
 }
 
 void llvm_model_nll::set_additional_term(const boost::shared_ptr<theta::Function> & term){
@@ -327,7 +343,12 @@ double llvm_model_nll::operator()(const ParValues & values) const{
     model_get_prediction(&parameter_values[0], pred_concatenated.getData());
     //3. the template likelihood
     result += template_nllikelihood(data_concatenated.getData(), pred_concatenated.getData(), data_concatenated.size());
-    //4. The additional likelihood terms, if set:
+    //4. the likelihood part for the real-valued observables, if set:
+    const Distribution * rvobs_dist = model.get_rvobservable_distribution();
+    if(rvobs_dist){
+        result += rvobs_dist->evalNL(rvobs_values);
+    }
+    //5. The additional likelihood terms, if set:
     if(additional_term){
        result += (*additional_term)(values);
     }

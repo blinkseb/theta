@@ -11,7 +11,7 @@ using namespace theta::utils;
 using namespace std;
 using namespace libconfig;
 
-ParId VarIdManager::createParId(const std::string & name) {
+ParId VarIdManager::createParId(const std::string & name, const std::string & type) {
     if (parNameExists(name)) {
         stringstream ss;
         ss << "VarIdManager::createParId: parameter '"<< name <<"' defined twice";
@@ -20,6 +20,7 @@ ParId VarIdManager::createParId(const std::string & name) {
     ParId result(next_pid_id);
     ++next_pid_id;
     pid_to_name[result.id] = name;
+    pid_to_type[result.id] = type;
     name_to_pid[name] = result.id;
     return result;
 }
@@ -61,7 +62,7 @@ bool VarIdManager::obsNameExists(const std::string & name) const {
 std::string VarIdManager::getName(const ParId & id) const {
     std::map<size_t, std::string>::const_iterator it = pid_to_name.find(id.id);
     if (it == pid_to_name.end()) {
-        throw invalid_argument("VarIdManager::getVarname: did not find given VarId.");
+        throw invalid_argument("VarIdManager::getName: did not find given ParId.");
     }
     return it->second;
 }
@@ -69,7 +70,15 @@ std::string VarIdManager::getName(const ParId & id) const {
 std::string VarIdManager::getName(const ObsId & id) const {
     std::map<size_t, std::string>::const_iterator it = oid_to_name.find(id.id);
     if (it == oid_to_name.end()) {
-        throw invalid_argument("VarIdManager::getVarname: did not find given VarId.");
+        throw invalid_argument("VarIdManager::getName: did not find given ObsId.");
+    }
+    return it->second;
+}
+
+std::string VarIdManager::getType(const ParId & id) const {
+    std::map<size_t, std::string>::const_iterator it = pid_to_type.find(id.id);
+    if (it == pid_to_type.end()) {
+        throw invalid_argument("VarIdManager::getType: did not find given ParId.");
     }
     return it->second;
 }
@@ -172,6 +181,13 @@ void theta::apply_vm_settings(Configuration & ctx){
         for (size_t i = 0; i < npar; i++) {
             string par_name = s["parameters"][i];
             vm->createParId(par_name);
+        }
+    }
+    if(s.exists("rvobservables")){
+        size_t npar = s["rvobservables"].size();
+        for (size_t i = 0; i < npar; i++) {
+            string par_name = s["rvobservables"][i];
+            vm->createParId(par_name, "rvobs");
         }
     }
 }

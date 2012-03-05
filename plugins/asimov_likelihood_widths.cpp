@@ -37,6 +37,11 @@ theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boos
     dist.mode(mode);
     Data asimov_data;
     model.get_prediction(asimov_data, mode);
+    const Distribution * rvobs_dist = model.get_rvobservable_distribution();
+    if(rvobs_dist){
+        rvobs_dist->mode(mode);
+        asimov_data.setRVObsValues(ParValues(mode, model.getRVObservables()));
+    }
     std::auto_ptr<NLLikelihood> nll = model.getNLLikelihood(asimov_data);
     //0 value has same semantics for NLLikelihood:
     nll->set_override_distribution(override_parameter_distribution);

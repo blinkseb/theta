@@ -6,10 +6,10 @@
 
 namespace theta{
 
-    /** \brief A probability distribution of parameters in one or more dimensions
+    /** \brief A probability distribution of real-values random variables in one or more dimensions
      *
-     * The distribution class provides methods for generating random numbers according to the distribution
-     * it is representing. Further, it provides the negative logarithm of the probability density, including
+     * Implementations of this class provide methods for generating random numbers according to the distributions
+     * they are representing. Further, it provides the negative logarithm of the probability density, including
      * derivatives at a given point.
      *
      * The intended use of this class is twofold:
@@ -19,9 +19,14 @@ namespace theta{
      *       (mainly mpv, width, evalNL, support) are used.</li>
      * </ol>
      *
-     * This de-coupling allows some seemingly inconsistent definitions of a Distribution which, for example,
-     * a Distribution always sampling the same value but has a non-trivial density. Another example would
-     * be an improper density in one and (for example, a flat density on infinite range).
+     * Each Distribution is defined for a set of real-valued random variables (implemented as ParIds); these
+     * are the parameters as returned by Distribution::getParameters().
+     *
+     * The Distribution itself can depend on parameters, e.g., a Gaussian distribution can depend on the mean;
+     * these are the parameters returned by Distribution::getDistributionParameters(). If using a Distribution
+     * which depends on such parameters, the mathematical distribution is only completely defined once the
+     * values for these parameters are specified and these values must be set in the arguments
+     * to sample, mode, evalNL, etc.
      */
     class Distribution{
     public:
@@ -91,10 +96,16 @@ namespace theta{
          */
         virtual const std::pair<double, double> & support(const ParId & p) const = 0;
 
-        /** \brief Get the parameters this Distribution depends on and provides values for
+        /** \brief Get the random variables of this Distribution
          */
         const ParIds & getParameters() const{
             return par_ids;
+        }
+        
+        /** \brief Get the parameters of this Distribution
+         */
+        const ParIds & getDistributionParameters() const{
+            return distribution_par_ids;
         }
         
         /// declare destructor as virtual, as polymorphic access will happen
@@ -102,6 +113,7 @@ namespace theta{
         
     protected:
         ParIds par_ids;
+        ParIds distribution_par_ids;
     };
     
     /** \brief An empty distribution, not depending on any parameters

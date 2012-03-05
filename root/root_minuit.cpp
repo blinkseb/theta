@@ -41,11 +41,6 @@ private:
     const size_t ndim;
 };
 
-std::auto_ptr<theta::Minimizer> root_minuit::clone(const theta::PropertyMap & pm) const{
-    return std::auto_ptr<theta::Minimizer>(new root_minuit(*this));
-}
-
-
 
 MinimizationResult root_minuit::minimize(const theta::Function & f, const theta::ParValues & start,
         const theta::ParValues & steps, const std::map<theta::ParId, std::pair<double, double> > & ranges){
@@ -105,19 +100,23 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     min->SetFunction(minuit_f);
 
     //3. setup tolerance
-    if(!isnan(tolerance))  min->SetTolerance(tolerance);
+    min->SetTolerance(tolerance);
     //3.a. error definition. Unfortunately, SetErrorDef in ROOT is not documented, so I had to guess.
     // 0.5 seems to work somehow.
     min->SetErrorDef(0.5);
     
-    //4. minimize. In case of failure, try harder
-    bool success = min->Minimize();
-    if(!success){
-        for(int i=1; i<=n_retries; i++){
-            success = min->Minimize();
-            if(success) break;
+    //4. minimize. In case of failure, try harder. Discard all output generated in min->Minimize.
+    bool success;
+    {
+        theta::utils::discard_output d_o(true);
+        success = min->Minimize();
+        if(!success){
+            for(int i=1; i<=n_retries; i++){
+                success = min->Minimize();
+                if(success) break;
+            }
         }
-    }
+    } // d_o is destroyed, output resumed.
 
     //5. do error handling
     if(not success){
@@ -174,7 +173,7 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     return result;
 }
 
-root_minuit::root_minuit(const Configuration & cfg): tolerance(NAN), printlevel(0),
+root_minuit::root_minuit(const Configuration & cfg): tolerance(1e-6), printlevel(0),
         max_iterations(0), max_function_calls(0), n_retries(2) {
        gErrorIgnoreLevel = kFatal + 1;
        if(cfg.setting.exists("printlevel")){
