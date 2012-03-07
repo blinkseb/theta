@@ -6,6 +6,8 @@ import theta_interface, plotutil
 
 import Model
 
+inf = float("inf")
+
 # returns a dictionary float x --> signal process group id
 #
 # As default, the x value is the first number encountered in the signal process group id string. 

@@ -8,6 +8,9 @@
 #include <string>
 
 /** \brief A maximum likelihood estimator
+ * 
+ * This producer uses the given minimizer to find the maximum likelihood estimates for the
+ * configured parameters by minimizing the negative log-likelihood of the model, given data.
  *
  * It is configuared via a setting group like
  * \code
@@ -17,6 +20,7 @@
  *   minimizer = "@myminuit";
  *   write_covariance = true; //optional, default is false
  *   write_ks_ts = true; //optional, default is false
+ *   write_pchi2 = true; //optional, default is false
  * }
  * myminuit = {...}; // minimizer definition
  * \endcode
@@ -39,9 +43,11 @@
  *   the parameter values from the maximum likelihood estimate. Note that the prediction histogram and data histograms are
  *   compared directly, no normalization is applied. If there is more than one observable, the KS test statistic is calculated for
  *   each observable and the maximum value is written to the products table.
- *
- * This producer uses the given minimizer to find the maximum likelihood estimates for the
- * configured parameters by minimizing the negative log-likelihood of the model, given data.
+ * 
+ * \c write_pchi2: if set to \c true, a "pseudo-chi2" variable is compued after the fit and written in the
+ * output database as a column called "pchi2". The pseudo-chi2 is the same as a chi2 for large event counts, but uses
+ * the according full likelihood expression which uses Poisson statistics and differs for low event counts and should
+ * yield better results.
  *
  * <b>created columns</b> in the products table: for each parameter, two columns are created in the products table,
  * one with the parameter's name which contains the maximum likelihood estimate. The other

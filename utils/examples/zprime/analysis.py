@@ -55,7 +55,7 @@ def get_model():
 
 model = get_model()
 
-
+'''
 # first, it is a good idea to generate a summary report to make sure everything has worked
 # as expected. The summary will generate quite some information which should it make easy to spot
 # errors like typos in the name of uncertainties, missing shape uncertaintie, etc.
@@ -90,6 +90,20 @@ plot_exp, plot_obs = cls_limits(model, signal_processes = [['zp1000'], ['zp2000'
 # as for the bayesian limits: write the result to a text file
 plot_exp.write_txt('cls_limits_expected.txt')
 plot_obs.write_txt('cls_limits_observed.txt')
+'''
+
+# make a chi2 test by comparing the chi2 value distribution *after* fitting as obtained from background-only toys with
+# a fit performed on data. The "signal_process_group" parameter is usually a list
+# of the processes to consider together as the signal (which will be all scaled by beta_signal simultaneously).
+# Here, we only include background and can use the empty string.
+p = chi2_test(model, signal_process_group = ['zp1000'], input = "toys:0.0", signal_prior = "fix:0.0")
+print 'p-value from background-only chi2 test: ', p
+
+# if one wants to include some signal in the comparison, one should make toys accordinly with signal, e.g.,
+# with beta_siganl = 0.1 ("toys:0.1"). The signal_prior has a default of "flat" so this will now fit
+# the signal for each toy (and data):
+p = chi2_test(model, signal_process_group = ['zp1000'], input = "toys:0.1")
+print 'p-value from chi2 test, including 0.1pb zprime at m=1TeV: ', p
 
 # model_summary, bayesian_limits, and cls_limits also write their results to the 'report' object
 # which we can ask to write its results as html page to a certain directory. Use an existing, empty
