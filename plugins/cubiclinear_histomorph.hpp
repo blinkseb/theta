@@ -9,6 +9,8 @@
  *
  * Each bin is interpolated independently. Interpolation is done with a cubic spline and extrapolation (beyond the
  * values of the shifted histograms) is done with a linear function.
+ * 
+ * The uncertainties returned in each bin are the ones of the nominal histogram *only*.
  *
  * The configuration is very similar to \c interpolating_histo :
  * \code
@@ -44,53 +46,51 @@
  * interpolate the bin content in each bin and not to change the normalization after the interpolation at all. Setting this parameter to \c true
  * is useful if one wants to treat the normalization uncertainty not as part of the interpolation but rather seperately by the
  * coefficienct-function (which can use the same parameter as used here for histogram interpolation). This provides more flexibility in the
- * handling of the normlization uncertainty.
+ * handling of the normalization uncertainty.
  *
- * No random fluctuations are done: the method \c getRandomFluctuation is not overriden from \link theta::HistogramFunction HistogramFunction \endlink
- * and will therefore return the same values as the usual, non-random, evaluation operator, \c operator().
- *
- * If this calculation leads to a negative bin entry, it is set to zero to avoid unphysical templates.
+ * If this calculation leads to a negative bin entry, it is set to zero to avoid unphysical templates. The uncertainty is not changed in this case.
+ * 
+ * The bin-by-bin uncertainties are the ones of the nominal histogram; the plus and minus histograms are assumed to be known exactly in the calculation
+ * of the interpolation. This means that unless \c normalize_to_nominal is \c true, the bin-by-bin uncertainties are exactly those of the nominal histogram.
  */
-class cubiclinear_histomorph : public theta::HistogramFunction {
+class cubiclinear_histomorph: public theta::HistogramFunction {
 public:
     
     /** \brief Constructor used by the plugin system to build an instance from settings in a configuration file
      */
     cubiclinear_histomorph(const theta::Configuration & ctx);
     
-    virtual const theta::Histogram1D & operator()(const theta::ParValues & values) const;
+    virtual const theta::Histogram1DWithUncertainties & operator()(const theta::ParValues & values) const;
     
-    virtual theta::Histogram1D get_histogram_dimensions() const{
+    virtual theta::Histogram1DWithUncertainties get_histogram_dimensions() const{
        return h0;
     }
-    
-    virtual const theta::Histogram1D & getRandomFluctuation(theta::Random & rnd, const theta::ParValues & values) const;
     
 private:
     /** \brief Build a (constant) Histogram from a Setting block.
     *
     * Will throw an InvalidArgumentException if the Histogram is not constant.
     */
-    static theta::Histogram1D getConstantHistogram(const theta::Configuration & ctx, theta::SettingWrapper s);
+    static theta::Histogram1DWithUncertainties getConstantHistogram(const theta::Configuration & ctx, theta::SettingWrapper s);
     
-    theta::Histogram1D h0, h0err;
+    theta::Histogram1DWithUncertainties h0;
     double h0_sum;
+    
+    //the interpolation parameters used to interpolate between hplus and hminus.
+    std::vector<theta::ParId> vid;
     std::vector<theta::Histogram1D> hplus_diff; // hplus_diff[i] + h0 yields hplus
     std::vector<theta::Histogram1D> hminus_diff;
-    
-    std::vector<double> parameter_factors;
-    bool normalize_to_nominal;
-    double decorr_delta_width;
     
     //diff and sum are the difference and sum of the hplus_diff and hminus_diff histos
     std::vector<theta::Histogram1D> diff;
     std::vector<theta::Histogram1D> sum;
-    //the interpolation parameters used to interpolate between hplus and hminus.
-    std::vector<theta::ParId> vid;
-    //the Histogram returned by operator(). Defined as mutable to allow operator() to be const.
-    mutable theta::Histogram1D h;
+    
+    std::vector<double> parameter_factors;
+    bool normalize_to_nominal;
+    
     //intermediate histogram for operator()
     mutable theta::Histogram1D diff_total;
+    mutable theta::Histogram1DWithUncertainties h_wu;
 };
 
 #endif

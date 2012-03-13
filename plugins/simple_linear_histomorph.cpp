@@ -5,7 +5,7 @@ using namespace theta;
 
 using namespace libconfig;
 
-const Histogram1D & simple_linear_histomorph::operator()(const ParValues & values) const {
+const Histogram1DWithUncertainties & simple_linear_histomorph::operator()(const ParValues & values) const {
     h = h0;
     const size_t n_sys = hplus_diff.size();
     for (size_t isys = 0; isys < n_sys; isys++) {
@@ -18,7 +18,8 @@ const Histogram1D & simple_linear_histomorph::operator()(const ParValues & value
     for(size_t i=0; i<h.get_nbins(); ++i){
        h.set(i, max(h.get(i), 0.0));
     }
-    return h;
+    h_wu.set(h);
+    return h_wu;
 }
 
 
@@ -55,6 +56,8 @@ simple_linear_histomorph::simple_linear_histomorph(const Configuration & cfg){
            hminus_diff.push_back(Histogram1D());
         }
     }
+    h = h0;
+    h_wu.set(h);
 }
 
 Histogram1D simple_linear_histomorph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
@@ -64,7 +67,7 @@ Histogram1D simple_linear_histomorph::getConstantHistogram(const Configuration &
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
         throw ConfigurationException(ss.str());
     }
-    return (*hf)(ParValues());
+    return (*hf)(ParValues()).get_values_histogram();
 }
 
 REGISTER_PLUGIN(simple_linear_histomorph)

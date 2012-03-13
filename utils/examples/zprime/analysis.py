@@ -55,7 +55,7 @@ def get_model():
 
 model = get_model()
 
-'''
+
 # first, it is a good idea to generate a summary report to make sure everything has worked
 # as expected. The summary will generate quite some information which should it make easy to spot
 # errors like typos in the name of uncertainties, missing shape uncertaintie, etc.
@@ -90,18 +90,19 @@ plot_exp, plot_obs = cls_limits(model, signal_processes = [['zp1000'], ['zp2000'
 # as for the bayesian limits: write the result to a text file
 plot_exp.write_txt('cls_limits_expected.txt')
 plot_obs.write_txt('cls_limits_observed.txt')
-'''
 
+# 3. compatibility tests:
 # make a chi2 test by comparing the chi2 value distribution *after* fitting as obtained from background-only toys with
 # a fit performed on data. The "signal_process_group" parameter is usually a list
 # of the processes to consider together as the signal (which will be all scaled by beta_signal simultaneously).
-# Here, we only include background and can use the empty string.
+# Here, we only include background and just use some arbitrary signal process, set the input beta_signal to zero ("toys:0.0")
+# and also fix beta_signal to 0.0 during the fit ("fix:0.0").
 p = chi2_test(model, signal_process_group = ['zp1000'], input = "toys:0.0", signal_prior = "fix:0.0")
 print 'p-value from background-only chi2 test: ', p
 
-# if one wants to include some signal in the comparison, one should make toys accordinly with signal, e.g.,
-# with beta_siganl = 0.1 ("toys:0.1"). The signal_prior has a default of "flat" so this will now fit
-# the signal for each toy (and data):
+# if one wants to include some signal in the comparison, one should make toys accordingly with signal, e.g.,
+# with beta_signgl = 0.1 ("toys:0.1"). The signal_prior has a default of "flat" so this will now fit
+# also the signal yield for each toy (and data) before computing chi2:
 p = chi2_test(model, signal_process_group = ['zp1000'], input = "toys:0.1")
 print 'p-value from chi2 test, including 0.1pb zprime at m=1TeV: ', p
 
@@ -113,5 +114,4 @@ report.write_html('htmlout')
 # After running theta-auto, you probably want to delete the 'analysis' directory which
 # contains intermediate results. Keeping it avoids re-running theta unnecessarily for unchanged configurations
 # (e.g., because you just want to change the plot). However, this directory can grow very large over time.
-
 

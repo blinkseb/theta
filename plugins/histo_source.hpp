@@ -3,6 +3,7 @@
 
 #include "interface/plugin.hpp"
 #include "interface/phys.hpp"
+#include "interface/data.hpp"
 
 /** \brief A data source using a list of constant Histograms
  *
@@ -41,11 +42,6 @@ public:
     /// Construct from a Configuration; required by the plugin system
     histo_source(const theta::Configuration & cfg);
 
-    /** \brief Fills the provided Data instance with data from the model
-     *
-     * Will only throw the DataUnavailable Exception if the parameter distribution instance
-     * (i.e., either the model's instance or the override-parameter-distribution instance) throws an Exception.
-     */
     virtual void fill(theta::Data & dat);
     
 private:

@@ -1,11 +1,13 @@
 #include "plugins/mle.hpp"
 #include "plugins/asimov_likelihood_widths.hpp"
 #include "interface/plugin.hpp"
+#include "interface/model.hpp"
 #include "interface/minimizer.hpp"
 #include "interface/histogram.hpp"
 #include "interface/distribution.hpp"
 
 #include <sstream>
+#include <limits>
 
 using namespace theta;
 using namespace std;
@@ -52,17 +54,17 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     }
     if(write_ks_ts){
         ObsIds obs = data.getObservables();
-        Data pred;
+        DataWithUncertainties pred;
         model.get_prediction(pred, minres.values);
         double ks_ts = 0.0;
         for(ObsIds::const_iterator it=obs.begin(); it!=obs.end(); ++it){
             const Histogram1D & data_o = data[*it];
-            const Histogram1D & pred_o = pred[*it];
-            data_o.check_compatibility(pred_o);
+            const Histogram1DWithUncertainties & pred_o = pred[*it];
+            //data_o.check_compatibility(pred_o);
             double sum_d=0, sum_p=0;
             for(size_t i=0; i<data_o.get_nbins(); ++i){
                 sum_d += data_o.get(i);
-                sum_p += pred_o.get(i);
+                sum_p += pred_o.get_value(i);
                 ks_ts = max(ks_ts, fabs(sum_d - sum_p));
             }
         }
@@ -70,16 +72,16 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     }
     if(write_pchi2){
         ObsIds obs = data.getObservables();
-        Data pred;
+        DataWithUncertainties pred;
         model.get_prediction(pred, minres.values);
         double pchi2 = 0.0;
         for(ObsIds::const_iterator it=obs.begin(); it!=obs.end(); ++it){
             const Histogram1D & data_o = data[*it];
-            const Histogram1D & pred_o = pred[*it];
-            data_o.check_compatibility(pred_o);
+            const Histogram1DWithUncertainties & pred_o = pred[*it];
+            //data_o.check_compatibility(pred_o);
             for(size_t i=0; i<data_o.get_nbins(); ++i){
                 const double n = data_o.get(i);
-                const double mu = pred_o.get(i);
+                const double mu = pred_o.get_value(i);
                 if(mu > 0){
                     pchi2 += n * utils::log(n / mu) + mu - n;
                 }

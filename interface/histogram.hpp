@@ -12,9 +12,6 @@ namespace theta{
  * Container for a vector of doubles, with some common operations, to be used
  * by different Histogram classes as internal storage for the data.
  * 
- * Unlike Histograms, it does not have a minimum and maximum range, it only
- * saves the actual data.
- * 
  * As optimization, no memory is allocated for a size of 0.
  */
 class DoubleVector{
@@ -35,9 +32,6 @@ public:
     
     /// Assignment operator
     void operator=(const DoubleVector & rhs);
-    
-    /// Reset the number of entries; data will NOT be kept but set to 0 instead
-    void reset_n(size_t new_n);
     
     /// Set all values to the given value
     void set_all_values(double value){
@@ -126,18 +120,8 @@ public:
     /** \brief Create an empty Histogram with \c bins bins with range (\c xmin, \c xmax )
      */
     explicit Histogram1D(size_t bins=0, double xmin=0, double xmax=1);
-
-    /// Copy constructor. Copies the contents of \c rhs into this.
-    Histogram1D(const Histogram1D& rhs);
-
-    /// Copy assignment. Copies the content of \c rhs into this.
-    void operator=(const Histogram1D& rhs);
-
-    /// Destructor. De-allocates internal memory of the histogram data
-    ~Histogram1D();
     
-    /// Reset the range, without changing the number of bins or the data.
-    void reset_range(double xmin, double xmax);
+    Histogram1D(double xmin_, double xmax_, const DoubleVector & dv): DoubleVector(dv), xmin(xmin_), xmax(xmax_){}
     
     /// Get the number of bins of this Histogram
     size_t get_nbins() const{
@@ -189,11 +173,17 @@ public:
         }
     }
     
+    /// Set all values to 0.0
+    // provided for compatibility with DataT
+    void reset(){
+        set_all_values(0.0);
+    }
+    
     /** \brief Calculate this = this * (nominator/denominator)^exponent, bin-by-bin.
      *
      * An \c InvalidArgumentException is thrown if either \c nominator or \c denominator are not compatible with this.
      */
-    void multiply_with_ratio_exponented(const Histogram1D & nominator, const Histogram1D & denominator, double exponent);    
+    void multiply_with_ratio_exponented(const Histogram1D & nominator, const Histogram1D & denominator, double exponent);
 };
 
 }

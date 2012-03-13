@@ -73,6 +73,31 @@ void fill_theta_dir(char** argv){
 
 std::string theta_dir;
 
+int roots_quad(double & x1, double & x2, double b, double c){
+    double D = b*b - 4*c;
+    if(D < 0){
+        x1 = x2 = NAN;
+        return 0;
+    }
+    if(D==0){
+        x1 = x2 = -0.5 * b;
+        return 1;
+    }
+    if(b==0.0){
+        x1 = -0.5 * sqrt(D);
+        x2 = 0.5 * sqrt(D);
+    }
+    else if(b > 0){
+        x1 = 0.5 * (-b - sqrt(D));
+        x2 = c / x1;
+    }
+    else{
+        x2 = 0.5 * (-b + sqrt(D));
+        x1 = c / x2;
+    }
+    return 2;
+}
+
 double lngamma(double x){
     return boost::math::lgamma(x);
 }

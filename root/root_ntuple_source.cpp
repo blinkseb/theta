@@ -1,5 +1,6 @@
 #include "root/root_ntuple_source.hpp"
 #include "interface/random.hpp"
+#include "interface/data.hpp"
 #include <string>
 #include <vector>
 
@@ -115,8 +116,7 @@ void root_ntuple_source::fill(Data & data_out){
     data_out.reset();
     size_t n_obs = observables.size();
     for(size_t i=0; i<n_obs; ++i){
-        data_out[observables[i]].reset_n(observable_nbins[i]);
-        data_out[observables[i]].reset_range(observable_ranges[i].first, observable_ranges[i].second);
+        data_out[observables[i]] = Histogram1D(observable_nbins[i], observable_ranges[i].first, observable_ranges[i].second);
     }
     //loop over all nominal events:
     size_t n_events = nominal_data.probabilities.size();

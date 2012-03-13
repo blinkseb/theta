@@ -5,7 +5,9 @@
 #include "interface/plugin.hpp"
 
 
-/** \brief A HistogramFunction which interpolates a "zero" Histogram and several "distorted" Histograms as generic method to treat systematic uncertainties.
+/** \brief Linear histogram morphing handling rate and shapes separate.
+ * 
+ * This class is for compatibility checks with other tools only (notably the single-top CDF toos). Consider using cubiclinear_histomorph instead which is more flexible.
  *
  * The configuration block is something like (mass is some observable previously defined;
  * s, delta1, delta2 are parameters):
@@ -49,11 +51,11 @@ public:
     /** Returns the interpolated Histogram as documented in the class documentation.
      * throws a NotFoundException if a parameter is missing.
      */
-    virtual const theta::Histogram1D & operator()(const theta::ParValues & values) const;
+    virtual const theta::Histogram1DWithUncertainties & operator()(const theta::ParValues & values) const;
 
     /// Return a Histogram of the same dimensions as the one returned by operator()
-    virtual theta::Histogram1D get_histogram_dimensions() const{
-        return h;
+    virtual theta::Histogram1DWithUncertainties get_histogram_dimensions() const{
+        return h_wu;
     }
     
 private:
@@ -76,6 +78,7 @@ private:
     
     //the Histogram returned by operator(). Defined as mutable to allow operator() to be const.
     mutable theta::Histogram1D h;
+    mutable theta::Histogram1DWithUncertainties h_wu;
 };
 
 #endif

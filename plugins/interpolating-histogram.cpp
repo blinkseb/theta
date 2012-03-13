@@ -5,7 +5,7 @@ using namespace std;
 using namespace theta;
 using namespace libconfig;
 
-const Histogram1D & interpolating_histo::operator()(const ParValues & values) const {
+const Histogram1DWithUncertainties & interpolating_histo::operator()(const ParValues & values) const {
     h.set_all_values(1.0);
     const size_t n_sys = hplus.size();
     for (size_t isys = 0; isys < n_sys; isys++) {
@@ -15,33 +15,8 @@ const Histogram1D & interpolating_histo::operator()(const ParValues & values) co
         h.multiply_with_ratio_exponented(t_sys, h0, fabs(delta));
     }
     h *= h0;
-    return h;
-}
-
-const Histogram1D & interpolating_histo::gradient(const ParValues & values, const ParId & pid) const{
-    const size_t n_sys = hplus.size();
-    bool found = false;
-    for (size_t isys = 0; isys < n_sys; isys++) {
-        if(vid[isys]!=pid)continue;
-        found = true;
-        const double delta = values.get(vid[isys]);
-        const Histogram1D & t_sys = delta > 0 ? hplus[isys] : hminus[isys];
-        if (t_sys.get_nbins() == 0)continue;
-        h.multiply_with_ratio_exponented(t_sys, h0, fabs(delta));
-        const size_t nbins = t_sys.get_nbins();
-        for(size_t i=0; i<nbins; ++i){
-            if(h0.get(i)>0.0)
-                h.set(i, h.get(i) * theta::utils::log(t_sys.get(i) / h0.get(i)));
-        }
-        break;
-    }
-    if(not found){
-        h.set_all_values(0.0);
-    }
-    else{
-        h *= h0;
-    }
-    return h;
+    h_wu.set(h);
+    return h_wu;
 }
 
 interpolating_histo::interpolating_histo(const Configuration & ctx){
@@ -80,6 +55,8 @@ interpolating_histo::interpolating_histo(const Configuration & ctx){
     if(pid_set.size()!=nsys){
         throw invalid_argument("interpolating_histo::interpolating_histo: having one parameter parametrizing two interpolations is not supported.");
     }
+    h = h0;
+    h_wu.set(h0);
 }
 
 Histogram1D interpolating_histo::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
@@ -89,7 +66,7 @@ Histogram1D interpolating_histo::getConstantHistogram(const Configuration & cfg,
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
         throw invalid_argument(ss.str());
     }
-    return (*hf)(ParValues());//copies the internal reference, so this is ok.
+    return (*hf)(ParValues()).get_values_histogram();//copies the internal reference, so this is ok.
 }
 
 REGISTER_PLUGIN(interpolating_histo)

@@ -2,6 +2,7 @@
 #include "interface/variables-utils.hpp"
 #include "interface/plugin.hpp"
 #include "interface/exception.hpp"
+#include "interface/utils.hpp"
 
 #include <sstream>
 #include <cmath>

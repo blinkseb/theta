@@ -207,9 +207,9 @@ def bayesian_limits(model, what = 'all', **options):
 # histogram_specs is a dictionary of (parameter name) -> tuple(int nbins, float xmin, float max) and determines for which
 # parameters the poterior is computed on which range and binning. Note that the computational complexity is roughly
 # proportional to nbins * mcmc_iterations. Therefore, use large values only if you have to / for the final result. It is suggested
-# to use 10--20 bins as a start and mcmc_iterations = 10000.
+# to use 30 bins as a start and mcmc_iterations = 10000.
 #
-# returns a dictionary (parameter name) -> (list of plotutil.plotdata)
+# returns a dictionary (signal process group id) --> (parameter name) -> (list of plotutil.plotdata)
 #
 # Writes the posterior plots to the report (TODO: more info ...)
 def posteriors(model, histogram_specs, input = 'data', n = 3, signal_prior = 'flat', nuisance_prior = '', signal_processes = None, mcmc_iterations = 10000, **options):
@@ -219,7 +219,7 @@ def posteriors(model, histogram_specs, input = 'data', n = 3, signal_prior = 'fl
     main = {'n-events': n, 'model': '@model', 'producers': ('@posteriors',), 'output_database': sqlite_database(), 'log-report': False}
     posteriors = {'type': 'mcmc_posterior_histo', 'name': 'posteriors', 'parameters': [],
        'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior"),
-       'smooth': True, 'iterations': mcmc_iterations }
+       'smooth': options.get('smooth', True), 'iterations': mcmc_iterations }
     for par in histogram_specs:
         posteriors['parameters'].append(par)
         nbins, xmin, xmax = histogram_specs[par]
@@ -257,14 +257,15 @@ def posteriors(model, histogram_specs, input = 'data', n = 3, signal_prior = 'fl
         cols = ['posteriors__posterior_%s' % par for par in parameters]
         data = sql(sqlfile, 'select %s from products' % ', '.join(cols))
         data = [map(plotdata_from_histoColumn, row) for row in data]
+        result[sp] = {}
         i = 0
         for par in parameters:
-            result[par] = [row[i] for row in data]
-            for pd in result[par]: pd.as_function = True
-            plot(result[par], par, 'posterior density', os.path.join(plotsdir, '%s-%s.png' % (name, par)))
+            result[sp][par] = [row[i] for row in data]
+            for pd in result[sp][par]: pd.as_function = True
+            plot(result[sp][par], par, 'posterior density', os.path.join(plotsdir, '%s-%s.png' % (name, par)))
             config.report.add_html('<p>%s:<br/><img src="plots/%s-%s.png" /></p>' % (par, name, par))
             i += 1
-            maxima = sorted(map(argmax, result[par]))
+            maxima = sorted(map(argmax, result[sp][par]))
             result_table.set_column('maximum posterior %s' % par, '%.3g' % maxima[int(0.5 * len(maxima))])
         result_table.add_row()
     config.report.add_p('input: %s, n: %d, signal prior: %s, nuisance prior: %s' % (input, n, str(signal_prior), str(nuisance_prior)))

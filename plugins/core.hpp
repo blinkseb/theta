@@ -409,9 +409,6 @@ public:
     model_source(const theta::Configuration & cfg);
 
     /** \brief Fills the provided Data instance with data from the model
-     *
-     * Will only throw the DataUnavailable Exception if the parameter distribution instance
-     * (i.e., either the model's instance or the override-parameter-distribution instance) throws an Exception.
      */
     virtual void fill(theta::Data & dat);
     

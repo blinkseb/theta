@@ -16,7 +16,7 @@ histo_source::histo_source(const Configuration & cfg): DataSource(cfg){
         if(hf->getParameters().size() > 0){
             throw ConfigurationException("histo_source: given histogram depends on parameters, which is not allowed");
         }
-        data[obs_id] = (*hf)(ParValues());
+        data[obs_id] = (*hf)(ParValues()).get_values_histogram();
     }
     if(cfg.setting.exists("rvobs-values")){
         ParValues rvobs_values;

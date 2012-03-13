@@ -4,6 +4,7 @@
 #include "interface/decls.hpp"
 #include "interface/variables.hpp"
 #include "interface/phys.hpp"
+#include "interface/data.hpp"
 
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
@@ -36,6 +37,8 @@ namespace theta {
      *        type = "product_distribution";
      *        distributions = ("@d1", "@d2");
      *    };
+     * 
+     *    bb_uncertainties = true; // optional, default is false, which does not include MC uncertainties
      * };
      *
      * //see fixed_poly documentation for details; can also use any other HistogramFunction here.
@@ -65,7 +68,12 @@ namespace theta {
      * The component names may be chosen freely ("signal" and "background" in the above example).
      * Each component specification is in turn a setting group which contains
      * a histogram specification in a "histogram" setting and a specification of a HistogramFunction in the "coefficient-function" setting.
-     *
+     * 
+     * \c bb_uncertainties specifies whether to handle uncertainties due to finite MC statistics with (a variant of) the "Barlow-Beeston light" method. If set to \c true,
+     * the likelihood function returned by getNLLLikelihood (which is used by all producers), will be modified to include the MC statistical uncertainty by including
+     * one extra nuisance parameter per bin with a Gaussian prior with a width according to the prediction uncertainty in that bin. The likelihood
+     * function returned by getNLLikelihood however does not depend on these parameters explicitly. Rather, it will minimize the likelihood function analytically
+     * in these parameters and return the <em>"profile"</em> likelihood function which depends exactly on the model parameters.
      */
     class Model {
     public:
@@ -98,20 +106,11 @@ namespace theta {
 
         /** \brief Fill the prediction for all observables, given parameter values
          *
-         *   The returned Histograms in \c data are built as a linear combination of HistogramFunctions using coefficients as previously set
-         *   by \c set_prediction. The HistogramFunctions and coefficients are evaluated using the values in \c parameters.
-         *
-         *  \sa set_prediction
+         *  The returned Histograms in \c data are built as a linear combination of HistogramFunctions using coefficients.
+         *  The HistogramFunctions and coefficients are evaluated using the values in \c parameters.
          */
-        virtual void get_prediction(Data & result, const ParValues & parameters) const = 0;
-
-        /** \brief Like \c get_prediction, but fluctuate the histograms within their parametrization errors.
-         *
-         * This function should be used in place of \c get_prediction, if sampling pseudo data from the model.
-         * It calls HistogramFunction::getRandomFluctuation instead of HistogramFunction::operator().
-         */
-        virtual void get_prediction_randomized(Random & rnd, Data & result, const ParValues & parameters) const = 0;
-
+        virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const = 0;
+        
         /** \brief Returns a reference to the parameter distribution
          *
          * The returned Distribution contains (at least) the parameters of this Model.
@@ -154,13 +153,14 @@ namespace theta {
         std::auto_ptr<Distribution> parameter_distribution;
         std::auto_ptr<Distribution> rvobservable_distribution;
         
+        bool bb_uncertainties;
+        
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
         
      public:
         default_model(const Configuration & cfg);
         //the pure virtual functions:
-        virtual void get_prediction_randomized(Random & rnd, Data & result, const ParValues & parameters) const;
-        virtual void get_prediction(Data & result, const ParValues & parameters) const;
+        virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const;
         virtual std::auto_ptr<NLLikelihood> getNLLikelihood(const Data & data) const;
         
         virtual const Distribution & get_parameter_distribution() const {
@@ -246,7 +246,7 @@ namespace theta {
         }
         
         
-    private:
+    protected:
         const default_model & model;
         const Data & data;
 
@@ -256,9 +256,20 @@ namespace theta {
         boost::shared_ptr<Distribution> override_distribution;
 
         //cached predictions:
-        mutable Data predictions;
+        mutable DataWithUncertainties predictions;
         
         default_model_nll(const default_model & m, const Data & data, const ObsIds & obs);
+     };
+     
+     // includes additive Barlow-Beeston uncertainties, where the extra nuisance parameters of this method (1 per bin) have been "profiled out".
+     class default_model_bbadd_nll: public default_model_nll {
+     friend class default_model;
+     public:
+         using Function::operator();
+         virtual double operator()(const ParValues & values) const;
+         
+     protected:         
+         default_model_bbadd_nll(const default_model & m, const Data & data, const ObsIds & obs);
      };
 }
 

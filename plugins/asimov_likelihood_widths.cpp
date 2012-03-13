@@ -1,7 +1,11 @@
 #include "plugins/asimov_likelihood_widths.hpp"
 #include "plugins/secant.hpp"
 #include "interface/distribution.hpp"
+#include "interface/model.hpp"
 #include "interface/exception.hpp"
+
+#include <sstream>
+
 
 using namespace theta;
 using namespace std;
@@ -35,8 +39,11 @@ theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boos
     ParIds parameters = model.getParameters();
     ParValues mode;
     dist.mode(mode);
-    Data asimov_data;
-    model.get_prediction(asimov_data, mode);
+    DataWithUncertainties asimov_data_wu;
+    model.get_prediction(asimov_data_wu, mode);
+    //truncate uncertainties from asimov data:
+    Data asimov_data = strip_uncertainties(asimov_data_wu);
+    
     const Distribution * rvobs_dist = model.get_rvobservable_distribution();
     if(rvobs_dist){
         rvobs_dist->mode(mode);

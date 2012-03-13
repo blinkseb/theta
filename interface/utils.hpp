@@ -24,6 +24,22 @@ std::string replace_theta_dir(const std::string & path);
 
 double phi_inverse(double p);
 
+/** \brief Calculate the roots of a quadratic equation
+ * 
+ * numerically solves
+ * \code
+ * x**2 + b*x + c = 0
+ * \endcode
+ * for x in a numerically stable way.
+ * 
+ * Retuns the number of solutions, which is usually either 0 or 2. The case 1 is extremely rare as numerical
+ * comparison is done directly and no care is taken for roundoff effects.
+ * 
+ * The solutions will be written in x1 and x2. In case of no solutions, both are set to NAN, in case of
+ * one solution, both will have the same value. In case of two solutions x1 < x2.
+ */
+int roots_quad(double & x1, double & x2, double b, double c);
+
 
 /** \brief redirect the standard output stream to /dev/null
  *

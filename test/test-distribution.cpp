@@ -1,6 +1,7 @@
 #include "interface/distribution.hpp"
 #include "interface/random.hpp"
 #include "interface/plugin.hpp"
+#include "interface/utils.hpp"
 #include "test/utils.hpp"
 
 #include <boost/test/unit_test.hpp>

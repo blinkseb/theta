@@ -5,6 +5,7 @@
 #include "interface/variables.hpp"
 #include "interface/histogram.hpp"
 #include "interface/producer.hpp"
+#include "interface/histogram-with-uncertainties.hpp"
 
 #include <vector>
 
@@ -63,7 +64,7 @@ namespace theta {
     protected:
         /** \brief The parameters this function depends on
          *
-         * Has to be set correctly by derived classes
+         * Has to be set by derived classes
          */
         ParIds par_ids;
         
@@ -71,7 +72,8 @@ namespace theta {
         mutable ParValues pv; //saving this class-wide and not in operator()(const double*) saves quiet some time ...
     };
     
-    /// Brief Function returning the value of one specific parameter
+    /** \brief Function which returns the value of one specific parameter
+     */
     class IdFunction: public Function{
     private:
         ParId pid;
@@ -79,64 +81,11 @@ namespace theta {
         IdFunction(const ParId & pid_): pid(pid_){
             par_ids.insert(pid);
         }
-        double operator()(const ParValues & values)const{
+        virtual double operator()(const ParValues & values)const{
             return values.get(pid);
         }
     };
     
-    
-    /** \brief Contains data more histogram observables and real-values observables
-     */
-    class Data {
-    private:
-        void fail_get(const ObsId & oid) const;
-    public:
-        /** \brief Returns all observable ids for which there is data
-         * 
-         * Returns those observable ids for which there was previously
-         * a Histogram1D saved via the operator[].
-         */
-        ObsIds getObservables() const;
-
-        /** \brief Access the histogram with an observable
-         *
-         * The const version is usually only used to read a previously set
-         * Histogram. If no Histogram is saved for the supplied observable id,
-         * a invalid_argument exception will be thrown from the const version.
-         */
-        ///@{
-        Histogram1D & operator[](const ObsId & id){
-            if(id.id >= data.size()) data.resize(id.id + 1);
-            return data[id.id];
-        }
-        
-        const Histogram1D & operator[](const ObsId & id) const{
-            if(id.id >= data.size() || data[id.id].get_nbins()==0) fail_get(id);
-            return data[id.id];
-        }
-        ///@}
-        
-        const theta::ParValues & getRVObsValues() const{
-            return rvobs_values;
-        }
-        
-        void setRVObsValues(const theta::ParValues & values){
-            rvobs_values = values;
-        }
-        
-        /// \brief reset all current Histograms, i.e., set to zero entry
-        void reset(){
-            rvobs_values.clear();
-            std::vector<Histogram1D>::iterator it = data.begin();
-            for(; it!=data.end(); ++it){
-               it->set_all_values(0.0);
-            }
-        }
-
-    private:
-        std::vector<Histogram1D> data;
-        theta::ParValues rvobs_values;
-    };
     
     /** \brief A data-providing class, can be used as base class in the plugin system
      *
@@ -149,17 +98,10 @@ namespace theta {
         /// Define this as the base_type for derived classes; required for the plugin system
         typedef DataSource base_type;
         
-        /** \brief Exception class to be thrown by fill
-         */
-        class DataUnavailable{};
-        
         /** \brief Fill the provided Data instance with data
          *
-         * This method is called exactly once per event. It sets
-         * the histograms of the provided observables and lets everything else unaffected.
-         *
-         * It can throw a DataUnavailable exception if no more data is available and the
-         * run should end.
+         * The method sets the histograms of the observables it has data for and
+         * does not change any other Data in \c dat.
          */
         virtual void fill(Data & dat) = 0;
         
@@ -167,7 +109,7 @@ namespace theta {
         virtual ~DataSource(){}
         
     protected:
-        /// proxy to ProductsTableWriter constructor for derived classes
+        /// proxy to ProductsSource constructor for derived classes
         DataSource(const theta::Configuration & cfg): ProductsSource(cfg){}
     };
     

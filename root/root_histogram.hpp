@@ -24,11 +24,8 @@
  * given root file. Underflow and overflow are usually not copied, unless the range setting (see below)
  * explicitely includes them.
  *
- * If \c use_errors is true, the errors in the Histogram will be used to
- * build a \c ConstantHistogramFunctionError instance which implements bin-by-bin
- * fluctuations for pseudodata creation (for details, see documentation of
- * \c ConstantHistogramFunctionError). Otherwise, an instance of \c ConstantHistogramFunction
- * is returned which does not treat parametrization errors.
+ * If \c use_errors is true, the errors in the root Histogram are used. If it is \c false (the default),
+ * all uncertainties are set to 0.
  *
  * If rebin is given, TH1::Rebin will be called with this value.
  *
@@ -61,7 +58,7 @@
  *
  * \sa ConstantHistogramFunctionError ConstantHistogramFunction
  */
-class root_histogram: public theta::ConstantHistogramFunctionError{
+class root_histogram: public theta::ConstantHistogramFunction{
 public:
     /// Constructor used by the plugin system
     root_histogram(const theta::Configuration & ctx);

@@ -1,6 +1,7 @@
 #include "plugins/pseudodata_writer.hpp"
 #include "interface/plugin.hpp"
 #include "interface/phys.hpp"
+#include "interface/data.hpp"
 #include "interface/histogram.hpp"
 #include <sstream>
 

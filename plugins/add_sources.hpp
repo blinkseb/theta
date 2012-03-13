@@ -41,8 +41,6 @@ public:
     add_sources(const theta::Configuration & cfg);
 
     /** \brief Fills the provided Data instance with data from the model
-     *
-     * Will never throw the DataUnavailable Exception.
      */
     virtual void fill(theta::Data & dat);
     

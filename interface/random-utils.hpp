@@ -26,11 +26,19 @@ protected:
 };
 
 
-/** \brief Replace data by a Poisson value
+/** \brief Replace data in the supplied DoubleVector by a Poisson value
  *
  * Replaces each data value by a Poisson with mean equal to the original value.
  */
 void randomize_poisson(DoubleVector & d, Random & rnd);
+
+/** \brief Smear the value in each bin by a Gaussian within its uncertainty
+ * 
+ * The returned Histogram1D consists of Gaussian random values drawn according to the values and uncertainties in histo.
+ * The values are drawn according to truncated Gaussians, i.e., values are drawn until the value is >=0, unless the value itself
+ * is < 0.
+ */
+Histogram1D randomize_gauss(const Histogram1DWithUncertainties & histo, Random & rnd);
 
 
 }

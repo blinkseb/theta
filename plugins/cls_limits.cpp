@@ -470,7 +470,10 @@ void data_filler::fill(Data & dat, const ParId & truth_parameter, double truth_v
     model->get_parameter_distribution().sample(values, rnd);
     values.set(truth_parameter, truth_value);
     products_sink->set_product(truth_column, truth_value);
-    model->get_prediction(dat, values);
+    DataWithUncertainties dat_wu;
+    model->get_prediction(dat_wu, values);
+    dat = strip_uncertainties(dat_wu);
+    //FIXME: should probably include Gaussian smearing ...
     ObsIds observables = dat.getObservables();
     for (ObsIds::const_iterator it = observables.begin(); it != observables.end(); it++) {
          randomize_poisson(dat[*it], rnd);

@@ -14,6 +14,7 @@
  *      range = [0.0, 10.0];
  *      nbins = 9;
  *      data = (1.0, 2.0, 3.0, 2.0, 10.0, 2.0, 0.01, 0.01, 2.0);
+ *      uncertainties = (0.1, 0.2, 0.3, 0.2, 1.0, 0.2, 0.001, 0.001, 0.2); //optional. Default is no uncertainties
  *   };
  * \endcode
  *
@@ -22,6 +23,8 @@
  * \c nbins is the number of bins within the range (i.e., not counting overflow and underflow bin)
  *
  * \c data specifies the bin content. This list/array must contain exactly nbins entries.
+ * 
+ * \c uncertainties is optional. If given, it must also have length \c nbins.
  */
 class direct_data_histo : public theta::ConstantHistogramFunction {
 public:

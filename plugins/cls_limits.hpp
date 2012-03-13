@@ -5,6 +5,8 @@
 #include "interface/main.hpp"
 #include "interface/phys.hpp"
 #include "interface/database.hpp"
+#include "interface/data.hpp"
+#include "interface/histogram.hpp"
 
 #include <map>
 #include <memory>

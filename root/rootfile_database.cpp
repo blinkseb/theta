@@ -52,11 +52,9 @@ rootfile_database::rootfile_database(const Configuration & cfg): file(0){
           int nbins = cfg.setting["products_histograms"][i]["nbins"];
           double xmin = cfg.setting["products_histograms"][i]["range"][0];
           double xmax = cfg.setting["products_histograms"][i]["range"][1];
-          hist_infos.push_back(hist_info());
-          hist_infos.back().h.reset_n(nbins);
-          hist_infos.back().h.reset_range(xmin, xmax);
-          hist_infos.back().name = static_cast<string>(cfg.setting["products_histograms"][i]["name"]);
-          hist_infos.back().column_name = static_cast<string>(cfg.setting["products_histograms"][i]["column"]);
+          string name = cfg.setting["products_histograms"][i]["name"];
+          string colname = cfg.setting["products_histograms"][i]["column"];
+          hist_infos.push_back(hist_info(Histogram1D(nbins, xmin, xmax), name, colname));
       }
    }
 }

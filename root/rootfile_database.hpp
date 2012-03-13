@@ -100,6 +100,7 @@ private:
         theta::Histogram1D h;
         std::string name;
         std::string column_name;
+        hist_info(const theta::Histogram1D & h_, const std::string & name_, const std::string & colname_): h(h_), name(name_), column_name(colname_){}
     };
     std::vector<hist_info> hist_infos;
     

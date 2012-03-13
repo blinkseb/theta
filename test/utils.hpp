@@ -17,11 +17,11 @@ bool load_llvm_plugins();
 /** \brief Equality check for floating point numbers using relative comparison
  *
  * This function checks whether a and b are "close" on the sense
- * that the relative difference is very small.
- * a and b must not both be zero.
+ * that the relative difference is very small. In case both are zero, only exact equality will
+ * lead to a return value of true.
  */
 inline bool close_to_relative(double a, double b){
-   return fabs(a-b) / std::max(fabs(a),fabs(b)) < 1e-15;
+    return a==b || fabs(a-b) / std::max(fabs(a),fabs(b)) < 1e-15;
 }
 
 /** \brief Equality check for floating point numbers using comparison to an external scale

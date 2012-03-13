@@ -11,6 +11,7 @@ namespace libconfig{
 namespace theta{
     class DoubleVector;
     class Histogram1D;
+    class Histogram1DWithUncertainties;
     class HistogramFunction;
     class Minimizer;
     class Producer;
@@ -39,7 +40,10 @@ namespace theta{
     class ParValues;
     class PropertyMap;
     
-    class Data;
+    //class Data;
+    template<typename T> class DataT;
+    typedef DataT<Histogram1D> Data;
+    typedef DataT<Histogram1DWithUncertainties> DataWithUncertainties;
     class Function;
     class Model;
     class DataSource;

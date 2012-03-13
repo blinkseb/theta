@@ -1,5 +1,6 @@
 #include "interface/histogram.hpp"
 #include "interface/phys.hpp"
+#include "interface/data.hpp"
 #include "interface/variables.hpp"
 
 #include <boost/test/unit_test.hpp>

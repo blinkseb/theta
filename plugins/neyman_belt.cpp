@@ -524,14 +524,15 @@ void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
     //get the set of true values of the poi:
     set<double> truth_values = ttos.get_truth_values();
     map<double, map<double, double> > truth_to__ts_to_ordering;
-    Data data;
+    DataWithUncertainties data_wu;
     double stepsize = (truth_range.second - truth_range.first) / (truth_n - 1);
     tto_ensemble ensemble_for_interpolation;
     for(size_t i=0; i<truth_n; ++i){
         //use "i" to generate asimov data, calculate the ts and nll_best:
         double poi_value1 = truth_range.first + i * stepsize;
         mode.set(*poi, poi_value1);
-        model->get_prediction(data, mode);
+        model->get_prediction(data_wu, mode);
+        Data data = strip_uncertainties(data_wu);
         std::auto_ptr<NLLikelihood> nll = model->getNLLikelihood(data);
         double nll_best = (*nll)(mode);
         if(!isfinite(nll_best)) continue;

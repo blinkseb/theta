@@ -14,10 +14,13 @@ using namespace std;
 using namespace theta;
 
 namespace{
-bool operator==(const Histogram1D& h0, const Histogram1D & h1){
-    if(h0.size()!=h1.size()) return false;
-    for(size_t i=0; i<h0.size(); ++i){
-        if(h0.get(i)!=h1.get(i)) return false;
+    bool operator==(const Histogram1DWithUncertainties& h0, const Histogram1DWithUncertainties & h1){
+    if(h0.get_nbins()!=h1.get_nbins()) return false;
+    if(h0.get_xmin()!=h1.get_xmin()) return false;
+    if(h0.get_xmax()!=h1.get_xmax()) return false;
+    for(size_t i=0; i<h0.get_nbins(); ++i){
+        if(h0.get_value(i)!=h1.get_value(i)) return false;
+        if(h0.get_uncertainty(i)!=h1.get_uncertainty(i)) return false;
     }
     return true;
 }
@@ -143,11 +146,11 @@ BOOST_AUTO_TEST_CASE(constant_histo){
     BOOST_CHECKPOINT("building llvm_h");
     std::auto_ptr<HistogramFunction> llvm_h = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["llvm_h"]));
     BOOST_CHECKPOINT("evaluating");
-    const Histogram1D & h = (*histo)(ParValues());
-    const Histogram1D & h_l = (*llvm_h)(ParValues());
-    BOOST_REQUIRE(h.size() == h_l.size());
-    for(size_t i=0; i<h_l.size(); ++i){
-        BOOST_REQUIRE(h.get(i) == h_l.get(i));
+    const Histogram1DWithUncertainties & h = (*histo)(ParValues());
+    const Histogram1DWithUncertainties & h_l = (*llvm_h)(ParValues());
+    BOOST_REQUIRE(h.get_nbins() == h_l.get_nbins());
+    for(size_t i=0; i<h_l.get_nbins(); ++i){
+        BOOST_REQUIRE(h.get_value(i) == h_l.get_value(i));
     }
 }
 
@@ -244,8 +247,8 @@ BOOST_AUTO_TEST_CASE(model){
     BOOST_REQUIRE(m->getParameters() == llvm_m->getParameters());
     BOOST_REQUIRE(m->getObservables() == llvm_m->getObservables());
         
-    Data d;
-    Data llvm_d;
+    DataWithUncertainties d;
+    DataWithUncertainties llvm_d;
     
     // calculate some predictions:
     ParValues vals;
@@ -271,8 +274,9 @@ BOOST_AUTO_TEST_CASE(model){
     vals.set(beta2, 0.83);
     vals.set(delta0, 0.12);
     vals.set(delta1, -0.18);    
-    std::auto_ptr<NLLikelihood> nll = m->getNLLikelihood(d);
-    std::auto_ptr<NLLikelihood> llvm_nll = llvm_m->getNLLikelihood(d);
+    Data d_nou = strip_uncertainties(d);
+    std::auto_ptr<NLLikelihood> nll = m->getNLLikelihood(d_nou);
+    std::auto_ptr<NLLikelihood> llvm_nll = llvm_m->getNLLikelihood(d_nou);
     for(size_t i=0; i<50; ++i){
         vals.set(beta1, rnd.uniform() * 5);
         vals.set(beta2, rnd.uniform() * 5);

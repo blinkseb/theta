@@ -85,13 +85,13 @@ BOOST_AUTO_TEST_CASE(model0){
     std::auto_ptr<HistogramFunction> f_bkg_histo = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["flat-histo"]));
     
     ParValues values;
-    Histogram1D signal = (*f_signal_histo)(values);
-    Histogram1D background = (*f_bkg_histo)(values);
+    Histogram1DWithUncertainties signal = (*f_signal_histo)(values);
+    Histogram1DWithUncertainties background = (*f_bkg_histo)(values);
     
     values.set(beta1, 1.0);
     values.set(beta2, 0.0);
-    Histogram1D s;
-    Data pred;
+    Histogram1DWithUncertainties s;
+    DataWithUncertainties pred;
     BOOST_CHECKPOINT("");
     m->get_prediction(pred, values);
     BOOST_CHECKPOINT("");
@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE(model0){
     BOOST_CHECKPOINT("");
     //s should be signal only:
     for(size_t i = 0; i<nbins; i++){
-        BOOST_REQUIRE(signal.get(i)==s.get(i));
+        BOOST_REQUIRE(signal.get_value(i)==s.get_value(i));
     }
     //background only:
     values.set(beta1, 0.0);
@@ -107,7 +107,7 @@ BOOST_AUTO_TEST_CASE(model0){
     m->get_prediction(pred, values);
     s = pred[obs0];
     for(size_t i = 0; i<nbins; i++){
-        BOOST_REQUIRE(background.get(i)==s.get(i));
+        BOOST_REQUIRE(background.get_value(i)==s.get_value(i));
     }
     //zero prediction:
     values.set(beta1, 0.0);
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(model0){
     m->get_prediction(pred, values);
     s = pred[obs0];
     for(size_t i = 0; i<nbins; i++){
-        BOOST_REQUIRE(0.0==s.get(i));
+        BOOST_REQUIRE(0.0==s.get_value(i));
     }
 
     //The likelihood, take double background. Use average as data:
@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE(model0){
     s = pred[obs0];
     Data data;
     BOOST_CHECKPOINT("check");
-    data[obs0] = s;
+    data[obs0] = s.get_values_histogram();
     BOOST_CHECKPOINT("check2");
     std::auto_ptr<NLLikelihood> nll = m->getNLLikelihood(data);
     BOOST_CHECKPOINT("check3");
@@ -143,7 +143,5 @@ BOOST_AUTO_TEST_CASE(model0){
     BOOST_CHECK(nll10 < nll11);
     BOOST_CHECK(nll10 < nll09);
 }
-
-
 
 BOOST_AUTO_TEST_SUITE_END()

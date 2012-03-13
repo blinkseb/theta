@@ -1,5 +1,4 @@
 #include "core.hpp"
-#include "plugins/interpolating-histogram.hpp"
 #include "interface/random.hpp"
 #include "interface/model.hpp"
 
@@ -42,7 +41,7 @@ fixed_poly::fixed_poly(const Configuration & ctx){
         throw ConfigurationException("Histogram specification is zero (can't normalize)");
     }
     h *= norm_to / norm;
-    set_histo(h);
+    set_histo(Histogram1DWithUncertainties(h));
 }
 
 fixed_gauss::fixed_gauss(const Configuration & ctx){
@@ -65,7 +64,7 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
         throw ConfigurationException("Histogram specification is zero (can't normalize)");
     }
     h *= norm_to / norm;
-    set_histo(h);
+    set_histo(Histogram1DWithUncertainties(h));
 }
 
 log_normal::log_normal(const Configuration & cfg){
@@ -582,12 +581,18 @@ void model_source::fill(Data & dat){
         products_sink->set_product(parameter_columns[i], values.get(*p_it));
     }
     
-    //2. get model prediction
+    //2. get model prediction with uncertainties
+    DataWithUncertainties data_wu;
+    model->get_prediction(data_wu, values);
+    //2.a. either strip uncertainties completely or dice a Gauss in each bin:
     if(dice_template_uncertainties){
-       model->get_prediction_randomized(rnd, dat, values);
+        const ObsIds & observables = model->getObservables();
+        for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){
+            dat[*it] = randomize_gauss(data_wu[*it], rnd);
+        }
     }
     else{
-       model->get_prediction(dat, values);
+        dat = strip_uncertainties(data_wu);
     }
     
     //3. (maybe) sample poisson

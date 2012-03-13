@@ -5,6 +5,7 @@
 #include "interface/histogram.hpp"
 #include "interface/distribution.hpp"
 #include "interface/variables-utils.hpp"
+#include "interface/model.hpp"
 
 #include <sstream>
 

@@ -5,7 +5,7 @@ using namespace std;
 using namespace theta;
 using namespace libconfig;
 
-const Histogram1D & linear_histo_morph::operator()(const ParValues & values) const {
+const Histogram1DWithUncertainties & linear_histo_morph::operator()(const ParValues & values) const {
     h.set_all_values(1.0);
     const size_t n_sys = kappa_plus.size();
     //1. interpolate linearly in each bin; also calculate normalization
@@ -32,7 +32,8 @@ const Histogram1D & linear_histo_morph::operator()(const ParValues & values) con
     h *= h0exp / h.get_sum();
     //3.b. apply scale uncertainty
     h *= scale_unc;
-    return h;
+    h_wu.set(h);
+    return h_wu;
 }
 
 linear_histo_morph::linear_histo_morph(const Configuration & ctx){
@@ -77,6 +78,8 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
     }
     h0exp = ctx.setting["nominal-expectation"];
     h0 *= h0exp / h0.get_sum();
+    h = h0;
+    h_wu.set(h);
 }
 
 Histogram1D linear_histo_morph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
@@ -86,7 +89,7 @@ Histogram1D linear_histo_morph::getConstantHistogram(const Configuration & cfg, 
         ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
         throw invalid_argument(ss.str());
     }
-    return (*hf)(ParValues());
+    return (*hf)(ParValues()).get_values_histogram();
 }
 
 REGISTER_PLUGIN(linear_histo_morph)

@@ -112,8 +112,9 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
     const Distribution & dist = override_parameter_distribution.get()? *override_parameter_distribution : model.get_parameter_distribution();
     ParValues pv_start;
     dist.mode(pv_start);
-    Data asimov_data;
-    model.get_prediction(asimov_data, pv_start);
+    DataWithUncertainties asimov_data_wu;
+    model.get_prediction(asimov_data_wu, pv_start);
+    Data asimov_data = strip_uncertainties(asimov_data_wu);
     ParIds fixed_pars;
     for(ParIds::const_iterator it = par_ids.begin(); it!=par_ids.end(); ++it, ++k){
         double width = widths.get(*it) * 2.38 / sqrt(n);

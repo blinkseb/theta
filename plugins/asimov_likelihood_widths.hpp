@@ -1,8 +1,8 @@
 #ifndef PLUGINS_ASIMOV_LIKELIHOOD_WIDTHS_HPP
 #define PLUGINS_ASIMOV_LIKELIHOOD_WIDTHS_HPP
 
-#include "interface/model.hpp"
-#include "interface/variables.hpp"
+#include "interface/decls.hpp"
+#include <boost/shared_ptr.hpp>
 
 /** \brief Calculate parameter widths from the asimov data for the given model
  *

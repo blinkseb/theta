@@ -1,8 +1,11 @@
 #include "interface/toymaker.hpp"
 #include "interface/main.hpp"
 #include "interface/phys.hpp"
+#include "interface/data.hpp"
 
 #include "interface/atomic.hpp"
+
+#include <sstream>
 
 using namespace std;
 using namespace theta;
@@ -20,9 +23,6 @@ void ToyMaker::run(int n_event, atomic_int * toy_count, atomic_int * toy_error_c
         if(stop_execution)break;
         try{
             data_source->fill(data);
-        }
-        catch(DataSource::DataUnavailable &){
-            break;
         }
         catch(theta::Exception & ex){
            ex.message += " (in ToyMaker::run while throwing toy data)";

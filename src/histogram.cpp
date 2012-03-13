@@ -68,39 +68,9 @@ void DoubleVector::operator=(const DoubleVector & rhs){
        memcpy(data, rhs.data, sizeof(double) * n_data);
 }
 
-void DoubleVector::reset_n(size_t new_n){
-    if(n_data!=new_n){
-        free_doubles(data);
-        if(new_n > 0)
-            data = allocate_doubles(new_n);
-        else
-            data = 0;
-        n_data = new_n;
-    }
-    set_all_values(0.0);
-}
-
 Histogram1D::Histogram1D(size_t b, double x_min, double x_max) : DoubleVector(b), xmin(x_min), xmax(x_max) {
     if(xmin >= xmax) throw invalid_argument("Histogram: xmin >= xmax not allowed");
     set_all_values(0.0);
-}
-
-Histogram1D::Histogram1D(const Histogram1D& rhs): DoubleVector(rhs), xmin(rhs.xmin), xmax(rhs.xmax){
-}
-
-void Histogram1D::operator=(const Histogram1D & rhs) {
-    DoubleVector::operator=(rhs);
-    xmin = rhs.xmin;
-    xmax = rhs.xmax;
-}
-
-Histogram1D::~Histogram1D() {
-}
-
-void Histogram1D::reset_range(double x_min, double x_max){
-    if(size() > 0 && x_min >= x_max) throw invalid_argument("Histogram: xmin >= xmax not allowed");
-    xmin = x_min;
-    xmax = x_max;
 }
 
 void Histogram1D::multiply_with_ratio_exponented(const Histogram1D & nominator, const Histogram1D & denominator, double exponent){
@@ -124,13 +94,11 @@ void Histogram1D::fill(double xvalue, double weight) {
 }
 
 void Histogram1D::fail_check_compatibility(const Histogram1D & h) const {
-    if (get_nbins() != h.get_nbins() || xmin!=h.xmin || xmax != h.xmax){
-        std::stringstream s;
-        s <<  "Histogram::check_compatibility: Histograms are not compatible (nbins, xmin, xmax) are: "
-              " (" << get_nbins() << ", " << xmin << ", " << xmax << ") and "
-              " (" << h.get_nbins() << ", " << h.xmin << ", " << h.xmax << ")";
-        throw invalid_argument(s.str());
-    }
+    std::stringstream s;
+    s <<  "Histogram1D::check_compatibility: Histograms are not compatible (nbins, xmin, xmax) are: "
+            " (" << get_nbins() << ", " << xmin << ", " << xmax << ") and "
+            " (" << h.get_nbins() << ", " << h.xmin << ", " << h.xmax << ")";
+    throw invalid_argument(s.str());
 }
 
 void Histogram1D::operator*=(const Histogram1D & h) {

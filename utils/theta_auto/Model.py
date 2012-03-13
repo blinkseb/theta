@@ -37,6 +37,15 @@ class rootfile:
             if fail_with_exception: raise RuntimeError, "did not find histogram '%s' in file '%s'" % (hname, self.filename)
             return None
         return rootfile.th1_to_histo(th1)
+        
+    def get_uncertainties_histo(self, hname):
+        th1 = self.tfile.Get(hname)
+        if type(th1) not in (ROOT.TH1F, ROOT.TH1D):
+            raise RuntimeError, "did not find histogram '%s' in file '%s'" % (hname, self.filename)
+        xmin, xmax, nbins = th1.GetXaxis().GetXmin(), th1.GetXaxis().GetXmax(), th1.GetNbinsX()
+        data = [th1.GetBinError(i) for i in range(1, nbins+1)]
+        return xmin, xmax, data
+        
 
 
 # par_values is a dictionary (parameter name) --> (floating point value)
@@ -104,6 +113,7 @@ class Model:
         self.data_rvobsvalues = {}
         # a FunctionBase instance or None:
         self.additional_nll_term = None
+        self.bb_uncertainties = False
         self.rvobs_distribution = Distribution()
     
     def reset_binning(self, obs, xmin, xmax, nbins):
@@ -329,6 +339,7 @@ class Model:
                      'coefficient-function': self.observable_to_pred[o][proc]['coefficient-function'].get_cfg()}
                 if proc in signal_processes:
                     result[o][proc]['coefficient-function']['factors'].append('beta_signal')
+        if self.bb_uncertainties: result['bb_uncertainties'] = True
         return result
 
 
@@ -516,13 +527,11 @@ class HistogramFunction:
 
     def get_cfg(self):
         if len(self.syst_histos) == 0:
-            return get_histo_cfg(self.nominal_histo)
+            return get_histo_cfg(self.nominal_histo, self.nominal_uncertainty_histo)
         result = {'type': 'cubiclinear_histomorph', 'parameters': sorted(list(self.parameters)),
-           'nominal-histogram': get_histo_cfg(self.nominal_histo), 'normalize_to_nominal': self.normalize_to_nominal}
+           'nominal-histogram': get_histo_cfg(self.nominal_histo, self.nominal_uncertainty_histo), 'normalize_to_nominal': self.normalize_to_nominal}
         if self.decorr_delta_width != 0.0:
             result['decorr_delta_width'] = self.decorr_delta_width
-        if self.nominal_uncertainty_histo is not None:
-            result['nominal-uncertainty-histogram'] = get_histo_cfg(self.nominal_uncertainty_histo)
         if set(self.factors.values()) != set([1.0]):
             result['factors'] = []
             for p in result['parameters']:
@@ -681,12 +690,14 @@ def get_fixed_dist_at_values(par_values):
 # * transform_histo should transform the tuple (name, xmin, xmax, data) to a new tuple (name, xmin, xmax, data). name is not allowed to change.
 #   name is the "internal" name  (=according to convention, after root_hname_to_convention).
 #   This can be used e.g. to rebin histograms, set the range differently, etc.
+# * include_mc_uncertainties is a boolean. If set to true, the bin-by-bin uncertainties will be included (and treated with the "Barlow-Beeston light" method).
 #
 # filenames can be either a string or a list of strings
-def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s, transform_histo = lambda h: h):
+def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s, transform_histo = lambda h: h, include_mc_uncertainties = False):
     if type(filenames)==str: filenames = [filenames]
     result = Model()
     histos = {}
+    uncertainties_histos = {}
     observables, processes, uncertainties = set(), set(), set()
 
     for fname in filenames:
@@ -723,6 +734,7 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
             if uncertainty is not None: h_new = '%s__%s__%s__%s' % (observable, process, uncertainty, direction)
             else: h_new = '%s__%s' % (observable, process)
             histos[h_new] = (xmin, xmax, data)
+            if include_mc_uncertainties: uncertainties_histos[h_new] = rf.get_uncertainties_histo(hexternal)
 
     # build histogram functions from templates, and make some sanity checks:
     for o in observables:
@@ -731,6 +743,8 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
             if hname_nominal not in histos: continue
             hf = HistogramFunction()
             hf.set_nominal_histo(histos[hname_nominal])
+            if include_mc_uncertainties:
+                hf.set_nominal_uncertainty_histo(uncertainties_histos[hname_nominal])
             for u in uncertainties:
                 n_syst = 0
                 if ('%s__%s__%s__plus' % (o, p, u)) in histos: n_syst += 1
@@ -741,5 +755,6 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
             result.set_histogram_function(o, p, hf)
     for u in uncertainties:
         result.distribution.set_distribution('%s' % u, 'gauss', mean = 0.0, width = 1.0, range = (-float("inf"), float("inf")))
+    result.bb_uncertainties = include_mc_uncertainties
     return result
 

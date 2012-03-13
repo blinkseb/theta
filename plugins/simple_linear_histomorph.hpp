@@ -6,6 +6,8 @@
 
 
 /** \brief A HistogramFunction which interpolates a "zero" Histogram and several "distorted" Histograms with a simple linear ansatz.
+ * 
+ * Consider using cubiclinear_histomorph instead which is more flexible.
  *
  * The configuration is very similar to \c interpolating_histo :
  * \code
@@ -47,11 +49,11 @@ public:
     /** Returns the interpolated Histogram as documented in the class documentation.
      * throws a NotFoundException if a parameter is missing.
      */
-    virtual const theta::Histogram1D & operator()(const theta::ParValues & values) const;
+    virtual const theta::Histogram1DWithUncertainties & operator()(const theta::ParValues & values) const;
 
     /// Return a Histogram of the same dimenions as the one returned by operator()
-    virtual theta::Histogram1D get_histogram_dimensions() const{
-        return h0;
+    virtual theta::Histogram1DWithUncertainties get_histogram_dimensions() const{
+        return h_wu;
     }
 
 private:
@@ -68,6 +70,7 @@ private:
     std::vector<theta::ParId> vid;
     //the Histogram returned by operator(). Defined as mutable to allow operator() to be const.
     mutable theta::Histogram1D h;
+    mutable theta::Histogram1DWithUncertainties h_wu;
 };
 
 #endif

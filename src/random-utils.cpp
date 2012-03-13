@@ -1,6 +1,7 @@
 #include "interface/random-utils.hpp"
 #include "interface/random.hpp"
 #include "interface/histogram.hpp"
+#include "interface/histogram-with-uncertainties.hpp"
 #include "interface/database.hpp"
 #include "interface/plugin.hpp"
 
@@ -76,3 +77,20 @@ void theta::randomize_poisson(DoubleVector & d, Random & rnd){
         }
     }
 }
+
+Histogram1D theta::randomize_gauss(const Histogram1DWithUncertainties & histo, Random & rnd){
+    const size_t n = histo.get_nbins();
+    Histogram1D result(n, histo.get_xmin(), histo.get_xmax());
+    for(size_t i=0; i<n; ++i){
+        const double val = histo.get_value(i);
+        const double unc = histo.get_uncertainty(i);
+        double new_value;
+        do{
+            new_value = rnd.gauss(unc) + val;
+        }while(val >=0.0 and new_value < 0.0);
+        result.set(i, new_value);
+    }
+    return result;
+}
+
+

@@ -52,7 +52,7 @@ root_histogram::root_histogram(const Configuration & ctx){
        }
     }
 
-    Histogram1D h, h_error;
+    Histogram1DWithUncertainties h;
     //take care of 1D histograms:
     if(histo->GetDimension() == 1){
        histo->Rebin(rebin);
@@ -84,18 +84,11 @@ root_histogram::root_histogram(const Configuration & ctx){
           }
        }
        int nbins = bin_high - bin_low + 1;
-
-       h.reset_n(nbins);
-       h.reset_range(xmin, xmax);
-       h_error.reset_n(nbins);
-       h_error.reset_range(xmin, xmax);
+       h = Histogram1DWithUncertainties(nbins, xmin, xmax);
        for(int i = bin_low; i <= bin_high; i++){
           double content = histo->GetBinContent(i);
-          h.set(i - bin_low, content);
-          //h_error contains the relative errors:
-          if(use_errors && content > 0.0){
-             h_error.set(i - bin_low, histo->GetBinError(i) / content);
-          }
+          double unc = use_errors ? histo->GetBinError(i) : 0.0;
+          h.set(i - bin_low, content, unc);
        }
     }
     //take care of 2D/3D histograms:
@@ -104,9 +97,8 @@ root_histogram::root_histogram(const Configuration & ctx){
        size_t nbins_x = histo->GetNbinsX();
        size_t nbins_y = histo->GetNbinsY();
        size_t nbins_z = histo->GetNbinsZ();
-       h.reset_n(nbins_x * nbins_y * max<size_t>(nbins_z, 1));
-       h.reset_range(0, h.size());
-       h_error = h;
+       const size_t n_total = nbins_x * nbins_y * max<size_t>(nbins_z, 1);
+       h = Histogram1DWithUncertainties(n_total, 0, n_total);
        size_t ibin_theta=0;
        for(size_t i=1; i <= nbins_x; ++i){
           for(size_t j=1; j<=nbins_y; ++j){
@@ -115,10 +107,8 @@ root_histogram::root_histogram(const Configuration & ctx){
               for(size_t k=0; k<=nbins_z; ++k){
                   if(k==0 && nbins_z > 0)continue;
                   double content = histo->GetBinContent(i, j, k);
-                  h.set(ibin_theta, content);
-                  if(use_errors && content > 0.0){
-                      h_error.set(ibin_theta, histo->GetBinError(i, j, k) / content);
-                  }
+                  double unc = use_errors ? histo->GetBinError(i, j, k) : 0.0;
+                  h.set(ibin_theta, content, unc);
                   ibin_theta++;
               }
           }
@@ -133,12 +123,24 @@ root_histogram::root_histogram(const Configuration & ctx){
         if(zerobin_fillfactor < 0){
            throw ConfigurationException("zerobin_fillfactor must be >= 0.0!");
         }
-        double integral = h.get_sum();
+        double integral = 0.0;
         for(size_t i=0; i<h.get_nbins(); ++i){
-            h.set(i, max(h.get(i), integral * zerobin_fillfactor / h.get_nbins()));
+            integral += h.get_value(i);
+        }
+        // the minimum value to set all histogram bin to:
+        const double min_val = integral * zerobin_fillfactor / h.get_nbins();
+        for(size_t i=0; i<h.get_nbins(); ++i){
+            double unc = h.get_uncertainty(i);
+            double val = h.get_value(i);
+            // set uncertainty to (at least) the difference of new and old value, if we have fill the histogram
+            if(val < min_val){
+                unc = max(unc, min_val - val);
+                val = min_val;
+            }
+            h.set(i, val, unc);
         }
     }
-    set_histos(h, h_error);
+    set_histo(h);
 }
 
 REGISTER_PLUGIN(root_histogram)

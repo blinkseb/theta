@@ -46,6 +46,32 @@ def simple_counting_shape(s, n_obs, b=0.0, b_plus=0.0, b_minus=0.0):
     return model
 
 
+# simple counting model with s signal events, no background, but an BB uncertainty on the signal of s_uncertainty (an absolute uncertainty)
+def simple_counting_bb(s, s_uncertainty, n_obs):
+    model = Model()
+    model.set_data_histogram('obs', (0.0, 1.0, [float(n_obs)]))
+    hf_s = HistogramFunction()
+    hf_s.set_nominal_histo((0.0, 1.0, [float(s)]))
+    hf_s.set_nominal_uncertainty_histo((0.0, 1.0, [float(s_uncertainty)]))
+    model.set_histogram_function('obs', 's', hf_s)
+    model.set_signal_processes('s*')
+    model.bb_uncertainties = True
+    return model
+    
+# in this case, s, s_uncertainty and n_obs should all be lists of the same length of floating point values.
+def template_counting_bb(s, s_uncertainty, n_obs):
+    assert len(s) == len(s_uncertainty) and len(s) == len(n_obs)
+    model = Model()
+    model.set_data_histogram('obs', (0.0, 1.0, n_obs))
+    hf_s = HistogramFunction()
+    hf_s.set_nominal_histo((0.0, 1.0, s))
+    hf_s.set_nominal_uncertainty_histo((0.0, 1.0, s_uncertainty))
+    model.set_histogram_function('obs', 's', hf_s)
+    model.set_signal_processes('s*')
+    model.bb_uncertainties = True
+    return model
+
+
 # a gaussian signal (mean 50, width 20) over flat background on a range 0--100, with 100 bins no data.
 # b_uncertainty is the (absolute!) uncertainty on the background yield, which will be handeled with a log-normal.
 def gaussoverflat(s, b, b_uncertainty = 0.0):

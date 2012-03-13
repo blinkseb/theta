@@ -28,9 +28,6 @@ void Run::run(){
         try{
             data_source->fill(data);
         }
-        catch(DataSource::DataUnavailable &){
-            break;
-        }
         catch(theta::Exception & ex){
            ex.message += " (in Run::run while throwing toy data)";
            throw;

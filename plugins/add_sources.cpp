@@ -1,4 +1,5 @@
 #include "plugins/add_sources.hpp"
+#include "interface/data.hpp"
 
 using namespace theta;
 

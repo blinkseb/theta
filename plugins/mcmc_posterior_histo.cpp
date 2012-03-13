@@ -19,8 +19,7 @@ class MCMCPosteriorHistoResult{
                            npar(npar_), ipars(ipars_){
             histos.resize(ipars_.size());
             for(size_t i=0; i<ipars_.size(); ++i){
-                histos[i].reset_n(nbins[i]);
-                histos[i].reset_range(lower[i], upper[i]);
+                histos[i] = Histogram1D(nbins[i], lower[i], upper[i]);
             }
         }
         
@@ -54,10 +53,8 @@ public:
             histos.resize(ipars.size());
             histos_tmp.resize(ipars.size());
             for(size_t i=0; i<ipars.size(); ++i){
-                histos[i].reset_n(nbins[i]);
-                histos[i].reset_range(lower[i], upper[i]);
-                histos_tmp[i].reset_n(nbins[i]);
-                histos_tmp[i].reset_range(lower[i], upper[i]);
+                histos[i] = Histogram1D(nbins[i], lower[i], upper[i]);
+                histos_tmp[i] = Histogram1D(nbins[i], lower[i], upper[i]);
             }
     }
     

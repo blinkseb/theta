@@ -3,15 +3,14 @@
 
 #include <set>
 #include <map>
-#include <limits>
 #include <string>
-#include <sstream>
 #include <vector>
 #include <ostream>
 
 #include "interface/decls.hpp"
 #include "interface/exception.hpp"
-#include "interface/utils.hpp"
+
+#include <cmath>
 
 #include <boost/utility.hpp>
 
@@ -33,7 +32,7 @@ namespace theta {
     class VarId{
     friend class VarIdManager;
     friend class ParValues;
-    friend class Data;
+    template<typename T>  friend class DataT;
     friend std::ostream & operator<<(std::ostream & out, const VarId & vid){
         return out << vid.id;
     }
@@ -52,9 +51,6 @@ namespace theta {
         }
         //@}
         
-        /** Creates in invalid VarId which evaluates to false
-         */
-        //VarId(): id(-1){}
     private:
         size_t id;
         explicit VarId(size_t i): id(i){}
@@ -145,30 +141,6 @@ namespace theta {
          */ 
         bool contains(const id_type & id)const {
             return vars.find(id) != vars.end();
-        }
-
-        /** \brief Test whether all given ids are contained
-         */
-        bool contains_all(const VarIds<id_type> & rhs) const{
-            const_iterator rhs_it = rhs.vars.begin();
-            const_iterator it = vars.begin();
-            const const_iterator rhs_end = rhs.vars.end();
-            const const_iterator end = vars.end();
-
-            //rhs_it points to the next element to test
-            while(rhs_it!=rhs_end && it!=end){
-                if(*rhs_it == *it){
-                    ++rhs_it;
-                    ++it;
-                }
-                else if(not (*rhs_it < *it)){
-                    ++it;
-                }
-                else{
-                    return false;
-                }
-            }
-            return rhs_it == rhs_end;
         }
 
         /** \brief Test equality with other VarIds object.
@@ -420,6 +392,7 @@ namespace theta {
             return result;
         }
 
+        /// fast replacement for get which does not perform boundary checking
         double get_unchecked(const ParId & pid) const{
             return values[pid.id];
         }
@@ -431,6 +404,18 @@ namespace theta {
             return id < values.size() && !std::isnan(values[id]);
         }
         
+        /** \brief Test whether all given parameters have a value set
+         */
+        bool contains_all(const ParIds & pids) const{
+            for(ParIds::const_iterator it=pids.begin(); it!=pids.end(); ++it){
+                const size_t id = it->id;
+                if(id > values.size() || std::isnan(values[id])) return false;
+            }
+            return true;
+        }
+        
+        /** \brief Clear all parameter values
+         */
         void clear(){
             std::fill(values.begin(), values.end(), NAN);
         }
