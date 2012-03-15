@@ -45,13 +45,14 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
     for(boost::ptr_vector<HistogramFunction>::const_iterator it=histos[obs_id].begin(); it!=histos[obs_id].end(); ++it){
         if(first){
             it->get_histogram_dimensions(nbins, xmin, xmax);
+            first = false;
         }
         else{
             size_t nbins_tmp = 0;
             double xmin_tmp = NAN, xmax_tmp = NAN;
             it->get_histogram_dimensions(nbins_tmp, xmin_tmp, xmax_tmp);
             if(nbins!=nbins_tmp || xmin!=xmin_tmp || xmax!=xmax_tmp){
-                throw invalid_argument("histogram dimensions mismatch for observable");
+                throw invalid_argument("default_model::set_prediction: histogram dimensions mismatch");
             }
         }
         ParIds pids = (*it).get_parameters();
