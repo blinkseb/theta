@@ -9,14 +9,14 @@ exp_function::exp_function(const theta::Configuration & cfg){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     if(cfg.setting.exists("parameters")){
         for(size_t i=0; i<cfg.setting["parameters"].size(); ++i){
-            ParId pid = vm->getParId(cfg.setting["parameters"][i]);
+            ParId pid = vm->get_par_id(cfg.setting["parameters"][i]);
             par_ids.insert(pid);
             val_lambdas_plus.set(pid, cfg.setting["lambdas_plus"][i]);
             val_lambdas_minus.set(pid, cfg.setting["lambdas_minus"][i]);
         }
     }
     else{
-        ParId pid = vm->getParId(cfg.setting["parameter"]);
+        ParId pid = vm->get_par_id(cfg.setting["parameter"]);
         par_ids.insert(pid);
         if(cfg.setting.exists("lambda_minus")){
             val_lambdas_minus.set(pid, cfg.setting["lambda_minus"]);

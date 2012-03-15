@@ -38,7 +38,7 @@ namespace theta {
          *
          * The translation from this "external" array format into the internal (i.e.,
          * \c ParValues) format is done by simultaneously iterating over the
-         * ParIds as returned by getParameters() and the given array \c x.
+         * ParIds as returned by get_parameters() and the given array \c x.
          * (As iteration over a \c ParIds object always yields the same order of parameters,
          * this mapping is well-defined.)
          */
@@ -54,7 +54,7 @@ namespace theta {
 
         /** \brief Returns the parameters this function depends on
          */
-        const ParIds & getParameters() const{
+        const ParIds & get_parameters() const{
             return par_ids;
         }
         

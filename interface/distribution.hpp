@@ -71,18 +71,7 @@ namespace theta{
          * \param values The point in parameter space the density is to be evaluated.
          * \return The density at \c values.
          */
-        virtual double evalNL(const ParValues & values) const = 0;
-        
-       /** \brief The negative logarithm of the probability, and derivatives thereof.
-        * 
-        * Returns the negative logarithm of the probability density at \c values, just as \c evalNL.
-        * Additionally, the partial derivatives are filled into \c derivatives.
-        * 
-        * \param values The point in parameter space to use to evaluate the density and its derivatives.
-        * \param[out] derivatives The container that will be filled with the partial derivatives.
-        * \return The density at \c values. This is the same value as \c evalNL(values) would return.
-        */
-        virtual double evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const = 0;
+        virtual double eval_nl(const ParValues & values) const = 0;
 
         /** \brief Get the support of a parameter
          *
@@ -98,13 +87,13 @@ namespace theta{
 
         /** \brief Get the random variables of this Distribution
          */
-        const ParIds & getParameters() const{
+        const ParIds & get_parameters() const{
             return par_ids;
         }
         
         /** \brief Get the parameters of this Distribution
          */
-        const ParIds & getDistributionParameters() const{
+        const ParIds & get_distribution_parameters() const{
             return distribution_par_ids;
         }
         
@@ -124,24 +113,20 @@ namespace theta{
     class EmptyDistribution: public Distribution{
     public:
         virtual const std::pair<double, double> & support(const ParId & p) const;
-        virtual double evalNL(const ParValues & values) const{ return 0.0; }
-        virtual double evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const{ return 0.0; }
+        virtual double eval_nl(const ParValues & values) const{ return 0.0; }
+        virtual double eval_nl_with_derivatives(const ParValues & values, ParValues & derivatives) const{ return 0.0; }
         virtual void mode(ParValues & result) const{}
         virtual void sample(ParValues & result, Random & rnd) const{}
         virtual ~EmptyDistribution();
     };
-    
-    /// \brief namespace for free functions closely related to the \link Distribution Distribution\endlink class
-    namespace DistributionUtils{
         
-        /** \brief Fill mode and and support from a Distribution instance
-         *
-         * This is a utility routine calling the Distribution::mode and
-         * and Distribution::support routines for all parameters of the Distribution and filling
-         * the result into the parameters \c mode, \c width and \c support
-         */
-        void fillModeSupport(theta::ParValues & mode, std::map<theta::ParId, std::pair<double, double> > & support, const theta::Distribution & d);
-    }
+    /** \brief Fill mode and and support from a Distribution instance
+     *
+     * This is a utility routine calling the Distribution::mode and
+     * and Distribution::support routines for all parameters of the Distribution and filling
+     * the result into the parameters \c mode, \c width and \c support
+     */
+    void fill_mode_support(theta::ParValues & mode, std::map<theta::ParId, std::pair<double, double> > & support, const theta::Distribution & d);
     
 }
 

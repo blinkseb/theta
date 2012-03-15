@@ -14,7 +14,8 @@ using namespace std;
 using namespace theta;
 
 namespace{
-    bool operator==(const Histogram1DWithUncertainties& h0, const Histogram1DWithUncertainties & h1){
+    
+bool operator==(const Histogram1DWithUncertainties& h0, const Histogram1DWithUncertainties & h1){
     if(h0.get_nbins()!=h1.get_nbins()) return false;
     if(h0.get_xmin()!=h1.get_xmin()) return false;
     if(h0.get_xmax()!=h1.get_xmax()) return false;
@@ -24,6 +25,18 @@ namespace{
     }
     return true;
 }
+
+bool operator==(const Histogram1D& h0, const Histogram1D & h1){
+    if(h0.get_nbins()!=h1.get_nbins()) return false;
+    if(h0.get_xmin()!=h1.get_xmin()) return false;
+    if(h0.get_xmax()!=h1.get_xmax()) return false;
+    for(size_t i=0; i<h0.get_nbins(); ++i){
+        if(h0.get(i)!=h1.get(i)) return false;
+    }
+    return true;
+}
+
+
 }
 
 BOOST_AUTO_TEST_SUITE(codegen)
@@ -37,9 +50,9 @@ BOOST_AUTO_TEST_CASE(llvm_function_wrapper){
     utils::fill_theta_dir(0);
     PropertyMap pm;
     pm.set("default", vm);
-    vm->createParId("p0");
-    ParId p1 = vm->createParId("p1");
-    vm->createParId("p2");
+    vm->create_par_id("p0");
+    ParId p1 = vm->create_par_id("p1");
+    vm->create_par_id("p2");
     ConfigCreator cc(
             "f0 = {type = \"exp_function\"; parameters = (\"p1\"); lambdas_plus = (0.2); lambdas_minus = (0.1); };\n"
             "llvm_f0 = {type = \"llvm_enable_function\"; function = \"@f0\";};\n"
@@ -71,9 +84,9 @@ BOOST_AUTO_TEST_CASE(llvm_multiply){
     utils::fill_theta_dir(0);
     PropertyMap pm;
     pm.set("default", vm);
-    vm->createParId("p0");
-    ParId p1 = vm->createParId("p1");
-    ParId p2 = vm->createParId("p2");
+    vm->create_par_id("p0");
+    ParId p1 = vm->create_par_id("p1");
+    ParId p2 = vm->create_par_id("p2");
     ConfigCreator cc(
             "f0 = {type = \"exp_function\"; parameters = (\"p1\"); lambdas_plus = (0.2); lambdas_minus = (0.1); };\n"
             "mul = {type = \"multiply\"; factors = (\"@f0\", \"p2\", 1.8); };\n"
@@ -103,9 +116,9 @@ BOOST_AUTO_TEST_CASE(llvm_exp_function){
     utils::fill_theta_dir(0);
     PropertyMap pm;
     pm.set("default", vm);
-    vm->createParId("p0");
-    ParId p1 = vm->createParId("p1");
-    ParId p2 = vm->createParId("p2");
+    vm->create_par_id("p0");
+    ParId p1 = vm->create_par_id("p1");
+    ParId p2 = vm->create_par_id("p2");
     ConfigCreator cc(
             "f = {type = \"exp_function\"; parameters = (\"p1\", \"p2\"); lambdas_plus = (0.1, 0.2); lambdas_minus = (0.1, 0.18); };\n"
             "llvm_f = {type = \"llvm_exp_function\"; parameters = \"@f.parameters\"; lambdas_plus = \"@f.lambdas_plus\"; lambdas_minus = \"@f.lambdas_minus\"; };\n"
@@ -146,8 +159,10 @@ BOOST_AUTO_TEST_CASE(constant_histo){
     BOOST_CHECKPOINT("building llvm_h");
     std::auto_ptr<HistogramFunction> llvm_h = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["llvm_h"]));
     BOOST_CHECKPOINT("evaluating");
-    const Histogram1DWithUncertainties & h = (*histo)(ParValues());
-    const Histogram1DWithUncertainties & h_l = (*llvm_h)(ParValues());
+    Histogram1DWithUncertainties h;
+    histo->apply_functor(copy_to<Histogram1DWithUncertainties>(h), ParValues());
+    Histogram1DWithUncertainties h_l;
+    llvm_h->apply_functor(copy_to<Histogram1DWithUncertainties>(h_l), ParValues());
     BOOST_REQUIRE(h.get_nbins() == h_l.get_nbins());
     for(size_t i=0; i<h_l.get_nbins(); ++i){
         BOOST_REQUIRE(h.get_value(i) == h_l.get_value(i));
@@ -169,12 +184,12 @@ BOOST_AUTO_TEST_CASE(model){
     ObsIds obs;
     const size_t nbins0 = 101;
     const size_t nbins1 = 50;
-    ParId beta1 = vm->createParId("beta1");
-    ParId beta2 = vm->createParId("beta2");
-    ParId delta0 = vm->createParId("delta0");
-    ParId delta1 = vm->createParId("delta1");
-    ObsId obs0 = vm->createObsId("obs0", nbins0, -1, 1);
-    ObsId obs1 = vm->createObsId("obs1", nbins1, -1, 1);
+    ParId beta1 = vm->create_par_id("beta1");
+    ParId beta2 = vm->create_par_id("beta2");
+    ParId delta0 = vm->create_par_id("delta0");
+    ParId delta1 = vm->create_par_id("delta1");
+    ObsId obs0 = vm->create_obs_id("obs0", nbins0, -1, 1);
+    ObsId obs1 = vm->create_obs_id("obs1", nbins1, -1, 1);
     pars.insert(beta1);
     pars.insert(beta2);
     obs.insert(obs0);
@@ -244,11 +259,11 @@ BOOST_AUTO_TEST_CASE(model){
     BOOST_CHECKPOINT("building model llvm_m");
     std::auto_ptr<Model> llvm_m = PluginManager<Model>::build(Configuration(cfg, cfg.setting["llvm_m"]));
     
-    BOOST_REQUIRE(m->getParameters() == llvm_m->getParameters());
-    BOOST_REQUIRE(m->getObservables() == llvm_m->getObservables());
+    BOOST_REQUIRE(m->get_parameters() == llvm_m->get_parameters());
+    BOOST_REQUIRE(m->get_observables() == llvm_m->get_observables());
         
-    DataWithUncertainties d;
-    DataWithUncertainties llvm_d;
+    Data d;
+    Data llvm_d;
     
     // calculate some predictions:
     ParValues vals;
@@ -262,8 +277,8 @@ BOOST_AUTO_TEST_CASE(model){
         vals.set(delta1, rnd.uniform() * 10 - 5);
         m->get_prediction(d, vals);
         llvm_m->get_prediction(llvm_d, vals);
-        BOOST_REQUIRE(d.getObservables().contains(obs0) && d.getObservables().contains(obs1));
-        BOOST_REQUIRE(d.getObservables() == llvm_d.getObservables());
+        BOOST_REQUIRE(d.get_observables().contains(obs0) && d.get_observables().contains(obs1));
+        BOOST_REQUIRE(d.get_observables() == llvm_d.get_observables());
         BOOST_CHECK(d[obs0] == llvm_d[obs0]);
         BOOST_CHECK(d[obs1] == llvm_d[obs1]);
     }
@@ -274,9 +289,8 @@ BOOST_AUTO_TEST_CASE(model){
     vals.set(beta2, 0.83);
     vals.set(delta0, 0.12);
     vals.set(delta1, -0.18);    
-    Data d_nou = strip_uncertainties(d);
-    std::auto_ptr<NLLikelihood> nll = m->getNLLikelihood(d_nou);
-    std::auto_ptr<NLLikelihood> llvm_nll = llvm_m->getNLLikelihood(d_nou);
+    std::auto_ptr<NLLikelihood> nll = m->get_nllikelihood(d);
+    std::auto_ptr<NLLikelihood> llvm_nll = llvm_m->get_nllikelihood(d);
     for(size_t i=0; i<50; ++i){
         vals.set(beta1, rnd.uniform() * 5);
         vals.set(beta2, rnd.uniform() * 5);

@@ -25,8 +25,8 @@ bool in_support(const ParValues & values, const std::map<theta::ParId, std::pair
 
 void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & model){
     if(not init){
-        ParIds model_pars = model.getParameters();
-        if(not (s_plus_b->getParameters() == model_pars) or not (b_only->getParameters() == model_pars)){
+        ParIds model_pars = model.get_parameters();
+        if(not (s_plus_b->get_parameters() == model_pars) or not (b_only->get_parameters() == model_pars)){
             throw std::invalid_argument("parameters in s+b / b only distributions do not coincide with model parameters");
         }
         s_plus_b_width.set(asimov_likelihood_widths(model, s_plus_b, additional_nll_term));
@@ -85,7 +85,7 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
     products_sink->set_product(c_nll_diff, nll_b - nll_sb);
 }
 
-void deltanll_hypotest::setParameterValues(const theta::ParValues & values){
+void deltanll_hypotest::set_parameter_values(const theta::ParValues & values){
     if(restrict_poi){
         poi_value = values.get(*restrict_poi);
     }
@@ -100,15 +100,15 @@ deltanll_hypotest::deltanll_hypotest(const theta::Configuration & cfg):
     b_only = theta::PluginManager<Distribution>::build(theta::Configuration(cfg, s["background-only-distribution"]));
     if(s.exists("restrict_poi")){
         boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
-        restrict_poi = vm->getParId(s["restrict_poi"]);
+        restrict_poi = vm->get_par_id(s["restrict_poi"]);
         par_ids.insert(*restrict_poi);
         default_poi_value = NAN;
         if(s.exists("default_poi_value")) default_poi_value = s["default_poi_value"];
         poi_value = default_poi_value;
     }
-    DistributionUtils::fillModeSupport(s_plus_b_mode, s_plus_b_support, *s_plus_b);
-    DistributionUtils::fillModeSupport(b_only_mode, b_only_support, *b_only);
-    if(not (b_only_mode.getParameters()==s_plus_b_mode.getParameters())){
+    fill_mode_support(s_plus_b_mode, s_plus_b_support, *s_plus_b);
+    fill_mode_support(b_only_mode, b_only_support, *b_only);
+    if(not (b_only_mode.get_parameters()==s_plus_b_mode.get_parameters())){
         throw ConfigurationException("parameters of the distributions 'signal-plus-background' and 'background-only' do not match");
     }
     c_nll_b = products_sink->declare_product(*this, "nll_b", theta::typeDouble);

@@ -42,7 +42,7 @@ public:
     // compile module and get function pointer
     void* getFunctionPointer(llvm::Function * function);
     
-    const theta::ParIds & getParameters() const{
+    const theta::ParIds & get_parameters() const{
         return pids;
     }
     
@@ -104,18 +104,19 @@ public:
  * };
  * \endcode
  */
-// there is also the boolean setting 'debug' which will run a small test on ech evaluation.
 class llvm_enable_histogram_function: public theta::HistogramFunction {
 private:
    std::auto_ptr<theta::HistogramFunction> hf;
    llvm_module m;
    t_hf_add_with_coeff llvmhf; // pointer to the llvm-generated function, called by operator()
    mutable theta::Histogram1D h0;
-   bool debug;
 public:
-   virtual const theta::Histogram1D & operator()(const theta::ParValues & values) const;
-   virtual theta::Histogram1D get_histogram_dimensions() const{
-       return hf->get_histogram_dimensions();
+    /// note: uncertainties are not supported, all uncertainties will be set to zero!
+   virtual void apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const;
+   virtual void apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const;
+   
+   virtual void get_histogram_dimensions(size_t & n, double & xmin, double & xmax) const{
+       hf->get_histogram_dimensions(n, xmin, xmax);
    }
    llvm_enable_histogram_function(const theta::Configuration & cfg);
 };

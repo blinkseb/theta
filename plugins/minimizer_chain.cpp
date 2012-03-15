@@ -22,7 +22,7 @@ MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues
     if(last_minimizer.get()){
         ParValues step2 = step;
         // set step2 to the errors from the minimization, if available:
-        const ParIds & pids = res.errors_plus.getParameters();
+        const ParIds & pids = res.errors_plus.get_parameters();
         for(ParIds::const_iterator it=pids.begin(); it!=pids.end(); ++it){
             double width = res.errors_plus.get(*it);
             if(width > 0)

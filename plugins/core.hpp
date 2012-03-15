@@ -98,8 +98,7 @@ public:
      */
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
-    virtual double evalNL(const theta::ParValues & values) const;
-    virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
+    virtual double eval_nl(const theta::ParValues & values) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
     ///@}
 private:
@@ -125,10 +124,6 @@ private:
  * \c type must always be "delta_distribution" to create an instance of this class.
  * 
  * Further, for every parameter, the fixed value is given.  
- * 
- * The evalNL and evalNLwithDerivatives will always return 0. Evaluating them with parameters
- * other than the specified ones is a bug from the caller side. However, no diagnostic is
- * performed for efficiency reasons.
  */
 class delta_distribution: public theta::Distribution{
 public:
@@ -137,8 +132,7 @@ public:
     
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
-    virtual double evalNL(const theta::ParValues & values) const;
-    virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
+    virtual double eval_nl(const theta::ParValues & values) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
     
 private:
@@ -194,8 +188,7 @@ public:
      */
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
-    virtual double evalNL(const theta::ParValues & values) const;
-    virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
+    virtual double eval_nl(const theta::ParValues & values) const;
     virtual const std::pair<double, double> & support(const theta::ParId&) const;
     ///@}
     
@@ -254,11 +247,9 @@ class gauss: public theta::Distribution{
 
         virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
         virtual void mode(theta::ParValues & result) const;
-        virtual double evalNL(const theta::ParValues & values) const;
-        virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
+        virtual double eval_nl(const theta::ParValues & values) const;
         virtual const std::pair<double, double> & support(const theta::ParId&) const;
         
-
     private:
         
         std::vector<theta::ParId> v_par_ids;
@@ -297,8 +288,7 @@ class gauss1d: public theta::Distribution{
 
         virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
         virtual void mode(theta::ParValues & result) const;
-        virtual double evalNL(const theta::ParValues & values) const;
-        virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
+        virtual double eval_nl(const theta::ParValues & values) const;
         virtual const std::pair<double, double> & support(const theta::ParId&) const;
         
     private:
@@ -334,8 +324,7 @@ public:
 
     virtual void sample(theta::ParValues & result, theta::Random & rnd) const;
     virtual void mode(theta::ParValues & result) const;
-    virtual double evalNL(const theta::ParValues & values) const;
-    virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const;
+    virtual double eval_nl(const theta::ParValues & values) const;
     virtual const std::pair<double, double> & support(const theta::ParId & p) const;
     
 

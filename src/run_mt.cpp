@@ -162,7 +162,7 @@ run_mt::run_mt(const Configuration & cfg){
         else if(loglevel=="debug")level = LogTable::debug;
         else{
             std::stringstream ss;
-            ss << "log level given in " << s["log-level"].getPath() << " unknown (given '" << loglevel << 
+            ss << "log level given in " << s["log-level"].get_path() << " unknown (given '" << loglevel << 
                   "'; only allowed values are 'error', 'warning', 'info' and 'debug')";
             throw ConfigurationException(ss.str());
         }

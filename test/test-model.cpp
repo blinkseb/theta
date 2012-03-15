@@ -16,6 +16,14 @@
 using namespace theta;
 using namespace std;
 
+namespace{
+    Histogram1DWithUncertainties apply(const HistogramFunction & hf, const ParValues & values){
+        Histogram1DWithUncertainties result;
+        hf.apply_functor(copy_to<Histogram1DWithUncertainties>(result), values);
+        return result;
+    }
+}
+
 
 BOOST_AUTO_TEST_SUITE(model_tests)
 
@@ -28,9 +36,9 @@ BOOST_AUTO_TEST_CASE(model0){
     ParIds pars;
     ObsIds obs;
     const size_t nbins = 100;
-    ParId beta1 = vm->createParId("beta1");
-    ParId beta2 = vm->createParId("beta2");
-    ObsId obs0 = vm->createObsId("obs0", nbins, -1, 1);
+    ParId beta1 = vm->create_par_id("beta1");
+    ParId beta2 = vm->create_par_id("beta2");
+    ObsId obs0 = vm->create_obs_id("obs0", nbins, -1, 1);
     pars.insert(beta1);
     pars.insert(beta2);
     obs.insert(obs0);
@@ -85,8 +93,8 @@ BOOST_AUTO_TEST_CASE(model0){
     std::auto_ptr<HistogramFunction> f_bkg_histo = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["flat-histo"]));
     
     ParValues values;
-    Histogram1DWithUncertainties signal = (*f_signal_histo)(values);
-    Histogram1DWithUncertainties background = (*f_bkg_histo)(values);
+    Histogram1DWithUncertainties signal = apply(*f_signal_histo,values);
+    Histogram1DWithUncertainties background = apply(*f_bkg_histo, values);
     
     values.set(beta1, 1.0);
     values.set(beta2, 0.0);
@@ -127,7 +135,7 @@ BOOST_AUTO_TEST_CASE(model0){
     BOOST_CHECKPOINT("check");
     data[obs0] = s.get_values_histogram();
     BOOST_CHECKPOINT("check2");
-    std::auto_ptr<NLLikelihood> nll = m->getNLLikelihood(data);
+    std::auto_ptr<NLLikelihood> nll = m->get_nllikelihood(data);
     BOOST_CHECKPOINT("check3");
     double x[2];
     x[0] = 0.9;

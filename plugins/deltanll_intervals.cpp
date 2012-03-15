@@ -18,7 +18,7 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     if(not start_step_ranges_init){
         const Distribution & d = nll->get_parameter_distribution();
-        DistributionUtils::fillModeSupport(start, ranges, d);
+        fill_mode_support(start, ranges, d);
         step.set(asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term));
         start_step_ranges_init = true;
     }
@@ -97,7 +97,7 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
 }
 
 deltanll_intervals::deltanll_intervals(const theta::Configuration & cfg): Producer(cfg),
-   pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])), re_minimize(true), start_step_ranges_init(false){
+   pid(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])), re_minimize(true), start_step_ranges_init(false){
     SettingWrapper s = cfg.setting;
     minimizer = theta::PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));
     size_t ic = s["clevels"].size();

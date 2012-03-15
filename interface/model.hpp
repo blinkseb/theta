@@ -82,15 +82,15 @@ namespace theta {
         
         /** \brief Get all parameters the model prediction depends upon
          */
-        const ParIds & getParameters() const;
+        const ParIds & get_parameters() const;
         
         /** \brief Get all observables the model models a template for
          */
-        const ObsIds & getObservables() const;
+        const ObsIds & get_observables() const;
         
         /** \brief Get all real-valued observables of the model
          */
-        const ParIds & getRVObservables() const;
+        const ParIds & get_rvobservables() const;
         
         /** \brief Creates a likelihood function object for this model, given the data.
          *
@@ -102,7 +102,7 @@ namespace theta {
          * The returned object is tightly coupled with this Model and the supplied data object. Ensure that both,
          * this Model's lifetime and the lifetime of \c data, exceed the lifetime of the returns NLLikelihood object.
          */
-        virtual std::auto_ptr<NLLikelihood> getNLLikelihood(const Data & data) const = 0;
+        virtual std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data) const = 0;
 
         /** \brief Fill the prediction for all observables, given parameter values
          *
@@ -110,6 +110,7 @@ namespace theta {
          *  The HistogramFunctions and coefficients are evaluated using the values in \c parameters.
          */
         virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const = 0;
+        virtual void get_prediction(Data & result, const ParValues & parameters) const = 0;
         
         /** \brief Returns a reference to the parameter distribution
          *
@@ -156,12 +157,14 @@ namespace theta {
         bool bb_uncertainties;
         
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
+        template<typename HT>
+        void get_prediction_impl(DataT<HT> & result, const ParValues & parameters) const;
         
      public:
         default_model(const Configuration & cfg);
-        //the pure virtual functions:
         virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const;
-        virtual std::auto_ptr<NLLikelihood> getNLLikelihood(const Data & data) const;
+        virtual void get_prediction(Data & result, const ParValues & parameters) const;
+        virtual std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data) const;
         
         virtual const Distribution & get_parameter_distribution() const {
            return *parameter_distribution;
@@ -255,11 +258,13 @@ namespace theta {
         boost::shared_ptr<Function> additional_term;
         boost::shared_ptr<Distribution> override_distribution;
 
-        //cached predictions:
-        mutable DataWithUncertainties predictions;
+        
         
         default_model_nll(const default_model & m, const Data & data, const ObsIds & obs);
-     };
+    private:
+        //cached predictions:
+        mutable Data predictions;
+    };
      
      // includes additive Barlow-Beeston uncertainties, where the extra nuisance parameters of this method (1 per bin) have been "profiled out".
      class default_model_bbadd_nll: public default_model_nll {
@@ -268,8 +273,9 @@ namespace theta {
          using Function::operator();
          virtual double operator()(const ParValues & values) const;
          
-     protected:         
+     private:
          default_model_bbadd_nll(const default_model & m, const Data & data, const ObsIds & obs);
+         mutable DataWithUncertainties predictions_wu;
      };
 }
 

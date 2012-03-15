@@ -4,11 +4,11 @@
 
 REGISTER_PLUGIN_BASETYPE(theta::Distribution);
 
-void theta::DistributionUtils::fillModeSupport(theta::ParValues & mode,
+void theta::fill_mode_support(theta::ParValues & mode,
                 std::map<theta::ParId, std::pair<double, double> > & support, const theta::Distribution & d){
-    ParIds pids = d.getParameters();
+    ParIds pids = d.get_parameters();
     d.mode(mode);
-    theta_assert(mode.getParameters()==pids);
+    theta_assert(mode.get_parameters()==pids);
     for(ParIds::const_iterator p_it=pids.begin(); p_it!=pids.end(); ++p_it){
         support[*p_it] = d.support(*p_it);
     }

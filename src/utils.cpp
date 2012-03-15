@@ -40,12 +40,12 @@ discard_output::~discard_output(){
     // restore original state by duplicating the saved descriptors
     // to 1 and 2:
     if(stdout_dup > 0){
-        int ret = dup2(stdout_dup, STDOUT_FILENO);
-        ret = close(stdout_dup);
+        dup2(stdout_dup, STDOUT_FILENO);
+        close(stdout_dup);
     }
     if(stderr_dup > 0){
-        int ret = dup2(stderr_dup, STDERR_FILENO);
-        ret = close(stderr_dup);
+        dup2(stderr_dup, STDERR_FILENO);
+        close(stderr_dup);
     }
 }
 

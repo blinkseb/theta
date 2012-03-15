@@ -39,8 +39,8 @@ BOOST_AUTO_TEST_CASE(minuit){
       return;
     }
     
-    ParId p0 = vm->createParId("p0");
-    ParId p1 = vm->createParId("p1");
+    ParId p0 = vm->create_par_id("p0");
+    ParId p1 = vm->create_par_id("p1");
     ParIds pars;
     pars.insert(p0);
     pars.insert(p1);

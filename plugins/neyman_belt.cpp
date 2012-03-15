@@ -520,20 +520,19 @@ void add_ordering_central_shortest(tto_ensemble & inp){
 void neyman_belt::add_ordering_fclike(tto_ensemble & ttos){
     ParValues mode;
     std::map<theta::ParId, std::pair<double, double> > support;
-    DistributionUtils::fillModeSupport(mode, support, model->get_parameter_distribution());
+    fill_mode_support(mode, support, model->get_parameter_distribution());
     //get the set of true values of the poi:
     set<double> truth_values = ttos.get_truth_values();
     map<double, map<double, double> > truth_to__ts_to_ordering;
-    DataWithUncertainties data_wu;
+    Data data;
     double stepsize = (truth_range.second - truth_range.first) / (truth_n - 1);
     tto_ensemble ensemble_for_interpolation;
     for(size_t i=0; i<truth_n; ++i){
         //use "i" to generate asimov data, calculate the ts and nll_best:
         double poi_value1 = truth_range.first + i * stepsize;
         mode.set(*poi, poi_value1);
-        model->get_prediction(data_wu, mode);
-        Data data = strip_uncertainties(data_wu);
-        std::auto_ptr<NLLikelihood> nll = model->getNLLikelihood(data);
+        model->get_prediction(data, mode);
+        std::auto_ptr<NLLikelihood> nll = model->get_nllikelihood(data);
         double nll_best = (*nll)(mode);
         if(!isfinite(nll_best)) continue;
         bool exception = false;
@@ -621,7 +620,7 @@ neyman_belt::neyman_belt(const Configuration & cfg): force_increasing_belt(false
         save_double_products.reset(new SaveDoubleProducts());
         cfg.pm->set<ProductsSink>("default", save_double_products);
         model = PluginManager<Model>::build(Configuration(cfg, cfg.setting["fclike_options"]["model"]));
-        poi.reset(new ParId(vm->getParId(cfg.setting["fclike_options"]["truth"])));
+        poi.reset(new ParId(vm->get_par_id(cfg.setting["fclike_options"]["truth"])));
         ts_producer = PluginManager<Producer>::build(Configuration(cfg, cfg.setting["fclike_options"]["ts_producer"]));
         //ts_name is the "module only" part of ts_column:
         size_t p = ts_column.find("__");

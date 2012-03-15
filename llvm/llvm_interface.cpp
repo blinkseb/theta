@@ -283,9 +283,10 @@ llvm::Function * create_llvm_histogram_function(const theta::HistogramFunction *
     if(const llvm_enabled<theta::HistogramFunction>* en = dynamic_cast<const llvm_enabled<theta::HistogramFunction>*>(hf)){
         result = en->llvm_codegen(mod, prefix);
     }
-    else if(hf->getParameters().size()==0){
-        const Histogram1D & h0 = (*hf)(ParValues());
-        GlobalVariable * gv_data = add_global_const_ddata(mod.module, prefix + "_data", h0.getData(), h0.size());
+    else if(hf->get_parameters().size()==0){
+        Histogram1D h0;
+        hf->apply_functor(copy_to<Histogram1D>(h0), ParValues());
+        GlobalVariable * gv_data = add_global_const_ddata(mod.module, prefix + "_data", h0.get_data(), h0.size());
         llvm::FunctionType * FT = get_ft_hf_add_with_coeff(mod);
         result = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, prefix + "_add_with_coeff", mod.module);
         llvm::Function * add_with_coeff = mod.module->getFunction("add_with_coeff");
@@ -312,6 +313,21 @@ llvm::Function * create_llvm_histogram_function(const theta::HistogramFunction *
 
 
 
+namespace{
+    
+    class add_to_vdouble: public functor<Histogram1D>{
+    private:
+        mutable double * data;
+        double coeff;
+    public:
+        add_to_vdouble(double * data_, double coeff_): data(data_), coeff(coeff_){}
+        virtual void operator()(const Histogram1D & h) const{
+            utils::add_fast_with_coeff(data, h.get_data(), coeff, h.size());
+        }
+    };
+    
+}
+
 // the callback functions llvm will call for Functions and HistogramFunctions which are not derived from llvm_enabled<T>:
 extern "C" {
 double codegen_f_evaluate(llvm_module* mod, void* fptr, const double * par_value);
@@ -319,14 +335,15 @@ void codegen_hf_add_with_coeff(llvm_module* mod, void* hfptr, double coeff, cons
 }
 
 double codegen_f_evaluate(llvm_module* mod, void* fptr, const double * par_values){
-    ParValues values(par_values, mod->getParameters());
+    ParValues values(par_values, mod->get_parameters());
     return static_cast<theta::Function*>(fptr)->operator()(values);
 }
 
 void codegen_hf_add_with_coeff(llvm_module* mod, void* hfptr, double coeff, const double * par_values, double * data){
-    ParValues values(par_values, mod->getParameters());
-    const Histogram1D & h = static_cast<theta::HistogramFunction*>(hfptr)->operator()(values);
-    utils::add_fast_with_coeff(data, h.getData(), coeff, h.size());
+    ParValues values(par_values, mod->get_parameters());
+    //const Histogram1D & h = static_cast<theta::HistogramFunction*>(hfptr)->operator()(values);
+    //utils::add_fast_with_coeff(data, h.get_data(), coeff, h.size());
+    static_cast<theta::HistogramFunction*>(hfptr)->apply_functor(add_to_vdouble(data, coeff), values);
 }
 
 
@@ -341,8 +358,8 @@ double llvm_enable_function::operator()(const theta::ParValues & values) const{
 }
 
 llvm_enable_function::llvm_enable_function(const theta::Configuration & cfg): f(PluginManager<theta::Function>::build(Configuration(cfg, cfg.setting["function"]))),
-   m(f->getParameters()){
-    par_ids = f->getParameters();
+   m(f->get_parameters()){
+    par_ids = f->get_parameters();
     llvm::Function * tmp_llvmf = create_llvm_function(f.get(), m, "enablef");
     llvmf = reinterpret_cast<t_function_evaluate>(m.getFunctionPointer(tmp_llvmf));
     if(llvmf==0){
@@ -351,38 +368,33 @@ llvm_enable_function::llvm_enable_function(const theta::Configuration & cfg): f(
 }
 
 /*  llvm_enable_histogram_function */
-const Histogram1D & llvm_enable_histogram_function::operator()(const theta::ParValues & values) const{
+void llvm_enable_histogram_function::apply_functor(const functor<Histogram1D> & f, const theta::ParValues & values) const{
     std::vector<double> v_values(par_ids.size());
     size_t i=0;
     for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
         v_values[i] = values.get(*it);
     }
-    h0.set_all_values(0.0);
-    llvmhf(1.0, &v_values[0], h0.getData());
-    if(debug){
-        Histogram1D h(h0.size());
-        for(size_t i=0; i<h0.size(); ++i){
-            h.set(i, i*0.89075 + 9765);
-        }
-        llvmhf(1.9076, &v_values[0], h.getData());
-        for(size_t i=0; i < h0.size(); ++i){
-            theta_assert(h.get(i) == (i*0.89075 + 9765) + 1.9076 * h0.get(i));
-        }
-    }
-    return h0;
+    h0.set_all_values(0.0);    llvmhf(1.0, &v_values[0], h0.get_data());
+    f(h0);
+}
+
+void llvm_enable_histogram_function::apply_functor(const functor<Histogram1DWithUncertainties> & f, const theta::ParValues & values) const{
+    Histogram1D h;
+    apply_functor(copy_to<Histogram1D>(h), values);
+    f(Histogram1DWithUncertainties(h));
 }
 
 llvm_enable_histogram_function::llvm_enable_histogram_function(const theta::Configuration & cfg):
-  hf(PluginManager<theta::HistogramFunction>::build(Configuration(cfg, cfg.setting["histogram_function"]))), m(hf->getParameters()), debug(false){
-  par_ids = hf->getParameters();
-  h0 = hf->get_histogram_dimensions();
+  hf(PluginManager<theta::HistogramFunction>::build(Configuration(cfg, cfg.setting["histogram_function"]))), m(hf->get_parameters()){
+  par_ids = hf->get_parameters();
+  size_t nbins;
+  double xmin, xmax;
+  hf->get_histogram_dimensions(nbins, xmin, xmax);
+  h0 = Histogram1D(nbins, xmin, xmax);
   llvm::Function * tmp_llvmf = create_llvm_histogram_function(hf.get(), m, "enablehf");
   llvmhf = reinterpret_cast<t_hf_add_with_coeff>(m.getFunctionPointer(tmp_llvmf));
   if(llvmhf==0){
       throw ConfigurationException("could not compile llvm");
-  }
-  if(cfg.setting.exists("debug")){
-      debug = cfg.setting["debug"];
   }
 }
 

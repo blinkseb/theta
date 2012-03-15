@@ -218,7 +218,7 @@ void sqlite_database::sqlite_table::add_row(const Row & row){
             blob_data[1] = h.get_xmax();
             //set underflow to 0.0:
             blob_data[2] = 0.0;
-            std::copy(h.getData(), h.getData() + h.size(), &blob_data[3]);
+            std::copy(h.get_data(), h.get_data() + h.size(), &blob_data[3]);
             //set overflow to 0.0:
             blob_data[h.get_nbins()+3] = 0.0;
             size_t nbytes = sizeof(double) * (h.get_nbins() + 4);

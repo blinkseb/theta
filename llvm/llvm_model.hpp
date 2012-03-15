@@ -18,7 +18,7 @@ class llvm_model_nll;
 
 // like default_model, with same configuration.
 // One additional parameter: llvm_always = true;  (default is false) will use the
-// compiled prediction function not only for likelihood construction but also for get_prediction.
+// compiled prediction function not only for likelihood construction but also for get_prediction(Data).
 class llvm_model: public theta::Model{
 friend class llvm_model_nll;
 private:
@@ -34,16 +34,21 @@ private:
     mutable t_model_get_prediction model_get_prediction;
     mutable std::auto_ptr<llvm_module> module;
     
+    size_t nbins_total;
+    
     void set_prediction(const theta::ObsId & obs_id, boost::ptr_vector<theta::Function> & coeffs, boost::ptr_vector<theta::HistogramFunction> & histos);
     // generate and compile llvm, fill mode_get_prediction function pointer.
     void generate_llvm() const;
+
+    template<typename HT>
+    void get_prediction_impl(theta::DataT<HT> & result, const theta::ParValues & parameters) const;
     
  public:
     llvm_model(const theta::Configuration & cfg);
     //the pure virtual functions:
-    virtual void get_prediction_randomized(theta::Random & rnd, theta::Data & result, const theta::ParValues & parameters) const;
     virtual void get_prediction(theta::Data & result, const theta::ParValues & parameters) const;
-    virtual std::auto_ptr<theta::NLLikelihood> getNLLikelihood(const theta::Data & data) const;
+    virtual void get_prediction(theta::DataWithUncertainties & result, const theta::ParValues & parameters) const;
+    virtual std::auto_ptr<theta::NLLikelihood> get_nllikelihood(const theta::Data & data) const;
     
     virtual const theta::Distribution & get_parameter_distribution() const {
        return *parameter_distribution;
@@ -67,9 +72,13 @@ public:
     virtual const theta::Distribution & get_parameter_distribution() const{
         if(override_distribution) return *override_distribution;
         else return model.get_parameter_distribution();
-    }        
+    }
 private:
     const llvm_model & model;
+    
+    void fill_par_ids_vec();
+    
+    std::vector<theta::ParId> par_ids_vec;
     
     theta::ParValues rvobs_values;
     
@@ -82,8 +91,9 @@ private:
     mutable theta::Histogram1D pred_concatenated;
     mutable std::vector<double> parameter_values;
     
-    llvm_model_nll(const llvm_model & m, const theta::Data & data, t_model_get_prediction model_get_prediction);
+    llvm_model_nll(const llvm_model & m, const theta::Data & data, t_model_get_prediction model_get_prediction, size_t nbins_total);
  };
 
 #endif
+
 

@@ -68,7 +68,7 @@ void root_ntuple_source::t_data::fill(const string & filename, const string & tr
 }
 
 
-root_ntuple_source::root_ntuple_source(const Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, getName()){
+root_ntuple_source::root_ntuple_source(const Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, get_name()){
     string filename = utils::replace_theta_dir(cfg.setting["filename"]);
     string treename;
     string relweight_branchname;
@@ -92,8 +92,8 @@ root_ntuple_source::root_ntuple_source(const Configuration & cfg): DataSource(cf
     size_t n_obs = so.size();
     vector<string> observable_branchnames;
     for(size_t i=0; i < n_obs; ++i){
-        string obs_name = so[i].getName();
-        ObsId oid = vm->getObsId(obs_name);
+        string obs_name = so[i].get_name();
+        ObsId oid = vm->get_obs_id(obs_name);
         observables.push_back(oid);
         // set the histogram in data:
         int nbins = so[i]["nbins"];

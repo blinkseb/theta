@@ -29,7 +29,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     if(not start_step_ranges_init){
         const Distribution & d = nll->get_parameter_distribution();
-        DistributionUtils::fillModeSupport(start, ranges, d);
+        fill_mode_support(start, ranges, d);
         step.set(asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term));
         start_step_ranges_init = true;
     }
@@ -42,7 +42,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     if(write_covariance){
        const size_t N = save_ids.size();
        Histogram1D h(N*N, 0, N*N);
-       ParIds pars = nll->getParameters();
+       const ParIds & pars = nll->get_parameters();
        for(size_t i=0; i<N; ++i){
            int index_i = get_index(save_ids[i], pars);
            for(size_t j=0; j<N; ++j){
@@ -53,7 +53,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
        products_sink->set_product(c_covariance, h);
     }
     if(write_ks_ts){
-        ObsIds obs = data.getObservables();
+        const ObsIds & obs = data.get_observables();
         DataWithUncertainties pred;
         model.get_prediction(pred, minres.values);
         double ks_ts = 0.0;
@@ -71,7 +71,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
         products_sink->set_product(c_ks_ts, ks_ts);
     }
     if(write_pchi2){
-        ObsIds obs = data.getObservables();
+        const ObsIds & obs = data.get_observables();
         DataWithUncertainties pred;
         model.get_prediction(pred, minres.values);
         double pchi2 = 0.0;
@@ -103,7 +103,7 @@ mle::mle(const theta::Configuration & cfg): Producer(cfg), start_step_ranges_ini
     size_t n_parameters = s["parameters"].size();
     for (size_t i = 0; i < n_parameters; i++) {
         string par_name = s["parameters"][i];
-        save_ids.push_back(vm->getParId(par_name));
+        save_ids.push_back(vm->get_par_id(par_name));
         parameter_names.push_back(par_name);
     }
     if(s.exists("write_covariance")){

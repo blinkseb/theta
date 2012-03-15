@@ -37,8 +37,8 @@ public:
       lambda(pid_lambda), limit(pid_limit), target_cls(target_cls_), x_values(x_values_), y_values(y_values_), inverse_covariance(inverse_covariance_){
         par_ids.insert(limit);
         par_ids.insert(lambda);
-        theta_assert(inverse_covariance.getRows() == inverse_covariance.getCols());
-        theta_assert(x_values.size()==inverse_covariance.getRows() && x_values.size()==y_values.size());
+        theta_assert(inverse_covariance.get_n_rows() == inverse_covariance.get_n_cols());
+        theta_assert(x_values.size()==inverse_covariance.get_n_rows() && x_values.size()==y_values.size());
     }
     
     double operator()(const ParValues & values) const{
@@ -470,11 +470,9 @@ void data_filler::fill(Data & dat, const ParId & truth_parameter, double truth_v
     model->get_parameter_distribution().sample(values, rnd);
     values.set(truth_parameter, truth_value);
     products_sink->set_product(truth_column, truth_value);
-    DataWithUncertainties dat_wu;
-    model->get_prediction(dat_wu, values);
-    dat = strip_uncertainties(dat_wu);
+    model->get_prediction(dat, values);
     //FIXME: should probably include Gaussian smearing ...
-    ObsIds observables = dat.getObservables();
+    ObsIds observables = dat.get_observables();
     for (ObsIds::const_iterator it = observables.begin(); it != observables.end(); it++) {
          randomize_poisson(dat[*it], rnd);
     }
@@ -489,7 +487,7 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
     if(pp_producer){
         ParValues values;
         values.set(truth_parameter, truth);
-        pp_producer->setParameterValues(values);
+        pp_producer->set_parameter_values(values);
     }
     else if(bkg_only && input_bonly_ts_pool.size() > 0){
         int n = min<int>(n_event, input_bonly_ts_pool.size());
@@ -511,13 +509,13 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
         } catch (Exception & ex) {
             error = true;
             std::stringstream ss;
-            ss << "Producer '" << producer->getName() << "' failed: " << ex.message << ".";
+            ss << "Producer '" << producer->get_name() << "' failed: " << ex.message << ".";
             logtable->append(runid, eventid, LogTable::error, ss.str());
             ++n_toy_errors;
         }
         catch(std::logic_error & f){
               stringstream ss;
-              ss << "Producer '" << producer->getName() << "': " << f.what();
+              ss << "Producer '" << producer->get_name() << "': " << f.what();
               throw logic_error(ss.str());
         }
         if(!error){
@@ -630,8 +628,8 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
 }
 
 
-cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->getParId(cfg.setting["truth_parameter"])),
-  runid(1), n_toys(0), n_toy_errors(0), n_toys_total(-1), pid_limit(vm->createParId("__limit")), pid_lambda(vm->createParId("__lambda")), 
+cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->get_par_id(cfg.setting["truth_parameter"])),
+  runid(1), n_toys(0), n_toy_errors(0), n_toys_total(-1), pid_limit(vm->create_par_id("__limit")), pid_lambda(vm->create_par_id("__lambda")), 
   expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95){
     SettingWrapper s = cfg.setting;
 
@@ -684,7 +682,7 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
     producer = PluginManager<Producer>::build(Configuration(cfg, s["producer"]));
     pp_producer = dynamic_cast<ParameterDependentProducer*>(producer.get()); // either 0 or identical to producer ...
     if(pp_producer){
-        ParIds pars = pp_producer->getParameters();
+        ParIds pars = pp_producer->get_parameters();
         if(pars.size() == 0){
            // not parameter dependent after all:
            pp_producer = 0;
@@ -746,7 +744,7 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
                 input_poi_colname = static_cast<string>(s2["poi_column"]);
             }
             else{
-                input_poi_colname =  producer->getName() + "__poi";
+                input_poi_colname =  producer->get_name() + "__poi";
             }
         }
     }
@@ -879,7 +877,7 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
         if(pp_producer){
             ParValues vals;
             vals.set(truth_parameter, *it);
-            pp_producer->setParameterValues(vals);
+            pp_producer->set_parameter_values(vals);
         }
         try {
             producer->produce(current_data, *model);

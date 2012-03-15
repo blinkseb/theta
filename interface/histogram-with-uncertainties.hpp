@@ -70,6 +70,11 @@ public:
         return values.get(i);
     }
     
+    // alias for get_value:
+    double get(size_t i) const{
+        return values.get(i);
+    }
+    
     double get_uncertainty(size_t i) const{
         if(nontrivial_unc){
             return std::sqrt(sq_uncertainties.get(i));
@@ -92,11 +97,14 @@ public:
         return Histogram1D(xmin, xmax, values);
     }
     
-    void set(size_t i, double value, double uncertainty){
+    // setting uncertainty to NAN leaves it unchanged.
+    void set(size_t i, double value, double uncertainty = NAN){
         values.set(i, value);
-        if(uncertainty != 0){
-            set_nontrivial_unc();
-            sq_uncertainties.set(i, uncertainty * uncertainty);
+        if(!std::isnan(uncertainty)){
+            if(nontrivial_unc || uncertainty!=0){
+                set_nontrivial_unc();
+                sq_uncertainties.set(i, uncertainty * uncertainty);
+            }
         }
     }
     

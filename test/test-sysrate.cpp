@@ -17,10 +17,10 @@ BOOST_AUTO_TEST_CASE(sysrate0){
     load_core_plugins();
     
     boost::shared_ptr<VarIdManager> vm(new VarIdManager);
-    ParId delta1 = vm->createParId("delta1");
-    ParId delta2 = vm->createParId("delta2");
-    ParId beta1 = vm->createParId("beta1");
-    ParId beta2 = vm->createParId("beta2");
+    ParId delta1 = vm->create_par_id("delta1");
+    ParId delta2 = vm->create_par_id("delta2");
+    ParId beta1 = vm->create_par_id("beta1");
+    ParId beta2 = vm->create_par_id("beta2");
     
     //boost::ptr_vector<Function> coeffs;
     BOOST_CHECKPOINT("parsing config");

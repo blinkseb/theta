@@ -47,23 +47,14 @@ public:
     /** \brief Constructor used by the plugin system to build an instance from settings in a configuration file
      */
     linear_histo_morph(const theta::Configuration & ctx);
-        
-    /** Returns the interpolated Histogram as documented in the class documentation.
-     * throws a NotFoundException if a parameter is missing.
-     */
-    virtual const theta::Histogram1DWithUncertainties & operator()(const theta::ParValues & values) const;
-
-    /// Return a Histogram of the same dimensions as the one returned by operator()
-    virtual theta::Histogram1DWithUncertainties get_histogram_dimensions() const{
-        return h_wu;
-    }
+    
+    
+    virtual void apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const;
+    virtual void apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const;
+    virtual void get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const;
     
 private:
-    /** \brief Build a (constant) Histogram from a Setting block.
-    *
-    * Will throw an InvalidArgumentException if the Histogram is not constant.
-    */
-    static theta::Histogram1D getConstantHistogram(const theta::Configuration & ctx, theta::SettingWrapper s);
+    void fill_h(const theta::ParValues & values) const;
     
     theta::Histogram1D h0;
     double h0exp;

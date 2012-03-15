@@ -8,18 +8,18 @@ add::add(const Configuration & cfg): literal_addend(0.0){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     size_t n = cfg.setting["addends"].size();
     for(size_t i=0; i<n; ++i){
-        libconfig::Setting::Type t = cfg.setting["addends"][i].getType();
+        libconfig::Setting::Type t = cfg.setting["addends"][i].get_type();
         if(t==libconfig::Setting::TypeFloat){
             literal_addend += static_cast<double>(cfg.setting["addends"][i]);
         }
         else if(t==libconfig::Setting::TypeString){
-           ParId pid = vm->getParId(cfg.setting["addends"][i]);
+           ParId pid = vm->get_par_id(cfg.setting["addends"][i]);
            v_pids.push_back(pid);
            par_ids.insert(pid);
         }
         else if(t==libconfig::Setting::TypeGroup){
             std::auto_ptr<Function> f = PluginManager<Function>::build(Configuration(cfg, cfg.setting["addends"][i]));
-            const ParIds & f_p = f->getParameters();
+            const ParIds & f_p = f->get_parameters();
             par_ids.insert(f_p.begin(), f_p.end());
             functions.push_back(f);
         }

@@ -88,10 +88,10 @@ public:
      * 
      * In case of size()==0, returns a NULL pointer.
      */
-    const double* getData() const{
+    const double* get_data() const{
         return data;
     }
-    double* getData() {
+    double* get_data() {
         return data;
     }
     ///@}

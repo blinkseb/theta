@@ -129,19 +129,19 @@ namespace theta{
              * same as libconfig::Setting::getName. In case the setting has no name,
              * the special string "&lt;noname&gt;" is returned.
              */
-            std::string getName() const;
+            std::string get_name() const;
             
             /** \brief Returns the configuration file path of the current setting
              *
              * same as libconfig::Setting::getPath
              */
-            std::string getPath() const;
+            std::string get_path() const;
             
             /** \brief Returns the type of the setting
              *
              * See libconfig documentation for details.
              */
-            libconfig::Setting::Type getType() const;
+            libconfig::Setting::Type get_type() const;
             
             /** \brief Construct a SettingWrapper from a Setting, the root Setting and a setting recorder
              *

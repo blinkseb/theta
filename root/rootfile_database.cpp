@@ -68,7 +68,7 @@ rootfile_database::~rootfile_database() {
            TH1D * root_histo = new TH1D(hist_infos[i].name.c_str(), hist_infos[i].name.c_str(), nbins = hist_infos[i].h.get_nbins(),
                                         hist_infos[i].h.get_xmin(), hist_infos[i].h.get_xmax());
            for(size_t ibin=0; ibin<nbins; ++ibin){
-               root_histo->SetBinContent(ibin+1, hist_infos[i].h.getData()[i]);
+               root_histo->SetBinContent(ibin+1, hist_infos[i].h.get(i));
            }
            root_histo->SetDirectory(dir);
        }
@@ -154,9 +154,8 @@ void rootfile_database::rootfile_table::add_row(const Row & row){
         if(is_histo){
             const Histogram1D & h = row.get_column_histogram(it->first);
             it->second.data.h->SetBins(h.get_nbins(), h.get_xmin(), h.get_xmax());
-            const double * data = h.getData();
             for(size_t i=0; i<h.get_nbins(); ++i){
-                it->second.data.h->SetBinContent(i+1, data[i]);
+                it->second.data.h->SetBinContent(i+1, h.get(i));
             }
         }
     }

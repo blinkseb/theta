@@ -69,7 +69,7 @@ RandomConsumer::~RandomConsumer(){}
 
 void theta::randomize_poisson(DoubleVector & d, Random & rnd){
     const size_t n = d.size();
-    double * data = d.getData();
+    double * data = d.get_data();
     for(size_t i=0; i<n; ++i){
         double mu = data[i];
         if(mu > 0.){

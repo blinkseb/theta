@@ -24,7 +24,7 @@ public:
      * Returns those observable ids for which there was previously
      * a Histogram1D saved via the operator[].
      */
-    ObsIds getObservables() const{
+    ObsIds get_observables() const{
         ObsIds result;
         typename std::vector<HT>::const_iterator it = data.begin();
         size_t i=0;
@@ -52,11 +52,11 @@ public:
     }
     ///@}
     
-    const theta::ParValues & getRVObsValues() const{
+    const theta::ParValues & get_rvobs_values() const{
         return rvobs_values;
     }
     
-    void setRVObsValues(const theta::ParValues & values){
+    void set_rvobs_values(const theta::ParValues & values){
         rvobs_values = values;
     }
     
@@ -74,8 +74,6 @@ private:
     theta::ParValues rvobs_values;
 };
 
-Data strip_uncertainties(const DataWithUncertainties & data);
-            
 }
 
 #endif

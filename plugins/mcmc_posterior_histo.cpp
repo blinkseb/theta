@@ -99,12 +99,14 @@ private:
 
 
 void mcmc_posterior_histo::produce(const Data & data, const Model & model) {
+    std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
+    
     if(!init){
         try{
             //get the covariance for average data:
             sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, additional_nll_term);
             //find ipars:
-            ParIds nll_pars = model.getParameters();
+            ParIds nll_pars = nll->get_parameters();
             ipars.resize(parameters.size());
             for(size_t i=0; i<parameters.size(); ++i){
                 for(ParIds::const_iterator it=nll_pars.begin(); it!=nll_pars.end(); ++it, ++ipars[i]){
@@ -119,7 +121,6 @@ void mcmc_posterior_histo::produce(const Data & data, const Model & model) {
         }
     }
     
-    std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     if(!smooth){
         MCMCPosteriorHistoResult result(ipars, nll->getnpar(), nbins, lower, upper);
         metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
@@ -143,7 +144,7 @@ void mcmc_posterior_histo::declare_products(){
 }
 
 
-mcmc_posterior_histo::mcmc_posterior_histo(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
+mcmc_posterior_histo::mcmc_posterior_histo(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, get_name()),
         init(false), smooth(false){
     SettingWrapper s = cfg.setting;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
@@ -151,7 +152,7 @@ mcmc_posterior_histo::mcmc_posterior_histo(const theta::Configuration & cfg): Pr
     for(size_t i=0; i<n; ++i){
         string parameter_name = s["parameters"][i];
         parameter_names.push_back(parameter_name);
-        parameters.push_back(vm->getParId(parameter_name));
+        parameters.push_back(vm->get_par_id(parameter_name));
         nbins.push_back(static_cast<unsigned int>(s["histo_" + parameter_name]["nbins"]));
         lower.push_back(s["histo_" + parameter_name]["range"][0]);
         upper.push_back(s["histo_" + parameter_name]["range"][1]);

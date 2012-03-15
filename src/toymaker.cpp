@@ -35,13 +35,13 @@ void ToyMaker::run(int n_event, atomic_int * toy_count, atomic_int * toy_error_c
             } catch (Exception & ex) {
                 error = true;
                 std::stringstream ss;
-                ss << "Producer '" << producers[j].getName() << "' failed: " << ex.message << ".";
+                ss << "Producer '" << producers[j].get_name() << "' failed: " << ex.message << ".";
                 log_messages.push_back(LogMessage(eventid, LogTable::error, ss.str()));
                 break;
             }
             catch(std::logic_error & f){
                 stringstream ss;
-                ss << "Producer '" << producers[j].getName() << "': " << f.what();
+                ss << "Producer '" << producers[j].get_name() << "': " << f.what();
                 throw logic_error(ss.str());
             }
         }

@@ -60,20 +60,19 @@ public:
      */
     cubiclinear_histomorph(const theta::Configuration & ctx);
     
-    virtual const theta::Histogram1DWithUncertainties & operator()(const theta::ParValues & values) const;
+    virtual void apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const;
+    virtual void apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const;
     
-    virtual theta::Histogram1DWithUncertainties get_histogram_dimensions() const{
-       return h0;
-    }
+    virtual void get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const;
     
 private:
-    /** \brief Build a (constant) Histogram from a Setting block.
-    *
-    * Will throw an InvalidArgumentException if the Histogram is not constant.
-    */
-    static theta::Histogram1DWithUncertainties getConstantHistogram(const theta::Configuration & ctx, theta::SettingWrapper s);
+    // add the morph terms to the "nominal" histogram t.
+    // make this a template so we can re-use code for bothe the version with and without uncertainties.
+    template<typename HT>
+    void add_morph_terms(HT & t, const theta::ParValues & values) const;
     
-    theta::Histogram1DWithUncertainties h0;
+    theta::Histogram1DWithUncertainties h0_wu;
+    theta::Histogram1D h0;
     double h0_sum;
     
     //the interpolation parameters used to interpolate between hplus and hminus.
@@ -91,6 +90,7 @@ private:
     //intermediate histogram for operator()
     mutable theta::Histogram1D diff_total;
     mutable theta::Histogram1DWithUncertainties h_wu;
+    mutable theta::Histogram1D h;
 };
 
 #endif

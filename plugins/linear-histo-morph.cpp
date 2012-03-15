@@ -5,7 +5,8 @@ using namespace std;
 using namespace theta;
 using namespace libconfig;
 
-const Histogram1DWithUncertainties & linear_histo_morph::operator()(const ParValues & values) const {
+
+void linear_histo_morph::fill_h(const ParValues & values) const {
     h.set_all_values(1.0);
     const size_t n_sys = kappa_plus.size();
     //1. interpolate linearly in each bin; also calculate normalization
@@ -32,8 +33,23 @@ const Histogram1DWithUncertainties & linear_histo_morph::operator()(const ParVal
     h *= h0exp / h.get_sum();
     //3.b. apply scale uncertainty
     h *= scale_unc;
+}
+
+void linear_histo_morph::apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const{
+    fill_h(values);
     h_wu.set(h);
-    return h_wu;
+    f(h_wu);
+}
+
+void linear_histo_morph::apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const{
+    fill_h(values);
+    f(h);
+}
+
+void linear_histo_morph::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{
+    nbins = h0.get_nbins();
+    xmin = h0.get_xmin();
+    xmax = h0.get_xmax();
 }
 
 linear_histo_morph::linear_histo_morph(const Configuration & ctx){
@@ -42,15 +58,15 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
     size_t n = psetting.size();
     for(size_t i=0; i<n; i++){
         string par_name = psetting[i];
-        ParId pid = vm->getParId(par_name);
+        ParId pid = vm->get_par_id(par_name);
         par_ids.insert(pid);
         parameters.push_back(pid);
         if(ctx.setting.exists(par_name + "-kappa-plus-histogram"))
-           kappa_plus.push_back(getConstantHistogram(ctx, ctx.setting[par_name + "-kappa-plus-histogram"] ));
+           kappa_plus.push_back(get_constant_histogram(Configuration(ctx, ctx.setting[par_name + "-kappa-plus-histogram"])).get_values_histogram());
         else
            kappa_plus.push_back(Histogram1D());
         if(ctx.setting.exists(par_name + "-kappa-minus-histogram"))
-            kappa_minus.push_back(getConstantHistogram(ctx, ctx.setting[par_name + "-kappa-minus-histogram"] ));
+            kappa_minus.push_back(get_constant_histogram(Configuration(ctx, ctx.setting[par_name + "-kappa-minus-histogram"])).get_values_histogram());
         else
            kappa_minus.push_back(Histogram1D());
         if(ctx.setting.exists(par_name + "-plus-relexp"))
@@ -64,7 +80,7 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
     }    
     const size_t nsys = kappa_plus.size();
     std::set<ParId> pid_set;
-    h0 = getConstantHistogram(ctx, ctx.setting["nominal-histogram"]);
+    h0 = get_constant_histogram(Configuration(ctx, ctx.setting["nominal-histogram"])).get_values_histogram();
     h = h0;
     for(size_t i=0; i < nsys; i++){
         pid_set.insert(parameters[i]);
@@ -80,16 +96,6 @@ linear_histo_morph::linear_histo_morph(const Configuration & ctx){
     h0 *= h0exp / h0.get_sum();
     h = h0;
     h_wu.set(h);
-}
-
-Histogram1D linear_histo_morph::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
-    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, s));
-    if(hf->getParameters().size()!=0){
-        stringstream ss;
-        ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
-        throw invalid_argument(ss.str());
-    }
-    return (*hf)(ParValues()).get_values_histogram();
 }
 
 REGISTER_PLUGIN(linear_histo_morph)

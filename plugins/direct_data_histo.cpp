@@ -6,12 +6,12 @@ direct_data_histo::direct_data_histo(const theta::Configuration & cfg){
    double xmax = cfg.setting["range"][1];
    theta::Histogram1DWithUncertainties h(nbins, xmin, xmax);
    if(cfg.setting["data"].size() != nbins){
-      throw theta::ConfigurationException("The length of " + cfg.setting["data"].getPath() + " and the nbins setting are inconsistent.");
+      throw theta::ConfigurationException("The length of " + cfg.setting["data"].get_path() + " and the nbins setting are inconsistent.");
    }
    bool have_uncertainties = false;
    if(cfg.setting.exists("uncertainties")){
        if(cfg.setting["uncertainties"].size() != nbins){
-           throw theta::ConfigurationException("The length of " + cfg.setting["uncertainties"].getPath() + " and the nbins setting are inconsistent.");
+           throw theta::ConfigurationException("The length of " + cfg.setting["uncertainties"].get_path() + " and the nbins setting are inconsistent.");
        }
        have_uncertainties = true;
    }

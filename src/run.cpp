@@ -40,14 +40,14 @@ void Run::run(){
             } catch (Exception & ex) {
                 error = true;
                 std::stringstream ss;
-                ss << "Producer '" << producers[j].getName() << "' failed: " << ex.message << ".";
+                ss << "Producer '" << producers[j].get_name() << "' failed: " << ex.message << ".";
                 logtable->append(runid, eventid, LogTable::error, ss.str());
                 ++n_errors;
                 break;
             }
             catch(std::logic_error & f){
                 stringstream ss;
-                ss << "Producer '" << producers[j].getName() << "': " << f.what();
+                ss << "Producer '" << producers[j].get_name() << "': " << f.what();
                 throw logic_error(ss.str());
             }
         }
@@ -113,7 +113,7 @@ Run::Run(const Configuration & cfg){
         else if(loglevel=="debug")level = LogTable::debug;
         else{
             std::stringstream ss;
-            ss << "log level given in " << s["log-level"].getPath() << " unknown (given '" << loglevel << 
+            ss << "log level given in " << s["log-level"].get_path() << " unknown (given '" << loglevel << 
                   "'; only allowed values are 'error', 'warning', 'info' and 'debug')";
             throw ConfigurationException(ss.str());
         }

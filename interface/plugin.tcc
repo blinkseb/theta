@@ -53,7 +53,7 @@ std::auto_ptr<product_type> PluginManager<product_type>::build(const Configurati
     if(type==""){
         if(!ctx.setting.exists("type")) type = "default";
         else type = static_cast<std::string>(ctx.setting["type"]);
-        if(type=="") throw ConfigurationException("Error while constructing plugin: empty 'type' setting given in path '" + ctx.setting.getPath() + "'");
+        if(type=="") throw ConfigurationException("Error while constructing plugin: empty 'type' setting given in path '" + ctx.setting.get_path() + "'");
         if(pm.pb.get()){
             result = pm.pb->build(ctx, type);
         }
@@ -65,7 +65,7 @@ std::auto_ptr<product_type> PluginManager<product_type>::build(const Configurati
                result = pm.factories[i]->build(ctx);
            }catch (theta::Exception & ex) {
                std::stringstream ss;
-               ss << "Error while constructing plugin according to configuration path '" << ctx.setting.getPath()
+               ss << "Error while constructing plugin according to configuration path '" << ctx.setting.get_path()
                    << "' (type='" << type << "'): " << ex.message;
                throw ConfigurationException(ss.str());
            }
@@ -73,7 +73,7 @@ std::auto_ptr<product_type> PluginManager<product_type>::build(const Configurati
     }
     if(result.get()==0){
        std::stringstream ss;
-       ss << "Error while constructing plugin according to configuration path '" << ctx.setting.getPath()
+       ss << "Error while constructing plugin according to configuration path '" << ctx.setting.get_path()
           << "': no plugin registered to create type='" << type << "'. Check spelling of the "
           "type and make sure to load all necessary plugin files via the setting 'options.plugin_files'";
        throw ConfigurationException(ss.str());

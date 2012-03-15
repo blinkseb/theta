@@ -194,39 +194,27 @@ namespace theta {
          * If the name is already used for another parameter / observable, an InvalidArgumentException is thrown.
          * In case of nbins==0 or xmax < xmin, an InvalidArgumentException will be thrown.
          */
-        ParId createParId(const std::string & name, const std::string & type = "par");
-        ObsId createObsId(const std::string & name, size_t nbins, double xmin, double xmax);
+        ParId create_par_id(const std::string & name, const std::string & type = "par");
+        ObsId create_obs_id(const std::string & name, size_t nbins, double xmin, double xmax);
         //@}
-        
-        //@{
-        /** \brief Returns whether the given name is already used as parameter / observable name.
-         *
-         * Note that parameters and observables are different things in theta and it is possible
-         * (although not recommended) to have the same name for a parameter and an observable.
-         *
-         * Names are case-sensitive.
-         */
-        bool parNameExists(const std::string & name) const;
-        bool obsNameExists(const std::string & name) const;
-        //@}
-        
+                
         //@{
         /** \brief Return the name of the given ParId or ObsId.
          *
          * If the id is not known, a std::invalid_argument is thrown.
          */
-        std::string getName(const ParId & id) const;
-        std::string getName(const ObsId & id) const;
+        std::string get_name(const ParId & id) const;
+        std::string get_name(const ObsId & id) const;
         //@}
         
         /// Return the type of this parameter
-        std::string getType(const ParId & id) const;
+        std::string get_type(const ParId & id) const;
         
         //@{
         /** \brief Return the number of bins and range for an observable identified by the ObsId id.
          */
-        size_t getNbins(const ObsId & id) const;
-        const std::pair<double, double> & getRange(const ObsId & id) const;
+        size_t get_nbins(const ObsId & id) const;
+        const std::pair<double, double> & get_range(const ObsId & id) const;
         //@}
         
         //@{
@@ -236,15 +224,15 @@ namespace theta {
          *
          * If you merely want to test whether a name already exists, use parNameExists and obsNameExists
          */
-        ParId getParId(const std::string & name) const;
-        ObsId getObsId(const std::string & name) const;
+        ParId get_par_id(const std::string & name) const;
+        ObsId get_obs_id(const std::string & name) const;
         //@}
         
         //@{
         /** Returns all currently defined ParId or ObsId identifiers as ParIds or ObsIds
          */
-        ParIds getAllParIds() const;
-        ObsIds getAllObsIds() const;
+        ParIds get_all_parameters() const;
+        ObsIds get_all_observables() const;
         //@}
         
         /** \brief Create an empty VarIdManager with no registered variables.
@@ -358,22 +346,6 @@ namespace theta {
                  values[i] = rhs.values[i];
              }
          }
-        
-        /** \brief Add a value to a parameter.
-         *
-         * Same as \c set(pid, get(pid) + delta), but faster. Throws invalid_argument if not value
-         * was set for \c pid before.
-         *
-         * \param pid The parameter to change.
-         * \param delta The value to add to the parameter. 
-         */
-        void addTo(const ParId & pid, double delta){
-            const size_t id = pid.id;
-            if(id >= values.size() || std::isnan(values[id])){
-                throw std::invalid_argument("ParValues::addTo: given ParId not found.");
-            }
-            values[id] += delta;
-        }
 
         /** \brief Retrieve the current value of a parameter.
          *
@@ -422,7 +394,7 @@ namespace theta {
 
         /** \brief Return all \c ParIds of the variables in this \c VarValues.
          */
-        ParIds getParameters() const;
+        ParIds get_parameters() const;
 
     private:
         //values are stored using the ParId.id as index

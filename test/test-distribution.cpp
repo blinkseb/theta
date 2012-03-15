@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE(distribution_lognormal){
     ss_config << "mu = 2.0; sigma = 0.5; parameter = \"var0\"; type=\"log_normal\";";
     ConfigCreator cc(ss_config.str(), vm);    
     
-    ParId var0 = vm->createParId("var0");
+    ParId var0 = vm->create_par_id("var0");
     
     BOOST_TEST_CHECKPOINT("building lognormal");
     std::auto_ptr<Distribution> d = PluginManager<Distribution>::build(cc.get());
@@ -32,13 +32,13 @@ BOOST_AUTO_TEST_CASE(distribution_lognormal){
     //must return +infinity for argument < 0:
     ParValues values;
     values.set(var0, -1.0);
-    double result = d->evalNL(values);
+    double result = d->eval_nl(values);
     BOOST_CHECK(isinf(result) and result>0);
     values.set(var0, -10.0);
-    result = d->evalNL(values);
+    result = d->eval_nl(values);
     BOOST_CHECK(isinf(result) and result>0);
     values.set(var0, -0.01);
-    result = d->evalNL(values);
+    result = d->eval_nl(values);
     BOOST_CHECK(isinf(result) and result>0);
     //calculate independently some values and compare. Comparison
     // is meaningful only for ratios, as the results from Distribution are
@@ -48,13 +48,13 @@ BOOST_AUTO_TEST_CASE(distribution_lognormal){
     double lognormal_mu = 1.0/mu * exp(-0.5*tmp*tmp); // forget about the factor 1 over sigma sqrt (2 pi) ...
     //same on d:
     values.set(var0, mu);
-    double lognormal_mu_d = d->evalNL(values);
+    double lognormal_mu_d = d->eval_nl(values);
     for(double x=0.1; x<10.0; x+=0.1){
         tmp = (utils::log(x) - mu)/sigma;
         double lognormal_x = 1.0/x * exp(-0.5*tmp*tmp);
         //the same on the Distribution object:
         values.set(var0, x);
-        double lognormal_x_d = d->evalNL(values);
+        double lognormal_x_d = d->eval_nl(values);
         BOOST_CHECK(close_to(-utils::log(lognormal_x / lognormal_mu), lognormal_x_d - lognormal_mu_d, 10));
     }
     std::auto_ptr<RandomSource> rnd_src(new RandomSourceTaus());

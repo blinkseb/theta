@@ -25,19 +25,14 @@ pseudodata_writer::pseudodata_writer(const theta::Configuration & cfg): Producer
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     observables.reserve(n);
     for(size_t i=0; i<n; i++){
-        observables.push_back(vm->getObsId(cfg.setting["observables"][i]));
+        observables.push_back(vm->get_obs_id(cfg.setting["observables"][i]));
     }
     write_data = cfg.setting["write-data"];
-    declare_products(vm);
-}
-
-void pseudodata_writer::declare_products(const boost::shared_ptr<VarIdManager> & vm){
-   for(size_t i=0; i<observables.size(); ++i){
-        n_events_columns.push_back(products_sink->declare_product(*this, "n_events_" + vm->getName(observables[i]), theta::typeDouble));
+    for(size_t i=0; i<observables.size(); ++i){
+        n_events_columns.push_back(products_sink->declare_product(*this, "n_events_" + vm->get_name(observables[i]), theta::typeDouble));
         if(write_data)
-            data_columns.push_back(products_sink->declare_product(*this, "data_" + vm->getName(observables[i]), theta::typeHisto));
+            data_columns.push_back(products_sink->declare_product(*this, "data_" + vm->get_name(observables[i]), theta::typeHisto));
     }
 }
-
 
 REGISTER_PLUGIN(pseudodata_writer)

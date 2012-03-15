@@ -46,7 +46,6 @@ public:
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
 private:
-    void declare_products(const boost::shared_ptr<theta::VarIdManager> & vm);
     
     std::vector<theta::ObsId> observables;
     std::vector<theta::Column> n_events_columns;

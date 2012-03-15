@@ -28,7 +28,7 @@ bool nameOk(const std::string & name){
 }
 
 Column ProductsSink::declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type){
-    std::string fullname = source.getName() + "__" + product_name;
+    std::string fullname = source.get_name() + "__" + product_name;
     return declare_column(fullname, type);
 }
 
@@ -43,7 +43,7 @@ const std::map<std::string, std::pair<Column, data_type> > & ProductsSink::get_n
 }
 
 
-const std::string & ProductsSource::getName() const{
+const std::string & ProductsSource::get_name() const{
    return name;
 }
 
@@ -69,16 +69,16 @@ Producer::Producer(const Configuration & cfg): ProductsSource(cfg){
 Producer::~Producer(){}
 
 std::auto_ptr<NLLikelihood> Producer::get_nllikelihood(const Data & data, const Model & model){
-    std::auto_ptr<NLLikelihood> nll = model.getNLLikelihood(data);
+    std::auto_ptr<NLLikelihood> nll = model.get_nllikelihood(data);
     if(override_parameter_distribution){
-        ParIds pars = model.getParameters();
+        ParIds pars = model.get_parameters();
         if(additional_nll_term.get()){
-            const ParIds & additional_pars  = additional_nll_term->getParameters();
+            const ParIds & additional_pars  = additional_nll_term->get_parameters();
             pars.insert(additional_pars.begin(), additional_pars.end());
         }
-        if(!(override_parameter_distribution->getParameters()==pars)){
+        if(!(override_parameter_distribution->get_parameters()==pars)){
             std::stringstream ss;
-            ss << "Producer " + getName() + ": override-parameter-distribution must define exactly the parameter models and those of"
+            ss << "Producer " + get_name() + ": override-parameter-distribution must define exactly the parameter models and those of"
                   " 'additional-nll-term' (if present).";
             throw std::invalid_argument(ss.str());
         }

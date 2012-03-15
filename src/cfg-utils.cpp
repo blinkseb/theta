@@ -34,7 +34,7 @@ double SettingWrapper::get_double_or_inf() const {
     if(infstring == "inf" || infstring == "+inf") return numeric_limits<double>::infinity();
     if(infstring == "-inf") return -numeric_limits<double>::infinity();
     stringstream error;
-    error << "error reading double (or \"inf\") from configuration path " << getPath();
+    error << "error reading double (or \"inf\") from configuration path " << get_path();
     throw ConfigurationException(error.str());
 }
 
@@ -135,14 +135,14 @@ bool SettingWrapper::exists(const std::string & path) const{
     return setting.exists(path);
 }
 
-std::string SettingWrapper::getName() const{
+std::string SettingWrapper::get_name() const{
     return setting_name;
 }
 
-std::string SettingWrapper::getPath() const{
+std::string SettingWrapper::get_path() const{
     return setting.getPath();
 }
 
-libconfig::Setting::Type SettingWrapper::getType() const{
+libconfig::Setting::Type SettingWrapper::get_type() const{
     return setting.getType();
 }

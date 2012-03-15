@@ -46,7 +46,7 @@ protected:
 class ProductsSource{
 public:
     /// Get the name as configured via the configuration file
-    const std::string & getName() const;
+    const std::string & get_name() const;
     
 protected:
     /// To be used by derived classes, to fill name and products_sink
@@ -123,8 +123,8 @@ protected:
 class ParameterDependentProducer: public Producer{
 public:
     virtual ~ParameterDependentProducer();
-    virtual void setParameterValues(const ParValues & values) = 0;
-    ParIds getParameters() const {
+    virtual void set_parameter_values(const ParValues & values) = 0;
+    const ParIds & get_parameters() const {
         return par_ids;
     }
 protected:

@@ -59,15 +59,13 @@ class MCMCPosteriorQuantilesResult{
 };
 
 void mcmc_quantiles::produce(const Data & data, const Model & model) {
+    std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
+    
     if(!init || (re_init > 0 && itoy % re_init == 0)){
         try{
             sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, additional_nll_term);
             //find the number of the parameter of interest:
-            ParIds pars = model.getParameters();
-            if(additional_nll_term){
-                ParIds add_pars = additional_nll_term->getParameters();
-                pars.insert(add_pars.begin(), add_pars.end());
-            }
+            ParIds pars = nll->get_parameters();
             ipar=0;
             for(ParIds::const_iterator it=pars.begin(); it!=pars.end(); ++it, ++ipar){
                 if(*it == par_id) break;
@@ -82,7 +80,6 @@ void mcmc_quantiles::produce(const Data & data, const Model & model) {
     }
     ++itoy;
     
-    std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     MCMCPosteriorQuantilesResult result(nll->getnpar(), ipar, iterations);
     metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
     
@@ -106,8 +103,8 @@ void mcmc_quantiles::declare_products(){
     }
 }
 
-mcmc_quantiles::mcmc_quantiles(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
-   init(false), par_id(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])), re_init(0), itoy(0), diag(false){
+mcmc_quantiles::mcmc_quantiles(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, get_name()),
+   init(false), par_id(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])), re_init(0), itoy(0), diag(false){
     SettingWrapper s = cfg.setting;
     string parameter = s["parameter"];
     size_t n = s["quantiles"].size();

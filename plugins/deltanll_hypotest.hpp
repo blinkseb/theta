@@ -79,7 +79,7 @@ public:
     deltanll_hypotest(const theta::Configuration & cfg);
     virtual void produce(const theta::Data &, const theta::Model&);
 
-    void setParameterValues(const theta::ParValues & values);
+    void set_parameter_values(const theta::ParValues & values);
 private:
     
     boost::shared_ptr<theta::Distribution> s_plus_b;

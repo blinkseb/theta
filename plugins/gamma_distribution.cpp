@@ -96,25 +96,13 @@ void gamma_distribution::mode(theta::ParValues & result) const{
 }
 
 
-double gamma_distribution::evalNL(const theta::ParValues & values) const{
+double gamma_distribution::eval_nl(const theta::ParValues & values) const{
     const ParId & pid = *par_ids.begin();
     double value = values.get(pid);
     if(value <= supp.first || value > supp.second) return std::numeric_limits<double>::infinity();
     double result = -(k-1) * utils::log(value) + value / theta;
     return result;
 }
-
-
-double gamma_distribution::evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const{
-    const ParId & pid = *par_ids.begin();
-    double value = values.get(pid);
-    derivatives.set(pid, 0.0);
-    if(value <= supp.first || value > supp.second) return std::numeric_limits<double>::infinity();
-    double result = -(k-1) * utils::log(value) + value / theta;
-    derivatives.set(pid, -(k - 1)/value + 1.0 / theta);
-    return result;
-}
-
 
 const std::pair<double, double> & gamma_distribution::support(const theta::ParId & p) const{
     return supp;
@@ -125,7 +113,7 @@ double gamma_distribution::width(const theta::ParId & p) const{
 }
 
 gamma_distribution::gamma_distribution(const theta::Configuration & cfg): supp(0, std::numeric_limits<double>::infinity()){
-   par_ids.insert(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"]));
+   par_ids.insert(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"]));
    double mu = cfg.setting["mu"];
    double sigma = cfg.setting["sigma"];
    if(mu <= 0.0) throw ConfigurationException("mean must be > 0");

@@ -50,11 +50,8 @@ public:
     virtual void mode(theta::ParValues & result) const{
       throw std::invalid_argument("vary_one::mode is not implemented");
     }
-    virtual double evalNL(const theta::ParValues & values) const{
-       throw std::invalid_argument("vary_one::evalNL is not implemented");
-    }
-    virtual double evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const{
-       throw std::invalid_argument("vary_one::evalNL_withDerivatives is not implemented");
+    virtual double eval_nl(const theta::ParValues & values) const{
+       throw std::invalid_argument("vary_one::eval_nl is not implemented");
     }
     virtual const std::pair<double, double> & support(const theta::ParId & p) const{
        throw std::invalid_argument("vary_one::support is not implemented");

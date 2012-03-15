@@ -11,30 +11,29 @@ BOOST_AUTO_TEST_SUITE(variables_tests)
 struct varidtest{
     VarIdManager vm;
     const ParId par0;
-    varidtest(): par0(vm.createParId("par0")){
+    varidtest(): par0(vm.create_par_id("par0")){
     }
 };
 
 
 BOOST_AUTO_TEST_CASE(basic){
     varidtest v;
-    BOOST_CHECK(v.vm.parNameExists("par0"));
-    BOOST_CHECK(v.vm.getName(v.par0)=="par0");
-    BOOST_CHECK(v.vm.getParId("par0")==v.par0);
+    BOOST_CHECK(v.vm.get_name(v.par0)=="par0");
+    BOOST_CHECK(v.vm.get_par_id("par0")==v.par0);
 }
 
-BOOST_AUTO_TEST_CASE(getParIds){
+BOOST_AUTO_TEST_CASE(get_par_ids){
     varidtest v;
     ParIds ids;
     ids.insert(v.par0);
-    BOOST_CHECK(ids==v.vm.getAllParIds());
+    BOOST_CHECK(ids==v.vm.get_all_parameters());
     
-    ParId par1 = v.vm.createParId("par1");
+    ParId par1 = v.vm.create_par_id("par1");
     BOOST_REQUIRE(par1!=v.par0);
-    BOOST_CHECK(not (ids==v.vm.getAllParIds()));
+    BOOST_CHECK(not (ids==v.vm.get_all_parameters()));
     
     ids.insert(par1);
-    BOOST_CHECK(ids==v.vm.getAllParIds());
+    BOOST_CHECK(ids==v.vm.get_all_parameters());
 }
 
 BOOST_AUTO_TEST_CASE(par_exceptions){
@@ -43,7 +42,7 @@ BOOST_AUTO_TEST_CASE(par_exceptions){
     //request variables not there:
     bool ex = false;
     try{
-        v.vm.getParId("var1");
+        v.vm.get_par_id("var1");
     }
     catch(invalid_argument &){
         ex = true;
@@ -53,39 +52,38 @@ BOOST_AUTO_TEST_CASE(par_exceptions){
     //create parameter already there
     ex = false;
     try{
-        v.vm.createParId("par0");
+        v.vm.create_par_id("par0");
     }
     catch(invalid_argument &){
         ex = true;
     }
     BOOST_REQUIRE(ex);
     
-    ParId par1 = v.vm.createParId("par1");
+    ParId par1 = v.vm.create_par_id("par1");
     BOOST_REQUIRE(v.par0!=par1);
     ParIds all_ids;
     all_ids.insert(par1);
     all_ids.insert(v.par0);
-    BOOST_REQUIRE(all_ids == v.vm.getAllParIds());
+    BOOST_REQUIRE(all_ids == v.vm.get_all_parameters());
 }
 
 BOOST_AUTO_TEST_CASE(basic_obs){
     VarIdManager vm;
-    BOOST_REQUIRE(not vm.obsNameExists("obs0"));
-    ObsId obs0 = vm.createObsId("obs0", 100, -0.2, 0.8);
-    BOOST_CHECK(vm.getObsId("obs0")==obs0);
-    BOOST_CHECK(vm.getNbins(obs0)==100);
-    BOOST_CHECK(vm.getRange(obs0).first==-0.2);
-    BOOST_CHECK(vm.getRange(obs0).second==0.8);
+    ObsId obs0 = vm.create_obs_id("obs0", 100, -0.2, 0.8);
+    BOOST_CHECK(vm.get_obs_id("obs0")==obs0);
+    BOOST_CHECK(vm.get_nbins(obs0)==100);
+    BOOST_CHECK(vm.get_range(obs0).first==-0.2);
+    BOOST_CHECK(vm.get_range(obs0).second==0.8);
 }
 
 BOOST_AUTO_TEST_CASE(all_obs){
     VarIdManager vm;
     ObsIds ids;
-    BOOST_REQUIRE(vm.getAllObsIds()==ids);
-    ObsId obs0 = vm.createObsId("obs0", 100, -0.8, 1.2);
-    BOOST_REQUIRE(not (vm.getAllObsIds()==ids));
+    BOOST_REQUIRE(vm.get_all_observables()==ids);
+    ObsId obs0 = vm.create_obs_id("obs0", 100, -0.8, 1.2);
+    BOOST_REQUIRE(not (vm.get_all_observables()==ids));
     ids.insert(obs0);
-    BOOST_REQUIRE(vm.getAllObsIds()==ids);
+    BOOST_REQUIRE(vm.get_all_observables()==ids);
 }
 
 BOOST_AUTO_TEST_CASE(exceptions_obs){
@@ -93,35 +91,35 @@ BOOST_AUTO_TEST_CASE(exceptions_obs){
     ObsIds ids;
     bool ex = false;
     try{
-        vm.createObsId("obs0", 0, -1, 1);
+        vm.create_obs_id("obs0", 0, -1, 1);
     }
     catch(invalid_argument &){
         ex = true;
     }
     BOOST_CHECK(ex);
-    BOOST_REQUIRE(vm.getAllObsIds()==ids);
+    BOOST_REQUIRE(vm.get_all_observables()==ids);
     
     ex = false;
     try{
-        vm.createObsId("obs0", 100, 1, -1);
+        vm.create_obs_id("obs0", 100, 1, -1);
     }
     catch(invalid_argument &){
         ex = true;
     }
     BOOST_CHECK(ex);
-    BOOST_REQUIRE(vm.getAllObsIds()==ids);
+    BOOST_REQUIRE(vm.get_all_observables()==ids);
 }
 
 
 BOOST_AUTO_TEST_CASE(parvalues_basic){
     ParValues vv;
     VarIdManager vm;
-    ParId v0 = vm.createParId("v0");
+    ParId v0 = vm.create_par_id("v0");
     BOOST_REQUIRE(not vv.contains(v0));
     vv.set(v0, -7.0);
     BOOST_REQUIRE(vv.get(v0)==-7.0);
     BOOST_REQUIRE(vv.contains(v0));
-    ParId v1 = vm.createParId("v1");
+    ParId v1 = vm.create_par_id("v1");
     bool ex = false;
     try{
         vv.get(v1);
@@ -141,7 +139,7 @@ BOOST_AUTO_TEST_CASE(parvalues_many){
     for(size_t i=0; i<100; ++i){
         stringstream name;
         name << "parameter" << i;
-        parameters.push_back(vm.createParId(name.str()));
+        parameters.push_back(vm.create_par_id(name.str()));
         values.set(parameters.back(), 0.1*i + i*i);
     }
     for(size_t i=0; i<100; ++i){

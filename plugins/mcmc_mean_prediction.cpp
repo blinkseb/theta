@@ -14,9 +14,9 @@ using namespace std;
 class MCMCMeanPredictionResult{
     public:
         MCMCMeanPredictionResult(const Model & model_, const Function * additional_nll_term, const ObsIds & observables, size_t npar_): model(model_), npar(npar_), obs_ids(observables), n(0){
-            par_ids = model.getParameters();
+            par_ids = model.get_parameters();
             if(additional_nll_term){
-                ParIds add_pars = additional_nll_term->getParameters();
+                ParIds add_pars = additional_nll_term->get_parameters();
                 par_ids.insert(add_pars.begin(), add_pars.end());
             }
             theta_assert(par_ids.size() == npar);
@@ -124,13 +124,13 @@ void mcmc_mean_prediction::produce(const Data & data, const Model & model) {
 
 void mcmc_mean_prediction::declare_products(const boost::shared_ptr<VarIdManager> & vm){
     for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){
-        c_mean.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_mean", theta::typeHisto));
-        c_width.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_width", theta::typeHisto));
-        c_best.push_back(products_sink->declare_product(*this, vm->getName(*it) + "_best", theta::typeHisto));
+        c_mean.push_back(products_sink->declare_product(*this, vm->get_name(*it) + "_mean", theta::typeHisto));
+        c_width.push_back(products_sink->declare_product(*this, vm->get_name(*it) + "_width", theta::typeHisto));
+        c_best.push_back(products_sink->declare_product(*this, vm->get_name(*it) + "_best", theta::typeHisto));
     }
 }
 
-mcmc_mean_prediction::mcmc_mean_prediction(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()),
+mcmc_mean_prediction::mcmc_mean_prediction(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, get_name()),
         init(false){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     SettingWrapper s = cfg.setting;
@@ -140,7 +140,7 @@ mcmc_mean_prediction::mcmc_mean_prediction(const theta::Configuration & cfg): Pr
         throw ConfigurationException("list 'observables' is empty");
     }
     for(size_t i=0; i<n; ++i){
-        observables.insert(vm->getObsId(s["observables"][i]));
+        observables.insert(vm->get_obs_id(s["observables"][i]));
     }
     iterations = s["iterations"];
     if(s.exists("burn-in")){

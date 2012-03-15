@@ -26,12 +26,12 @@ bool close_to(double a, double b, double scale){
 namespace theta{
 
 void get_cholesky(const Matrix & cov, Matrix & result, int expect_reduced){
-    size_t npar_reduced = cov.getRows();
+    size_t npar_reduced = cov.get_n_rows();
     size_t npar = npar_reduced;
     result.reset(npar, npar);
     //get the overall "scale" of the matrix by looking at the largest diagonal element:
     double m = fabs(cov(0,0));
-    for(size_t i=0; i<cov.getRows(); i++){
+    for(size_t i=0; i<cov.get_n_rows(); i++){
         m = max(m, fabs(cov(i,i)));
     }
     bool par_has_zero_cov[npar];
@@ -93,9 +93,9 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
                     const boost::shared_ptr<theta::Function> & additional_nll_term){
     const size_t max_passes = 50;
     const size_t iterations = 8000;
-    ParIds parameters = model.getParameters();
+    ParIds parameters = model.get_parameters();
     if(additional_nll_term){
-        ParIds add_pars = additional_nll_term->getParameters();
+        ParIds add_pars = additional_nll_term->get_parameters();
         parameters.insert(add_pars.begin(), add_pars.end());
     }
     const size_t n = parameters.size();
@@ -105,18 +105,16 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
     
     ParValues widths = asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term);
     
-    ParIds par_ids = model.getParameters();
-    size_t k=0;
+    size_t k = 0;
     int n_fixed_parameters = 0;
     
     const Distribution & dist = override_parameter_distribution.get()? *override_parameter_distribution : model.get_parameter_distribution();
     ParValues pv_start;
     dist.mode(pv_start);
-    DataWithUncertainties asimov_data_wu;
-    model.get_prediction(asimov_data_wu, pv_start);
-    Data asimov_data = strip_uncertainties(asimov_data_wu);
+    Data asimov_data;
+    model.get_prediction(asimov_data, pv_start);
     ParIds fixed_pars;
-    for(ParIds::const_iterator it = par_ids.begin(); it!=par_ids.end(); ++it, ++k){
+    for(ParIds::const_iterator it = parameters.begin(); it!=parameters.end(); ++it, ++k){
         double width = widths.get(*it) * 2.38 / sqrt(n);
         startvalues[k] = pv_start.get(*it);
         if(width==0.0){
@@ -128,7 +126,7 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
     theta_assert(k==n);
     get_cholesky(cov, sqrt_cov, static_cast<int>(n) - n_fixed_parameters);
     
-    std::auto_ptr<NLLikelihood> p_nll = model.getNLLikelihood(asimov_data);
+    std::auto_ptr<NLLikelihood> p_nll = model.get_nllikelihood(asimov_data);
     p_nll->set_override_distribution(override_parameter_distribution);
     NLLikelihood & nll = *p_nll;
     vector<double> jump_rates;

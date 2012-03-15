@@ -81,7 +81,7 @@ void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model 
     products_sink->set_product(c_nl_posterior_b, nl_posterior_b);
 }
 
-mcmc_posterior_ratio::mcmc_posterior_ratio(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, getName()), init(false){
+mcmc_posterior_ratio::mcmc_posterior_ratio(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, get_name()), init(false){
     SettingWrapper s = cfg.setting;
     s_plus_b = theta::PluginManager<Distribution>::build(theta::Configuration(cfg, s["signal-plus-background-distribution"]));
     b_only = theta::PluginManager<Distribution>::build(theta::Configuration(cfg, s["background-only-distribution"]));    

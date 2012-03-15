@@ -12,15 +12,15 @@ using namespace std;
 fixed_poly::fixed_poly(const Configuration & ctx){
     SettingWrapper s = ctx.setting;
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
-    ObsId obs_id = vm->getObsId(s["observable"]);
+    ObsId obs_id = vm->get_obs_id(s["observable"]);
     int order = s["coefficients"].size() - 1;
     if (order == -1) {
         stringstream ss;
-        ss << "Empty definition of coefficients for polynomial at path " << s["coefficients"].getPath();
+        ss << "Empty definition of coefficients for polynomial at path " << s["coefficients"].get_path();
         throw ConfigurationException(ss.str());
     }
-    size_t nbins = vm->getNbins(obs_id);
-    pair<double, double> range = vm->getRange(obs_id);
+    size_t nbins = vm->get_nbins(obs_id);
+    pair<double, double> range = vm->get_range(obs_id);
     Histogram1D h(nbins, range.first, range.second);
     vector<double> coeffs(order + 1);
     for (int i = 0; i <= order; i++) {
@@ -49,9 +49,9 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
     double width = s["width"];
     double mean = s["mean"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
-    ObsId obs_id = vm->getObsId(s["observable"]);
-    size_t nbins = vm->getNbins(obs_id);
-    pair<double, double> range = vm->getRange(obs_id);
+    ObsId obs_id = vm->get_obs_id(s["observable"]);
+    size_t nbins = vm->get_nbins(obs_id);
+    pair<double, double> range = vm->get_range(obs_id);
     Histogram1D h(nbins, range.first, range.second);
     //fill the histogram:
     for (size_t i = 0; i < nbins; i++) {
@@ -78,28 +78,17 @@ log_normal::log_normal(const Configuration & cfg){
         throw ConfigurationException("log_normal: sigma <= 0.0 is not allowed");
     }
     string par_name = s["parameter"];
-    par_ids.insert(vm->getParId(par_name));
+    par_ids.insert(vm->get_par_id(par_name));
 }
 
 
-double log_normal::evalNL(const ParValues & values) const {
+double log_normal::eval_nl(const ParValues & values) const {
     double x = values.get(*par_ids.begin());
     if (x <= 0.0) return numeric_limits<double>::infinity();
     double tmp = (log(x) - mu) / sigma;
     return 0.5 * tmp * tmp + log(x);
 }
 
-double log_normal::evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const{
-    const ParId & pid = *par_ids.begin();
-    double x = values.get(pid);
-    if (x <= 0.0){
-        derivatives.set(pid, 0.0);
-        return numeric_limits<double>::infinity();
-    }
-    double tmp = (theta::utils::log(x) - mu) / sigma;
-    derivatives.set(pid, 1/x*(1.0 + tmp));
-    return 0.5 * tmp * tmp + log(x);
-}
 
 void log_normal::sample(ParValues & result, Random & rnd) const {
     const ParId & pid = *par_ids.begin();
@@ -120,13 +109,13 @@ void log_normal::mode(theta::ParValues & result) const{
 delta_distribution::delta_distribution(const theta::Configuration & cfg){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
-        if(cfg.setting[i].getName()=="type") continue;
-        const ParId pid = vm->getParId(cfg.setting[i].getName());
+        if(cfg.setting[i].get_name()=="type") continue;
+        const ParId pid = vm->get_par_id(cfg.setting[i].get_name());
         const double val = cfg.setting[i];
         values.set(pid, val);
         supports[pid].second = supports[pid].first = val;
     }
-    par_ids = values.getParameters();
+    par_ids = values.get_parameters();
 }
 
 
@@ -138,14 +127,7 @@ void delta_distribution::mode(theta::ParValues & result) const{
     result.set(values);
 }
 
-double delta_distribution::evalNL(const theta::ParValues & vals) const{
-    return 0.0;
-}
-
-double delta_distribution::evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const{
-    for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it){
-        derivatives.set(*it, 0.0);
-    }
+double delta_distribution::eval_nl(const theta::ParValues & vals) const{
     return 0.0;
 }
 
@@ -161,16 +143,16 @@ const std::pair<double, double> & delta_distribution::support(const theta::ParId
 flat_distribution::flat_distribution(const theta::Configuration & cfg){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
-        if(cfg.setting[i].getName()=="type") continue;
+        if(cfg.setting[i].get_name()=="type") continue;
         SettingWrapper s = cfg.setting[i];
-        ParId pid = vm->getParId(s.getName());
+        ParId pid = vm->get_par_id(s.get_name());
         par_ids.insert(pid);
         double low = ranges[pid].first = s["range"][0].get_double_or_inf();
         double high = ranges[pid].second = s["range"][1].get_double_or_inf();
         if(low > high) throw ConfigurationException("invalid range");
         modes.set(pid, 0.5 * (high + low));
         if(std::isinf(high - low) && !s.exists("fix-sample-value")){
-            throw ConfigurationException("infinite range given for parameter '" + s.getName() + "', but no 'fix-sample-value' setting");
+            throw ConfigurationException("infinite range given for parameter '" + s.get_name() + "', but no 'fix-sample-value' setting");
         }
         if(s.exists("fix-sample-value")){
             fix_sample_values.set(pid, s["fix-sample-value"]);
@@ -194,7 +176,7 @@ void flat_distribution::mode(theta::ParValues & result) const{
     result.set(modes);
 }
 
-double flat_distribution::evalNL(const theta::ParValues & values) const{
+double flat_distribution::eval_nl(const theta::ParValues & values) const{
     for(std::map<theta::ParId, std::pair<double, double> >::const_iterator it = ranges.begin(); it!=ranges.end(); ++it){
         const double val = values.get(it->first);
         if(it->second.first > val || it->second.second < val) return numeric_limits<double>::infinity();
@@ -202,15 +184,6 @@ double flat_distribution::evalNL(const theta::ParValues & values) const{
     return 0.0;
 }
 
-double flat_distribution::evalNL_withDerivatives(const theta::ParValues & values, theta::ParValues & derivatives) const{
-    //for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it){
-    for(std::map<theta::ParId, std::pair<double, double> >::const_iterator it = ranges.begin(); it!=ranges.end(); ++it){
-        const double val = values.get(it->first);
-        derivatives.set(it->first, 0.0);
-        if(it->second.first > val || it->second.second < val) return numeric_limits<double>::infinity();
-    }
-    return 0.0;
-}
 
 const std::pair<double, double> & flat_distribution::support(const theta::ParId& p) const{
     std::map<theta::ParId, std::pair<double, double> >::const_iterator it=ranges.find(p);
@@ -262,7 +235,7 @@ void gauss::sample(ParValues & result, Random & rnd) const{
 }
 
 
-double gauss::evalNL(const ParValues & values) const{
+double gauss::eval_nl(const ParValues & values) const{
     const size_t n = v_par_ids.size();
     boost::scoped_array<double> delta(new double[n]);
     size_t i=0;
@@ -282,30 +255,6 @@ double gauss::evalNL(const ParValues & values) const{
     return e;
 }
 
-double gauss::evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const{
-    const size_t n = v_par_ids.size();
-    boost::scoped_array<double> delta(new double[n]);
-    size_t i=0;
-    for(vector<ParId>::const_iterator v=v_par_ids.begin(); v!=v_par_ids.end(); v++){
-        delta[i] = values.get(*v) - mu[i];
-        i++;
-        derivatives.set(*v, 0.0);
-    }
-    //compute delta^T * inverse_cov * delta:
-    double e = 0.0;
-    for(size_t i=0; i<n; i++){
-        const double delta_i = delta[i];
-        for(size_t j=0; j<i; j++){
-            e += delta_i * inverse_cov(i,j) * delta[j];
-            derivatives.addTo(v_par_ids[i], inverse_cov(i,j) * delta[j]);
-            derivatives.addTo(v_par_ids[j], inverse_cov(i,j) * delta[i]);
-        }
-        e += 0.5 * delta_i * delta_i * inverse_cov(i,i);
-        derivatives.addTo(v_par_ids[i], inverse_cov(i,i) * delta[i]);
-    }    
-    return e;
-}
-
 gauss::gauss(const Configuration & cfg){
     Matrix cov;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
@@ -313,7 +262,7 @@ gauss::gauss(const Configuration & cfg){
             mu.resize(1);
             cov.reset(1,1);
             ranges.resize(1);
-            v_par_ids.push_back(vm->getParId(cfg.setting["parameter"]));
+            v_par_ids.push_back(vm->get_par_id(cfg.setting["parameter"]));
             mu[0] = cfg.setting["mean"];
             double width = cfg.setting["width"];
             cov(0,0) = width*width;
@@ -324,7 +273,7 @@ gauss::gauss(const Configuration & cfg){
            size_t n = cfg.setting["parameters"].size();
            if(n==0){
                stringstream ss;
-               ss << "While building gauss distribution defined at path " << cfg.setting.getPath() << ": expected one or more 'parameters'.";
+               ss << "While building gauss distribution defined at path " << cfg.setting.get_path() << ": expected one or more 'parameters'.";
                throw ConfigurationException(ss.str());
            }
            if(cfg.setting["ranges"].size()!=n || cfg.setting["mean"].size()!=n || cfg.setting["covariance"].size()!=n){
@@ -334,7 +283,7 @@ gauss::gauss(const Configuration & cfg){
            cov.reset(n,n);
            ranges.resize(n);
            for(size_t i=0; i<n; i++){
-               v_par_ids.push_back(vm->getParId(cfg.setting["parameters"][i]));
+               v_par_ids.push_back(vm->get_par_id(cfg.setting["parameters"][i]));
                mu[i] = cfg.setting["mean"][i];
                ranges[i].first = cfg.setting["ranges"][i][0].get_double_or_inf();
                ranges[i].second = cfg.setting["ranges"][i][1].get_double_or_inf();
@@ -388,7 +337,7 @@ void gauss1d::sample(ParValues & result, Random & rnd) const{
 }
 
 
-double gauss1d::evalNL(const ParValues & values) const{
+double gauss1d::eval_nl(const ParValues & values) const{
     double mean = mu_pid ? values.get(*mu_pid) : mu;
     double value = values.get_unchecked(*par_ids.begin());
     if(value > range.second || value < range.first){
@@ -398,30 +347,17 @@ double gauss1d::evalNL(const ParValues & values) const{
     return 0.5 * delta * delta;
 }
 
-double gauss1d::evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const{
-    const ParId & pid = *par_ids.begin();
-    double mean = mu_pid ? values.get(*mu_pid) : mu;
-    double value = values.get(pid);
-    if(value > range.second || value < range.first){
-        derivatives.set(pid, 0.0);
-        return std::numeric_limits<double>::infinity();
-    }
-    double delta = (value - mean) / sigma;
-    derivatives.set(pid, delta / sigma);
-    return 0.5 * delta * delta;
-}
-
 gauss1d::gauss1d(const Configuration & cfg){
    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
    string par_name = cfg.setting["parameter"];
-   par_ids.insert(vm->getParId(par_name));
-   libconfig::Setting::Type typ = cfg.setting["mean"].getType();
+   par_ids.insert(vm->get_par_id(par_name));
+   libconfig::Setting::Type typ = cfg.setting["mean"].get_type();
    mu = NAN;
    if(typ==libconfig::Setting::TypeFloat){
        mu = cfg.setting["mean"];
    }
    else{
-       mu_pid = vm->getParId(cfg.setting["mean"]);
+       mu_pid = vm->get_par_id(cfg.setting["mean"]);
        distribution_par_ids.insert(*mu_pid);
    }
    sigma = cfg.setting["width"];
@@ -464,10 +400,10 @@ void product_distribution::add_distributions(const Configuration & cfg, const th
         }
         else{
             std::auto_ptr<Distribution> dist = PluginManager<Distribution>::build(Configuration(cfg, dist_setting));
-            const ParIds & new_pids = dist->getParameters();
+            const ParIds & new_pids = dist->get_parameters();
             if(new_pids.size()==0) continue;
             par_ids.insert(new_pids.begin(), new_pids.end());
-            const ParIds & dist_pids = dist->getDistributionParameters();
+            const ParIds & dist_pids = dist->get_distribution_parameters();
             distribution_par_ids.insert(dist_pids.begin(), dist_pids.end());
             distributions.push_back(dist);
             for(ParIds::const_iterator it=new_pids.begin(); it!=new_pids.end(); ++it){
@@ -495,24 +431,14 @@ void product_distribution::mode(ParValues & result) const{
     }
 }
 
-double product_distribution::evalNL(const ParValues & values) const{
+double product_distribution::eval_nl(const ParValues & values) const{
     double result = 0.0;
     const boost::ptr_vector<Distribution>::const_iterator end=distributions.end();
     for(boost::ptr_vector<Distribution>::const_iterator it=distributions.begin(); it!=end; ++it){
-        result += it->evalNL(values);
+        result += it->eval_nl(values);
     }
     return result;
 }
-
-double product_distribution::evalNL_withDerivatives(const ParValues & values, ParValues & derivatives) const {
-    double result = 0.0;
-    const boost::ptr_vector<Distribution>::const_iterator end = distributions.end();
-    for (boost::ptr_vector<Distribution>::const_iterator it = distributions.begin(); it != end; ++it) {
-        result += it->evalNL_withDerivatives(values, derivatives);
-    }
-    return result;
-}
-
 
 const std::pair<double, double> & product_distribution::support(const ParId & p) const{
     map<ParId, size_t>::const_iterator it = parid_to_index.find(p);
@@ -520,10 +446,10 @@ const std::pair<double, double> & product_distribution::support(const ParId & p)
     return distributions[it->second].support(p);
 }
 
-model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, getName()), save_nll(false), dice_poisson(true),
+model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, get_name()), save_nll(false), dice_poisson(true),
   dice_template_uncertainties(true){
     model = PluginManager<Model>::build(Configuration(cfg, cfg.setting["model"]));
-    par_ids = model->getParameters();
+    par_ids = model->get_parameters();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     if(cfg.setting.exists("override-parameter-distribution")){
         override_parameter_distribution = PluginManager<Distribution>::build(Configuration(cfg, cfg.setting["override-parameter-distribution"]));
@@ -539,8 +465,8 @@ model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), R
         const size_t n = cfg.setting["parameters-for-nll"].size();
         ParIds pids_for_nll;
         for(size_t i=0; i<n; ++i){
-            string pname = cfg.setting["parameters-for-nll"][i].getName();
-            ParId pid = vm->getParId(pname);
+            string pname = cfg.setting["parameters-for-nll"][i].get_name();
+            ParId pid = vm->get_par_id(pname);
             pids_for_nll.insert(pid);
             try{
                 double value = cfg.setting["parameters-for-nll"][i];
@@ -558,7 +484,7 @@ model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), R
     }
     //define the table:
     for(ParIds::const_iterator p_it=par_ids.begin(); p_it!=par_ids.end(); ++p_it){
-        parameter_columns.push_back(products_sink->declare_product(*this, vm->getName(*p_it), theta::typeDouble));
+        parameter_columns.push_back(products_sink->declare_product(*this, vm->get_name(*p_it), theta::typeDouble));
     }
     if(save_nll){
         c_nll = products_sink->declare_product(*this, "nll", theta::typeDouble);
@@ -581,23 +507,22 @@ void model_source::fill(Data & dat){
         products_sink->set_product(parameter_columns[i], values.get(*p_it));
     }
     
-    //2. get model prediction with uncertainties
-    DataWithUncertainties data_wu;
-    model->get_prediction(data_wu, values);
-    //2.a. either strip uncertainties completely or dice a Gauss in each bin:
+    //2. get model prediction with or without uncertainties
     if(dice_template_uncertainties){
-        const ObsIds & observables = model->getObservables();
+        DataWithUncertainties data_wu;
+        model->get_prediction(data_wu, values);
+        const ObsIds & observables = model->get_observables();
         for(ObsIds::const_iterator it=observables.begin(); it!=observables.end(); ++it){
             dat[*it] = randomize_gauss(data_wu[*it], rnd);
         }
     }
     else{
-        dat = strip_uncertainties(data_wu);
+        model->get_prediction(dat, values);
     }
     
     //3. (maybe) sample poisson
     if(dice_poisson){
-        ObsIds observables = dat.getObservables();
+        ObsIds observables = dat.get_observables();
         for (ObsIds::const_iterator it = observables.begin(); it != observables.end(); it++) {
              randomize_poisson(dat[*it], rnd);
         }
@@ -607,12 +532,12 @@ void model_source::fill(Data & dat){
     const Distribution * rvobs_dist = model->get_rvobservable_distribution();
     if(rvobs_dist){
         rvobs_dist->sample(values, rnd);
-        dat.setRVObsValues(ParValues(values, model->getRVObservables()));
+        dat.set_rvobs_values(ParValues(values, model->get_rvobservables()));
     }
     
     //5. calculate nll value
     if(save_nll){
-       std::auto_ptr<NLLikelihood> nll = model->getNLLikelihood(dat);
+       std::auto_ptr<NLLikelihood> nll = model->get_nllikelihood(dat);
        values.set(parameters_for_nll);
        products_sink->set_product(c_nll, (*nll)(values));
     }

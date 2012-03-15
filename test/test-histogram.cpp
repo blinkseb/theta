@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE(ctest){
    //default construction:
     Histogram1D h_def;
     BOOST_CHECK(h_def.get_nbins()==0);
-    BOOST_CHECK(h_def.getData()==0);
+    BOOST_CHECK(h_def.get_data()==0);
     
    const size_t nbins = 101;
    Histogram1D m(nbins, -1, 1);
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(ctest){
 
    //copy constructor:
    Histogram1D mcopy(m);
-   BOOST_REQUIRE(mcopy.getData()!=m.getData());
+   BOOST_REQUIRE(mcopy.get_data()!=m.get_data());
    BOOST_CHECK(histos_equal(m, mcopy));
 
    //copy assignment:
@@ -66,10 +66,10 @@ BOOST_AUTO_TEST_CASE(ctest){
    
    Histogram1D h_empty2;
    BOOST_CHECK(h_empty2.get_nbins()==0);
-   BOOST_CHECK(h_empty2.getData()==0);
+   BOOST_CHECK(h_empty2.get_data()==0);
    h_empty = h_empty2;
    BOOST_CHECK(h_empty.get_nbins()==0);
-   BOOST_CHECK(h_empty.getData()==0);
+   BOOST_CHECK(h_empty.get_data()==0);
    
    bool exception = false;
    try{

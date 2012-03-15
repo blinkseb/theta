@@ -76,9 +76,9 @@ Histogram1D::Histogram1D(size_t b, double x_min, double x_max) : DoubleVector(b)
 void Histogram1D::multiply_with_ratio_exponented(const Histogram1D & nominator, const Histogram1D & denominator, double exponent){
    check_compatibility(nominator);
    check_compatibility(denominator);
-   const double * n_data = nominator.getData();
-   const double * d_data = denominator.getData();
-   double * data = getData();
+   const double * n_data = nominator.get_data();
+   const double * d_data = denominator.get_data();
+   double * data = get_data();
    const size_t n = size();
    for(size_t i=0; i<n; i++){
       if(d_data[i]>0.0)
@@ -90,7 +90,7 @@ void Histogram1D::fill(double xvalue, double weight) {
     int bin = static_cast<int> ((xvalue - xmin) * get_nbins() / (xmax - xmin));
     if (bin < 0 || (bin==0 && xvalue < xmin)) return;
     if (static_cast<size_t> (bin) >= size()) return;
-    getData()[bin] += weight;
+    get_data()[bin] += weight;
 }
 
 void Histogram1D::fail_check_compatibility(const Histogram1D & h) const {
@@ -103,8 +103,8 @@ void Histogram1D::fail_check_compatibility(const Histogram1D & h) const {
 
 void Histogram1D::operator*=(const Histogram1D & h) {
     check_compatibility(h);
-    const double * hdata = h.getData();
-    double * data = getData();
+    const double * hdata = h.get_data();
+    double * data = get_data();
     const size_t n = size();
     for (size_t i = 0; i < n; ++i) {
         data[i] *= hdata[i];

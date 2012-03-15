@@ -16,14 +16,14 @@ nl_gauss::nl_gauss(const theta::Configuration & cfg) {
     Matrix cov_tmp(n,n);
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<n; ++i){
-        if(cfg.setting["rows"][i].getType() == libconfig::Setting::TypeString){
-            ParId pid = vm->getParId(cfg.setting["rows"][i]);
+        if(cfg.setting["rows"][i].get_type() == libconfig::Setting::TypeString){
+            ParId pid = vm->get_par_id(cfg.setting["rows"][i]);
             rows.push_back(new IdFunction(pid));
             par_ids.insert(pid);
         }
         else{
             rows.push_back(PluginManager<Function>::build(Configuration(cfg, cfg.setting["rows"][i])));
-            const ParIds & pids = rows.back().getParameters();
+            const ParIds & pids = rows.back().get_parameters();
             par_ids.insert(pids.begin(), pids.end());
         }
         mu[i] = cfg.setting["mu"][i];
@@ -37,7 +37,7 @@ nl_gauss::nl_gauss(const theta::Configuration & cfg) {
     }
     inv_cov = cov_tmp;
     inv_cov.invert_cholesky();
-    theta_assert(mu.size() == n and inv_cov.getRows() == n and inv_cov.getCols()==n and rows.size()==n and row_values.size()==n);
+    theta_assert(mu.size() == n and inv_cov.get_n_rows() == n and inv_cov.get_n_cols()==n and rows.size()==n and row_values.size()==n);
 }
 
 double nl_gauss::operator()(const theta::ParValues & values) const{

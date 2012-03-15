@@ -15,7 +15,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     if(not start_step_ranges_init){
         const Distribution & d = nll->get_parameter_distribution();
-        DistributionUtils::fillModeSupport(m_start, m_ranges, d);
+        fill_mode_support(m_start, m_ranges, d);
         m_step.set(asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term));
         start_step_ranges_init = true;
     }
@@ -33,7 +33,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
 }
 
 
-nll_scan::nll_scan(const theta::Configuration & cfg): Producer(cfg), pid(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["parameter"])),
+nll_scan::nll_scan(const theta::Configuration & cfg): Producer(cfg), pid(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])),
    re_minimize(true), start_step_ranges_init(false){
     SettingWrapper s = cfg.setting;
     minimizer = PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));

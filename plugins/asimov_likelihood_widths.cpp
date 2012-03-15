@@ -36,25 +36,23 @@ private:
 
 theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution, const boost::shared_ptr<theta::Function> & additional_nll_term){
     const Distribution & dist = override_parameter_distribution.get()? *override_parameter_distribution: model.get_parameter_distribution();
-    ParIds parameters = model.getParameters();
+    ParIds parameters = model.get_parameters();
     ParValues mode;
     dist.mode(mode);
-    DataWithUncertainties asimov_data_wu;
-    model.get_prediction(asimov_data_wu, mode);
-    //truncate uncertainties from asimov data:
-    Data asimov_data = strip_uncertainties(asimov_data_wu);
+    Data asimov_data;
+    model.get_prediction(asimov_data, mode);
     
     const Distribution * rvobs_dist = model.get_rvobservable_distribution();
     if(rvobs_dist){
         rvobs_dist->mode(mode);
-        asimov_data.setRVObsValues(ParValues(mode, model.getRVObservables()));
+        asimov_data.set_rvobs_values(ParValues(mode, model.get_rvobservables()));
     }
-    std::auto_ptr<NLLikelihood> nll = model.getNLLikelihood(asimov_data);
+    std::auto_ptr<NLLikelihood> nll = model.get_nllikelihood(asimov_data);
     //0 value has same semantics for NLLikelihood:
     nll->set_override_distribution(override_parameter_distribution);
     nll->set_additional_term(additional_nll_term);
     if(additional_nll_term.get()){
-        const ParIds & additional_pars = additional_nll_term->getParameters();
+        const ParIds & additional_pars = additional_nll_term->get_parameters();
         parameters.insert(additional_pars.begin(), additional_pars.end());
     }
     double nll_at_min = (*nll)(mode);

@@ -5,7 +5,7 @@ using namespace std;
 using namespace theta;
 using namespace libconfig;
 
-const Histogram1DWithUncertainties & interpolating_histo::operator()(const ParValues & values) const {
+void interpolating_histo::fill_h(const ParValues & values) const {
     h.set_all_values(1.0);
     const size_t n_sys = hplus.size();
     for (size_t isys = 0; isys < n_sys; isys++) {
@@ -15,32 +15,47 @@ const Histogram1DWithUncertainties & interpolating_histo::operator()(const ParVa
         h.multiply_with_ratio_exponented(t_sys, h0, fabs(delta));
     }
     h *= h0;
+}
+
+void interpolating_histo::apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const{
+    fill_h(values);
     h_wu.set(h);
-    return h_wu;
+    f(h_wu);
+}
+
+void interpolating_histo::apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const{
+    fill_h(values);
+    f(h);
+}
+
+void interpolating_histo::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{
+    nbins = h0.get_nbins();
+    xmin = h0.get_xmin();
+    xmax = h0.get_xmax();
 }
 
 interpolating_histo::interpolating_histo(const Configuration & ctx){
     SettingWrapper psetting = ctx.setting["parameters"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     //build nominal histogram:
-    h0 = getConstantHistogram(ctx, ctx.setting["nominal-histogram"]);
+    h0 = get_constant_histogram(Configuration(ctx, ctx.setting["nominal-histogram"])).get_values_histogram();
     size_t n = psetting.size();
     //note: allow n==0 to allow the user to disable systematics.
     // In case of unintentional type error (parameters="delta1,delta2";), user will get a warning about
     // the unused delta*-{plus,minus}-histogram blocks anyway ...
     for(size_t i=0; i<n; i++){
         string par_name = psetting[i];
-        ParId pid = vm->getParId(par_name);
+        ParId pid = vm->get_par_id(par_name);
         par_ids.insert(pid);
         vid.push_back(pid);
         stringstream setting_name;
         //plus:
         setting_name << par_name << "-plus-histogram";
-        hplus.push_back(getConstantHistogram(ctx, ctx.setting[setting_name.str()] ));
+        hplus.push_back(get_constant_histogram(Configuration(ctx, ctx.setting[setting_name.str()])).get_values_histogram());
         //minus:
         setting_name.str("");
         setting_name << par_name << "-minus-histogram";
-        hminus.push_back(getConstantHistogram(ctx, ctx.setting[setting_name.str()] ));
+        hminus.push_back(get_constant_histogram(Configuration(ctx, ctx.setting[setting_name.str()])).get_values_histogram());
     }
     h = h0;
     
@@ -57,16 +72,6 @@ interpolating_histo::interpolating_histo(const Configuration & ctx){
     }
     h = h0;
     h_wu.set(h0);
-}
-
-Histogram1D interpolating_histo::getConstantHistogram(const Configuration & cfg, SettingWrapper s){
-    std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, s));
-    if(hf->getParameters().size()!=0){
-        stringstream ss;
-        ss << "Histogram defined in path " << s.getPath() << " is not constant (but has to be).";
-        throw invalid_argument(ss.str());
-    }
-    return (*hf)(ParValues()).get_values_histogram();//copies the internal reference, so this is ok.
 }
 
 REGISTER_PLUGIN(interpolating_histo)

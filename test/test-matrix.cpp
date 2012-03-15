@@ -13,8 +13,8 @@ BOOST_AUTO_TEST_SUITE(matrix_tests)
 BOOST_AUTO_TEST_CASE(matrix0){
    const size_t N=10;
    Matrix m(N,N);
-   BOOST_REQUIRE(m.getRows()==N);
-   BOOST_REQUIRE(m.getCols()==N);
+   BOOST_REQUIRE(m.get_n_rows()==N);
+   BOOST_REQUIRE(m.get_n_cols()==N);
    for(size_t i=0; i<N; i++){
       for(size_t j=0; j<N; j++){
          BOOST_REQUIRE(m(i,j)==0);
@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE(matrix0){
    BOOST_REQUIRE(m(1,0)==1.0);
    //copy constructor:
    Matrix mm(m);
-   BOOST_REQUIRE(mm.getRows()==N && mm.getCols()==N);
+   BOOST_REQUIRE(mm.get_n_rows()==N && mm.get_n_cols()==N);
    for(size_t i=0; i<N; i++){
       for(size_t j=0; j<N; j++){
          BOOST_REQUIRE(m(i,j)==mm(i,j));

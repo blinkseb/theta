@@ -20,7 +20,7 @@ public:
         return ndim;
     }
 
-    RootMinuitFunctionAdapter(const Function & f_): f(f_), ndim(f.getParameters().size()){
+    RootMinuitFunctionAdapter(const Function & f_): f(f_), ndim(f.get_parameters().size()){
     }
 
     virtual double DoEval(const double * x) const{
@@ -55,7 +55,7 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     MinimizationResult result;
 
     //1. setup parameters, limits and initial step sizes
-    ParIds parameters = f.getParameters();
+    ParIds parameters = f.get_parameters();
     int ivar=0;
     for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it, ++ivar){
         std::map<theta::ParId, std::pair<double, double> >::const_iterator r_it = ranges.find(*it);

@@ -97,7 +97,7 @@ public:
      * \return The number of rows this Matrix was constructed with.
      * \sa getCols
      */
-    size_t getRows() const {
+    size_t get_n_rows() const {
         return rows;
     }
 
@@ -106,7 +106,7 @@ public:
      * \return The number of columns this Matrix was constructed with.
      * \sa getRows
      */
-    size_t getCols() const {
+    size_t get_n_cols() const {
         return cols;
     }
 };

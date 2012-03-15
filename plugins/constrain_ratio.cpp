@@ -5,8 +5,8 @@
 using namespace std;
 using namespace theta;
 
-constrain_ratio::constrain_ratio(const theta::Configuration & cfg): pid_nominator(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["nominator"])),
-   pid_denominator(cfg.pm->get<VarIdManager>()->getParId(cfg.setting["denominator"])){
+constrain_ratio::constrain_ratio(const theta::Configuration & cfg): pid_nominator(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["nominator"])),
+   pid_denominator(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["denominator"])){
     mean = cfg.setting["mean"];
     width = cfg.setting["width"];
     if(width <= 0.0) throw theta::ConfigurationException("width must be > 0");
