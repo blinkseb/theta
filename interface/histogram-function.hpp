@@ -34,6 +34,7 @@ namespace theta {
     public:
         add_with_coeff_to(T & h0_, double coeff_): h0(h0_), coeff(coeff_){}
         virtual void operator()(const T& t) const {
+            theta_assert(h0.get_nbins() == t.get_nbins());
             h0.add_with_coeff(coeff, t);
         }
     };

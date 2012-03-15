@@ -172,6 +172,13 @@ BOOST_AUTO_TEST_CASE(test_plus){
         BOOST_CHECK(close_to_relative(m0.get_uncertainty(i), unc_expected));
     }
     BOOST_CHECK(histos_equal(m0.get_values_histogram(), h_expected));
+    
+    
+    // check += where the rhs has no uncertainties, although it is a Histogram1DWithUncerytainties:
+    m0 = m0_copy;
+    Histogram1DWithUncertainties h_wu(h_nu);
+    m0 += h_wu;
+    BOOST_CHECK(histos_equal(m0.get_values_histogram(), h_expected));    
 }
 
 /*

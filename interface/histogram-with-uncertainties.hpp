@@ -142,7 +142,7 @@ public:
     
     void operator+=(const Histogram1DWithUncertainties & other){
         values += other.values;
-        if(nontrivial_unc || other.nontrivial_unc){
+        if(other.nontrivial_unc){
             set_nontrivial_unc();
             sq_uncertainties += other.sq_uncertainties;
         }
@@ -150,7 +150,7 @@ public:
     
     void add_with_coeff(double c, const Histogram1DWithUncertainties & other){
         values.add_with_coeff(c, other.values);
-        if(nontrivial_unc || other.nontrivial_unc){
+        if(other.nontrivial_unc){
             set_nontrivial_unc();
             sq_uncertainties.add_with_coeff(c * c, other.sq_uncertainties);
         }

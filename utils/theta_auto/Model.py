@@ -693,6 +693,9 @@ def get_fixed_dist_at_values(par_values):
 # * include_mc_uncertainties is a boolean. If set to true, the bin-by-bin uncertainties will be included (and treated with the "Barlow-Beeston light" method).
 #
 # filenames can be either a string or a list of strings
+#
+# note: if using include_mc_uncertainties = True, transform_histo will only be called for the actual histogram values, not for the "uncertainty" histogram.
+# Therefore, rebinning via transform_histo will not work if using include_mc_uncertainties.
 def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s, transform_histo = lambda h: h, include_mc_uncertainties = False):
     if type(filenames)==str: filenames = [filenames]
     result = Model()

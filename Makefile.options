@@ -16,6 +16,10 @@ OPTIONS_USE_AMDLIBM := no
 # llvm installation (tested with 2.7 and 2.8)
 OPTIONS_BUILD_LLVM := no
 
+# If set to yes, will disable optimizations for easier debugging.
+# Note that debugging symbols are added in any case.
+OPTIONS_DEBUG := no
+
 # Additional flags for compilation / linking so files / linking exe files:
 OPTIONS_CFLAGS :=
 OPTIONS_LDFLAGS_SO :=

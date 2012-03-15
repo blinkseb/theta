@@ -19,6 +19,7 @@ void Histogram1DWithUncertainties::set_nontrivial_unc(){
         theta_assert(sq_uncertainties.size()==0);
         sq_uncertainties = DoubleVector(values.size());
     }
+    theta_assert(sq_uncertainties.size()==values.size());
 }
 
 void Histogram1DWithUncertainties::fail_check_compatibility(const Histogram1DWithUncertainties & h) const {
@@ -39,7 +40,7 @@ void Histogram1DWithUncertainties::operator*=(const Histogram1DWithUncertainties
             double a = values.get(i);
             double b = other.values.get(i);
             double da2 = sq_uncertainties.get(i);
-            double db2 = other.sq_uncertainties.get(i);
+            double db2 = other.get_uncertainty2(i); // do not access other.sq_uncertainties directly, it could be empty
             sq_uncertainties.set(i, a*a*db2 + b*b*da2);
             values.set(i, a*b);
         }
