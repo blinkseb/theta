@@ -131,7 +131,6 @@ class Model:
         if strict:
             assert self.signal_processes == other_model.signal_processes, "signal processes not equal: left-right=%s; right-left=%s;" \
                        % (str(self.signal_processes.difference(other_model.signal_processes)), str(other_model.signal_processes.difference(self.signal_processes)))
-            assert self.spid_to_signal_processes == other.spid_to_signal_processes
         self.distribution = Distribution.merge(self.distribution, other_model.distribution, False)
         self.rvobs_distribution = Distribution.merge(self.rvobs_distribution, other_model.rvobs_distribution, False)
         self.observables.update(other_model.observables)
@@ -455,7 +454,6 @@ class HistogramFunction:
         self.normalize_to_nominal = False
         self.syst_histos = {} # map par_name -> (plus histo, minus_histo)
         self.histrb = None # xmin, xmax nbins
-        self.decorr_delta_width = 0.0
         self.nominal_uncertainty_histo = None
         
     def get_nominal_histo(self): return self.nominal_histo
@@ -530,12 +528,10 @@ class HistogramFunction:
             return get_histo_cfg(self.nominal_histo, self.nominal_uncertainty_histo)
         result = {'type': 'cubiclinear_histomorph', 'parameters': sorted(list(self.parameters)),
            'nominal-histogram': get_histo_cfg(self.nominal_histo, self.nominal_uncertainty_histo), 'normalize_to_nominal': self.normalize_to_nominal}
-        if self.decorr_delta_width != 0.0:
-            result['decorr_delta_width'] = self.decorr_delta_width
         if set(self.factors.values()) != set([1.0]):
-            result['factors'] = []
+            result['parameter_factors'] = []
             for p in result['parameters']:
-                result['factors'].append(self.factors[p])
+                result['parameter_factors'].append(self.factors[p])
         for p in self.parameters:
             result['%s-plus-histogram' % p] = get_histo_cfg(self.syst_histos[p][0])
             result['%s-minus-histogram' % p] = get_histo_cfg(self.syst_histos[p][1])
@@ -707,8 +703,9 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
         rf = rootfile(fname)
         templates = rf.get_all_templates()
         for hexternal in templates:
-            if not histogram_filter(hexternal): continue
-            hinternal = root_hname_to_convention(hexternal)
+            # note: copy hexternal before passing to user-defined routiunes, or they might change them ...
+            if not histogram_filter(hexternal[:]): continue
+            hinternal = root_hname_to_convention(hexternal[:])
             xmin, xmax, data = templates[hexternal]
             dummy_name, xmin, xmax, data = transform_histo((hinternal, xmin, xmax, data))
             assert dummy_name == hinternal, "transform_histo changed the name. This is not allowed; use root_hname_to_convention!"

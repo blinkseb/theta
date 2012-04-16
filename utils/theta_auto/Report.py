@@ -16,6 +16,9 @@ class table:
    # the html formatted stuff here:
    def set_column(self, colname, value):
        self.current_row[colname] = {'html': value}
+
+   def get_columns(self):
+       return self.columns
        
    def set_column_multiformat(self, colname, raw, **values):
        self.current_row[colname] = values

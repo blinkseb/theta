@@ -54,9 +54,11 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
     rate_table = table()
     rate_table.add_column('process', 'process / observable')
     o_bkg_sum = {}
+    o_bkg_err2sum = {}
     for o in observables:
         rate_table.add_column(o)
         o_bkg_sum[o] = 0.0
+        o_bkg_err2sum[o] = 0.0
     for p in processes:
         if p in model.signal_processes: continue
         rate_table.set_column_multiformat('process', p)
@@ -66,11 +68,19 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
                rate_table.set_column_multiformat(o, '---')
                continue
            s = sum(hf.get_nominal_histo()[2])
+           error = 0
+           if hf.nominal_uncertainty_histo is not None: error = math.sqrt(sum([x**2 for x in hf.nominal_uncertainty_histo[2]]))
            o_bkg_sum[o] += s
-           rate_table.set_column_multiformat(o, s, html = '%.5g' % s, tex = '%.5g' % s)
+           o_bkg_err2sum[o] += error**2
+           if error > 0:  rate_table.set_column_multiformat(o, (s, error), html = '%.5g +/- %.5g' % (s, error), tex = '$%.5g \\pm %.5g$' % (s, error))
+           else: rate_table.set_column_multiformat(o, s, html = '%.5g' % s, tex = '%.5g' % s)
         rate_table.add_row()
     rate_table.set_column_multiformat('process', 'bkg_tot', html = '<b>total background</b>', tex = r'\textbf{total background}')
-    for o in observables: rate_table.set_column_multiformat(o, o_bkg_sum[o], html = '%.5g' % o_bkg_sum[o], tex = '%.5g' % o_bkg_sum[o])
+    for o in observables:
+        error = math.sqrt(o_bkg_err2sum[o])
+        s = o_bkg_sum[o]
+        if error > 0: rate_table.set_column_multiformat(o, (s, error), html = '%.5g +/- %.5g' % (s, error), tex = '$%.5g \\pm %.5g$' % (s, error))
+        else: rate_table.set_column_multiformat(o, s, html = '%.5g' % s, tex = '%.5g' % s)
     rate_table.add_row()
     for p in processes:
         if p not in model.signal_processes: continue
@@ -81,7 +91,10 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
                rate_table.set_column_multiformat(o, '---')
                continue
            s = sum(hf.get_nominal_histo()[2])
-           rate_table.set_column_multiformat(o, s, html = '%.5g' % s, tex = '%.5g' % s)
+           error = 0
+           if hf.nominal_uncertainty_histo is not None: error = math.sqrt(sum([x**2 for x in hf.nominal_uncertainty_histo[2]]))
+           if error > 0:  rate_table.set_column_multiformat(o, (s, error), html = '%.5g +/- %.5g' % (s, error), tex = '$%.5g \\pm %.5g$' % (s, error))
+           else: rate_table.set_column_multiformat(o, s, html = '%.5g' % s, tex = '%.5g' % s)
         rate_table.add_row()
     #always show data row (even if there is no DATA ...):
     rate_table.set_column_multiformat('process', 'data', html = '<b>DATA</b>', tex = r'\textbf{data}')
@@ -92,7 +105,7 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
         
     rate_table.add_row()
     f = open(os.path.join(config.workdir, "model_summary_rates.thtml"), 'w')
-    print >> f, "<p>Rates for all observables and processes as given by the 'nominal' templates:</p>"
+    print >> f, "<p>Rates for all observables and processes as given by the 'nominal' templates. If errors are given, they are MC stat. uncertainties.</p>"
     print >> f, rate_table.html()
     result['rate_table'] = rate_table
     f.close()
@@ -134,7 +147,7 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
                 if par in coeff.factors:
                     if type(coeff.factors[par])==dict and coeff.factors[par]['type'] == 'exp_function':
                         rplus = math.exp(coeff.factors[par]['lambda_plus']) - 1
-                        rminus = 1 - math.exp(coeff.factors[par]['lambda_minus'])
+                        rminus = math.exp(-coeff.factors[par]['lambda_minus']) - 1
                     else:
                        rplus = model.distribution.get_distribution(par)['width']
                        rminus = -model.distribution.get_distribution(par)['width']
