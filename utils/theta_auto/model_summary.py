@@ -7,6 +7,26 @@ import plotutil
 import utils
 
 
+def print_mcstat_syst(model):
+    for o in model.observables:
+        data, uncs2 = None, None
+        for p in model.get_processes(o):
+            if p in model.signal_processes: continue
+            hf = model.get_histogram_function(o, p)
+            if data is None:
+                data = hf.nominal_histo[2][:]
+                uncs2 = [u**2 for u in hf.nominal_uncertainty_histo[2]]
+            else:
+                data = [data[i] + hf.nominal_histo[2][i] for i in range(len(data))]
+                uncs2 = [uncs2[i] + hf.nominal_uncertainty_histo[2][i] for i in range(len(data))]
+        print o
+        for i in range(len(data)):
+            relunc = math.sqrt(uncs2[i]) / data[i]
+            print i, relunc
+                
+            
+
+
 # model_summary is the only 'main' method of this file meant to be used from analysis.py; the other functions are just helpers.
 #
 #

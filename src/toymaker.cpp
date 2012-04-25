@@ -2,6 +2,7 @@
 #include "interface/main.hpp"
 #include "interface/phys.hpp"
 #include "interface/data.hpp"
+#include "interface/model.hpp"
 
 #include "interface/atomic.hpp"
 
