@@ -654,6 +654,20 @@ def pl_intervals(model, input = 'toys:0', n = 100, signal_prior = 'flat', nuisan
     return result
 
 
+# calculate the expected limits using asimov data (i.e., without dicing nuisance parameters and without dicing Poisson)
+# returns a dictionary (signal process id) --> (expected limit on beta_signal).
+#
+# Note that the PL method is an asymptotic method, so this method is mainly useful to compare different scenarios, but not for the final result.
+def get_expected_pl_limits(model, input = 'toys-asimov:0.0', signal_processes = None):
+    dist_orig = model.distribution
+    model.distribution = get_fixed_dist(dist_orig)
+    res = pl_intervals(model, input = input, n=1, signal_processes = signal_processes, nuisance_constraint = dist_orig)
+    result = {}
+    for spid in res:
+        result[spid] = res[spid][0.9][0][1]
+    model.distribution = dist_orig
+    return result
+
 # runs deltanll_intervals and measures coverage as a function of the true beta_signal
 # Returns: dictionary: (spid) --> (true beta signal) --> |  (cl) --> coverage
 #                                                        |  'successrate' --> fit success rate

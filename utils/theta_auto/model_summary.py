@@ -38,7 +38,7 @@ def print_mcstat_syst(model):
 # Returns a dictionary containing instances of Report.table:
 # * 'rate_table' the rate table
 # * 'sysrate_tables' --> (observable name): the systematics table for the given observable
-def model_summary(model, create_plots = True, all_nominal_templates = False):
+def model_summary(model, create_plots = True, all_nominal_templates = False, shape_templates = False):
     result = {}
     observables = sorted(list(model.observables))
     processes = sorted(list(model.processes))
@@ -199,7 +199,7 @@ def model_summary(model, create_plots = True, all_nominal_templates = False):
     model_summary_nuisance(model.distribution, os.path.join(config.workdir, "model_summary_nuisance.thtml"))
 
     # figures:
-    if create_plots: model_plots(model, all_nominal_templates = all_nominal_templates)
+    if create_plots: model_plots(model, all_nominal_templates = all_nominal_templates, shape_templates = shape_templates)
 
     # build the index.html:
     config.report.new_section('General Model Info', file(os.path.join(config.workdir, 'model_summary_general.thtml')).read())
@@ -317,7 +317,7 @@ def model_plots_at(model, par_values, signal_stacked = False):
 
 # creates plots and model_plots.thtml
 # observable units is a dictionary (observable name) --> (caption to use for plots)
-def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
+def model_plots(model, all_nominal_templates = False, shape_templates = False):
     plotdir = os.path.join(config.workdir, 'plots')
     observables = sorted(list(model.observables.keys()))
     processes = sorted(list(model.processes))
@@ -373,9 +373,7 @@ def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
         plotutil.make_stack(background_pds)
         plots = background_pds + signal_pds
         if data_pd is not None: plots.append(data_pd)
-        xlabel = o
-        if o in observables_pretty: xlabel = observables_pretty[o]
-        plotutil.plot(plots, xlabel, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack.png' % o), xmin=xmin, xmax=xmax)
+        plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack.png' % o), xmin=xmin, xmax=xmax)
         print >> f, "<p>Observable '%s':<br /><img src=\"plots/%s_stack.png\" /></p>" % (o, o)
        
     if all_nominal_templates:
@@ -392,7 +390,6 @@ def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
                 pd.y = data[:]
                 pd.color = signal_colors[0]
                 xlabel = o
-                if o in observables_pretty: xlabel = observables_pretty[o]
                 plotutil.plot([pd], xlabel, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_%s.png' % (o, p)), xmin=xmin, xmax=xmax)
                 print >> f, '<p>Observable "%s", Process "%s":<br/><img src="plots/%s_%s.png"/></p>' % (o, p, o, p)
             # make also one plot with all signal processes, and normalization versus ordering:
@@ -420,14 +417,14 @@ def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
             for x in sorted(x_to_y.keys()):
                 pd_norm.x.append(x)
                 pd_norm.y.append(x_to_y[x])
-            xlabel = o
-            if o in observables_pretty: xlabel = observables_pretty[o]
-            plotutil.plot(plots, xlabel, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_signals.png' % o), xmin=xmin, xmax=xmax)
+            plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_signals.png' % o), xmin=xmin, xmax=xmax)
             plotutil.plot([pd_norm], 'signal process', '$N$', os.path.join(plotdir, '%s_norm_vs_signals.png' % o))
             print >> f, '<p>Observable "%s", all signals: <br/><img src="plots/%s_signals.png"/></p>' % (o, o)
             print >> f, '<p>Observable "%s", signal normalization: <br/><img src="plots/%s_norm_vs_signals.png"/></p>' % (o, o)
     # (end if all_nominal_templates)
-    """
+    if not shape_templates:
+        f.close()
+        return 
     # shape comparison for morphed templates:
     color_nominal, color_plus, color_minus = '#333333', '#aa3333', '#3333aa'
     print >> f, "<h2>Shape Uncertainty Plots</h2>"
@@ -437,38 +434,29 @@ def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
     print >> f, "<p>Processes not appearing in the tables do not have any shape uncertainty for this observable.</p>"
     print >> f, "<p>Click on an image to enlarge. If you have javascript, the image will be displayed on this page and you can click through all shape uncertainties of that observable \
                    (instead of clicking, you can also use the left/right key on the keyboard).</p>"
-    shape_uncertainties = sorted(list(model.shape_uncertainties))
     for o in observables:
         print >> f, '<h3>Observable \'%s\'</h3>' % o
         # save the triples (o,p,u) for which there is a plot:
         opus = []
-        for p in processes:
-            hf = Model.get_histogram_function(o,p)
-            if not hname in model.histos: continue
-            for u in shape_uncertainties:
-                hname_plus = Model.hname(o,p,u,'plus')
-                hname_minus = Model.hname(o,p,u,'minus')
-                if hname_plus not in model.histos or hname_minus not in model.histos: continue
-                xmin, xmax, data_nominal = model.histos[hname]
-                xmin, xmax, data_plus = model.histos[hname_plus]
-                xmin, xmax, data_minus = model.histos[hname_minus]
+        for p in model.get_processes(o):
+            hf = model.get_histogram_function(o,p)
+            for u in hf.syst_histos:
+                xmin, xmax, data_nominal = hf.nominal_histo
+                xmin, xmax, data_plus = hf.syst_histos[u][0]
+                xmin, xmax, data_minus = hf.syst_histos[u][1]
                 binwidth = (xmax - xmin) / len(data_nominal)
-                pd = plotutil.plotdata()
+                pd = plotutil.plotdata(color = color_nominal, legend = 'nominal')
                 pd.x = [xmin + i*binwidth for i in range(len(data_nominal))]
                 pd.y = data_nominal
-                pd.color = color_nominal
-                pd_plus = plotutil.plotdata()
+                pd_plus = plotutil.plotdata(color = color_plus, legend = 'plus variation')
                 pd_plus.x = pd.x
                 pd_plus.y = data_plus
                 pd_plus.color = color_plus
-                pd_minus = plotutil.plotdata()
+                pd_minus = plotutil.plotdata(color = color_minus, legend = 'minus variation')
                 pd_minus.x = pd.x
                 pd_minus.y = data_minus
-                pd_minus.color = color_minus
                 name = '%s__%s__%s' % (o,p,u)
-                xlabel = o
-                if o in observables_pretty: xlabel = observables_pretty[o]
-                plotutil.plot((pd, pd_plus, pd_minus), xlabel, '$N / %.4g$' % binwidth, os.path.join(plotdir, name + '.png'), xmin=xmin, xmax = xmax)
+                plotutil.plot((pd, pd_plus, pd_minus), o, '$N / %.4g$' % binwidth, os.path.join(plotdir, name + '.png'), xmin=xmin, xmax = xmax)
                 opus.append((o,p,u))
         #make a table for this observable:
         t = table()
@@ -486,7 +474,6 @@ def model_plots(model, observables_pretty = {}, all_nominal_templates = False):
             t.add_row()
         print >>f, t.html()
         if len(opus)==0: print >> f, '<p>no shape uncertainties for this observable</p>'
-    """
     f.close()
 
 

@@ -50,21 +50,19 @@ class rootfile:
 
 # par_values is a dictionary (parameter name) --> (floating point value)
 #
-# use_signal is either the boolean True or a list/set which contains the process names
-# to include. If the model contains a process considered as signal, beta_signal must be set in
-# par_values.
+# If "beta_signal" is in par_values, it will be included as factor for all signal processes. Otherwise,
+# it is not mutliplied, effectively assuming beta_signal = 1.0.
 #
 # returns a dictionary
 # (observable name) --> (process name) --> (xmin, xmax, data)
-def get_shifted_templates(model, par_values, use_signal = True):
+def get_shifted_templates(model, par_values):
     result = {}
     for obs in model.observables:
         result[obs] = {}
         for p in model.get_processes(obs):
             f = model.get_coeff(obs, p)
             factor = f.get_value(par_values)
-            if p in model.signal_processes:
-                if use_signal is True or p in use_signal: factor *= par_values['beta_signal']
+            if p in model.signal_processes and 'beta_signal' in par_values: par_values['beta_signal']
             hf = model.get_histogram_function(obs, p)
             histo = hf.evaluate(par_values)
             for i in range(len(histo[2])):
@@ -140,6 +138,13 @@ class Model:
         if other_model.additional_nll_term is not None:
             if self.additional_nll_term is None: self.additional_nll_term = other_model.additional_nll_term
             else: self.additional_nll_term = self.additional_nll_term + other_model.additional_nll_term
+
+    def rename_parameter(self, current_name, new_name):
+        self.distribution.rename_parameter(current_name, new_name)
+        for o in self.observable_to_pred:
+            for p in self.observable_to_pred[o]:
+                self.observable_to_pred[o][p]['histogram'].rename_parameter(current_name, new_name)
+                self.observable_to_pred[o][p]['coefficient-function'].rename_parameter(current_name, new_name)
     
     # modify the model to only contain a subset of the current observables.
     # The parameter observables must be convertible to a set of strings
@@ -351,7 +356,7 @@ class Function:
     
     # supported types are: 'exp', 'id', 'constant'
     # pars:
-    # * for typ=='exp': 'lmbda', 'parameter'
+    # * for typ=='exp': 'parameter', either 'lmbda' or 'lambda_plus' and 'lambda_minus'
     # * for typ=='id': 'parameter'
     # * for typ=='constant': value
     def add_factor(self, typ, **pars):
@@ -369,7 +374,29 @@ class Function:
             
     def remove_parameter(self, par_name):
         if par_name in self.factors: del self.factors[par_name]
+
+    # get a tuple (lambda_minus, lambda_plus) for the parameter par_name. Will throw an exception if par_name does not correspond to a 
+    # exp function factor
+    def get_exp_coeffs(self, par_name):
+        assert self.factors[par_name]['type'] == 'exp_function'
+        return self.factors[par_name]['lambda_minus'], self.factors[par_name]['lambda_plus']
+
+    def set_exp_coeffs(self, par_name, lambda_minus, lambda_plus):
+        assert self.factors[par_name]['type'] == 'exp_function'
+        self.factors[par_name]['lambda_minus'], self.factors[par_name]['lambda_plus'] = lambda_minus, lambda_plus
+
     
+    def rename_parameter(self, current_name, new_name):
+        if current_name in self.factors:
+            self.factors[new_name] = self.factors[current_name]
+            del self.factors[current_name]
+            if type(self.factors[new_name])==str:
+                assert(self.factors[new_name] == current_name)
+                self.factors[new_name] = new_name
+            elif type(self.factors[new_name]) == dict:
+                self.factors[new_name]['parameter'] = new_name
+            else: assert(type(self.factors[new_name])==float)
+
     def get_value(self, par_values):
         result = self.value
         for p in self.factors:
@@ -457,6 +484,16 @@ class HistogramFunction:
         self.nominal_uncertainty_histo = None
         
     def get_nominal_histo(self): return self.nominal_histo
+
+    def rename_parameter(self, current_name, new_name):
+        if current_name not in self.parameters: return
+        assert current_name != new_name
+        self.parameters.remove(current_name)
+        self.parameters.add(new_name)
+        self.factors[new_name] = self.factors[current_name]
+        del self.factors[current_name]
+        self.syst_histos[new_name] = self.syst_histos[current_name]
+        del self.syst_histos[current_name]
     
     # return a histogram triplet (xmin, xmax, data)
     def evaluate(self, par_values):
@@ -567,6 +604,11 @@ class Distribution:
     def get_distribution(self, par_name): return copy.deepcopy(self.distributions[par_name])
     
     def get_parameters(self): return self.distributions.keys()
+
+    def rename_parameter(self, current_name, new_name):
+        if current_name not in self.distributions: return
+        self.distributions[new_name] = self.distributions[current_name]
+        del self.distributions[current_name]
 
     def remove_parameter(self, par_name):
         del self.distributions[par_name]
