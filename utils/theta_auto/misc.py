@@ -380,10 +380,13 @@ def ml_fit(model, input = 'data', signal_prior = 'flat', nuisance_constraint = '
 # (signal process id) --> (observable name) --> (process name) --> (factor)
 #
 # Does not write anything to the report.
-def ml_fit_coefficients(model, **options):
+def ml_fit_coefficients(model, signal_processes = None, **options):
+    if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
+    spids = [''.join(sps) for sps in signal_processes]
     result = {}
     res = ml_fit(model, **options)
-    for sp in res:
+    for i in range(len(spids)):
+        sp = spids[i]
         values = {}
         for param in res[sp]:
             values[param] = res[sp][param][0][0]
@@ -392,8 +395,10 @@ def ml_fit_coefficients(model, **options):
             result[sp][obs] = {}
             for proc in model.get_processes(obs):
                 # skip signal processes we are not interested in:
-                if proc in model.signal_processes and proc not in sp: continue
+                if proc in model.signal_processes and proc not in signal_processes[i]: continue
                 result[sp][obs][proc] = model.get_coeff(obs, proc).get_value(values)
+                if proc in model.signal_processes:
+                    result[sp][obs][proc] *= values['beta_signal']
     return result
             
 
