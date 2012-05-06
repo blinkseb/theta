@@ -1,12 +1,12 @@
-objects := .bin/lbfgs.o
-deps := .bin/lbfgs.d
+objects := .bin/lbfgs.o .bin/lbfgs_minimizer.o
+deps := $(patsubst %.o,%.d,$(objects))
 
 include ../Makefile.rules
 
 all: ../lib/liblbfgs.so
 
 ../lib/liblbfgs.so: $(objects)
-	@$(CC) -o $@ -shared $(objects)
+	@$(LINK_SO)
 
 clean-subdir:
 	@rm -f ../lib/liblbfgs.so

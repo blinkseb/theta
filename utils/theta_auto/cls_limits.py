@@ -272,25 +272,26 @@ class truth_ts_values:
         return pd_clsb, pd_clb, pd_cls
             
 
-# make some plots of the test statistic for the report, using the given db filename#
+# make some plots of the test statistic for the report, using the given db filename
 #
-# returns a list of four plotutil.plotdata instances:
-# for data: cls+b, clsb, cls; the fourth is the expected CLs curve (including 1sigma and 2sigma bands)
+# returns a list of four plotutil.plotdata instances which contain curves as a function of the truth value (beta_signal):
+# * cls+b for data
+# * clb for data
+# * cls for data
+# * expected CLs curve, including 1sigma and 2sigma bands
 def debug_cls_plots(dbfile, ts_column = 'lr__nll_diff'):
     limits = sql(dbfile, 'select "index", "limit", limit_uncertainty from cls_limits')
     indices = [row[0] for row in limits]
     have_data = 0 in indices
-    data = sql(dbfile, 'select runid, lr__poi, source__truth, "%s" from products order by runid, eventid' % ts_column)
+    data = sql(dbfile, 'select runid, eventid, lr__poi, source__truth, "%s" from products order by runid, eventid' % ts_column)
     tts = truth_ts_values()
     truth_to_ts_data = {}
     for row in data:
-        if row[0] == 0:
-            truth_to_ts_data[row[1]] = row[3]
+        if row[0] == 0 and row[1] == 0:
+            truth_to_ts_data[row[2]] = row[4]
             continue
-        if row[2] > 0:  tts.add_point_sb(row[2], row[3])
-        else: tts.add_point_b(row[1], row[3])
-        
-    #truth_values = sorted(list(tts.truth_values()))
+        if row[3] > 0:  tts.add_point_sb(row[3], row[4])
+        else: tts.add_point_b(row[2], row[4])
     plotsdir = os.path.join(config.workdir, 'plots')
     config.report.new_section('debug_cls for file %s' % dbfile)
     pd_clsb, pd_clb, pd_cls = tts.get_cl_vs_truth(truth_to_ts_data)

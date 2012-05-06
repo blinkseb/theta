@@ -36,8 +36,7 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
     coeffs[obs_id].transfer(coeffs[obs_id].end(), coeffs_.begin(), coeffs_.end(), coeffs_);
     histos[obs_id].transfer(histos[obs_id].end(), histos_.begin(), histos_.end(), histos_);
     for(boost::ptr_vector<Function>::const_iterator it=coeffs[obs_id].begin(); it!=coeffs[obs_id].end(); ++it){
-        ParIds pids = (*it).get_parameters();
-        parameters.insert(pids.begin(), pids.end());
+        parameters.insert_all(it->get_parameters());
     }
     size_t nbins = 0;
     double xmin = NAN, xmax = NAN;
@@ -55,8 +54,7 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
                 throw invalid_argument("default_model::set_prediction: histogram dimensions mismatch");
             }
         }
-        ParIds pids = (*it).get_parameters();
-        parameters.insert(pids.begin(), pids.end());
+        parameters.insert_all(it->get_parameters());
     }
 }
 
@@ -91,7 +89,7 @@ std::auto_ptr<NLLikelihood> default_model::get_nllikelihood(const Data & data) c
     if(not(data.get_observables() == observables)){
         throw invalid_argument("default_model::get_nllikelihood: observables of model and data mismatch!");
     }
-    if(not(data.get_rvobs_values().get_parameters() == rvobservables)){
+    if(not(data.get_rvobs_values().contains_all(rvobservables))){
         throw invalid_argument("default_model::get_nllikelihood: real-values observables of model and data mismatch!");
     }
     if(bb_uncertainties){
@@ -127,8 +125,7 @@ default_model::default_model(const Configuration & ctx): bb_uncertainties(false)
         rvobservable_distribution = PluginManager<Distribution>::build(Configuration(ctx, ctx.setting["rvobs-distribution"]));
         rvobservables = rvobservable_distribution->get_parameters();
         // add parameters:
-        const ParIds & dist_pars = rvobservable_distribution->get_distribution_parameters();
-        parameters.insert(dist_pars.begin(), dist_pars.end());
+        parameters.insert_all(rvobservable_distribution->get_distribution_parameters());
     }
     // type checking for rvobs ParIds vs. parameter ParIds:
     for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it){
@@ -151,12 +148,11 @@ default_model::default_model(const Configuration & ctx): bb_uncertainties(false)
         stringstream ss;
         ss << "'parameter-distribution' has to define the same set of parameters the model depends on. However";
         ParIds dist_pars = parameter_distribution->get_parameters();
-        const ParIds & m_pars = parameters;
         ParIds all_pars = parameters;
-        all_pars.insert(dist_pars.begin(), dist_pars.end());
+        all_pars.insert_all(dist_pars);
         for(ParIds::const_iterator p_it=all_pars.begin(); p_it!=all_pars.end(); ++p_it){
-            if(m_pars.contains(*p_it) && dist_pars.contains(*p_it)) continue;
-            if(m_pars.contains(*p_it)){
+            if(parameters.contains(*p_it) && dist_pars.contains(*p_it)) continue;
+            if(parameters.contains(*p_it)){
                ss << ", the model depends on '"<< vm->get_name(*p_it) << "' which the parameter distribution does not include";
             }
             else ss << ", the parameter distribution depends on '" << vm->get_name(*p_it) << "' which the model does not depend on";
@@ -178,8 +174,7 @@ void default_model_nll::set_additional_term(const boost::shared_ptr<Function> & 
     additional_term = term;
     par_ids = model.get_parameters();
     if(additional_term.get()){
-         const ParIds & pids = additional_term->get_parameters();
-         par_ids.insert(pids.begin(), pids.end());
+         par_ids.insert_all(additional_term->get_parameters());
     }
 }
 

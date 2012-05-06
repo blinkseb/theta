@@ -2,6 +2,7 @@
 from theta_auto.test_model import *
 
 import unittest
+import time
 
 config.suppress_info = True
 one_sigma = 0.6827
@@ -35,7 +36,6 @@ class TestMle(unittest.TestCase):
         self.assertAlmostEqual(res['s2']['beta_signal'][0][0], 2.0, places = 3)
         res = ml_fit2(self.model_bunc)
         self.assertEqual(len(res), 1)
-        self.assertEqual(len(res['s']), 2)
         self.assertAlmostEqual(res['s']['bunc'][0][0], 0.0, places = 3)
         self.assertAlmostEqual(res['s']['beta_signal'][0][0], 3.0, places = 3)
 
@@ -100,7 +100,24 @@ class TestBB(unittest.TestCase):
         self.assertTrue(lower > oc_lower)
         relsize = (upper - lower) / (oc_upper - oc_lower)
         self.assertTrue(relsize > 0.97 and relsize < 1.03)
+
         
+class TestBayes(unittest.TestCase):
+    def setUp(self):
+        self.model = simple_counting(s = 1.0, n_obs = 11.0, b = 8.0, b_uncertainty = 2.0)
+
+    def test_bayesian_quantiles(self):
+        t0 = time.time()
+        res0 = bayesian_quantiles(self.model)
+        time0 = time.time() - t0
+        quants0 = sorted(res0['s']['quantiles'])
+        t0 = time.time()
+        res1 = bayesian_quantiles(self.model, n_threads = 2)
+        time1 = time.time() - t0
+        quants1 = sorted(res1['s']['quantiles'])
+        print "real time elapsed: ", time0, time1
+        #print "expected limits: ", quants0[len(quants0) / 2], quants1[len(quants1) / 2]
+
         
 class TestRootModel(unittest.TestCase):
     
@@ -181,7 +198,8 @@ suite2 = unittest.TestLoader().loadTestsFromTestCase(TestKSCHI2)
 suite3 = unittest.TestLoader().loadTestsFromTestCase(TestDisc)
 suite4 = unittest.TestLoader().loadTestsFromTestCase(TestBB)
 suite5 = unittest.TestLoader().loadTestsFromTestCase(TestRootModel)
-alltests = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5])
+suite6 = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
+alltests = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5, suite6])
 #unittest.TextTestRunner(verbosity=2).run(alltests)
 
 f = open('/dev/null', 'a')

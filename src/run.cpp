@@ -81,6 +81,9 @@ Run::Run(const Configuration & cfg){
     log_report = true;
     runid = 1;
     n_event = s["n-events"];
+    if(n_event <= 0){
+        throw ConfigurationException("n-events <= 0 not allowed");
+    }
     
     //1. setup database and tables:
     db = PluginManager<Database>::build(Configuration(cfg, s["output_database"]));

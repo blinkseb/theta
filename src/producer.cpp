@@ -73,8 +73,7 @@ std::auto_ptr<NLLikelihood> Producer::get_nllikelihood(const Data & data, const 
     if(override_parameter_distribution){
         ParIds pars = model.get_parameters();
         if(additional_nll_term.get()){
-            const ParIds & additional_pars  = additional_nll_term->get_parameters();
-            pars.insert(additional_pars.begin(), additional_pars.end());
+            pars.insert_all(additional_nll_term->get_parameters());
         }
         if(!(override_parameter_distribution->get_parameters()==pars)){
             std::stringstream ss;

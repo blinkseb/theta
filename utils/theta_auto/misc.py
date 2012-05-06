@@ -133,12 +133,15 @@ def signal_prior_dist(spec):
         if not isinstance(spec,Distribution): raise RuntimeError, "signal_prior specification has to be a string ('flat' / 'fix:X') or a Distribution instance!"
         return spec
 
-
+# TODO: does not support rvobservables fully
 def write_cfg2(main, model, signal_processes, method, input, id = None, **options):
     all_parameters = model.get_parameters(signal_processes)
     if model.additional_nll_term is not None: all_parameters.update(model.additional_nll_term.get_parameters())
     all_parameters = sorted(list(all_parameters))
+    rvobservables = model.rvobs_distribution.get_parameters()
     theta_cfg = "parameters = " + settingvalue_to_cfg(all_parameters, 0, ['parameters']) + ";\n"
+    if len(rvobservables) > 0:
+        config += "rvobservables = " + settingvalue_to_cfg(rvobservables, 0, ['rvobservables']) + ";\n"
     obs = {}
     for o in model.observables:
         xmin, xmax, nbins = model.observables[o]
@@ -167,7 +170,7 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
     signal_prior_spec = signal_prior
     signal_prior = signal_prior_dist(signal_prior)
     model_signal_prior = model_signal_prior_dist(input)
-    data_source_dict, model_dist_signal_dict = utils.data_source_dict(model, input)
+    data_source_dict, model_dist_signal_dict = utils.data_source_dict(model, input, **options)
     cfg_names_to_run = []
     for sp in signal_processes:
         main = Run(n, data_source_dict, model_signal_prior)
@@ -216,6 +219,9 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
             if n >= 10:
                 result_table.set_column(p, '%.3g (%.3g, %.3g)' % (sorted_res[int(0.5*n)], sorted_res[int(0.16*n)], sorted_res[int(0.84*n)]))
             else: result_table.set_column(p, '%.3g' % sorted_res[int(0.5*n)])
+        nll_values = sql(sqlfile, 'select eventid, mle__nll from products')
+        result[sp_id]['nll'] = [row[1] for row in nll_values]
+        result[sp_id]['eventid'] = [row[0] for row in nll_values]
         for p in nuisance_parameters + ['beta_signal']:
             if p in parameters: continue
             result_table.set_column(p, 'n/a')
@@ -312,7 +318,7 @@ def ml_fit(model, input = 'data', signal_prior = 'flat', nuisance_constraint = '
     cfg_options = {'plugin_files': ('$THETA_DIR/lib/core-plugins.so','$THETA_DIR/lib/root.so')}
     toplevel_settings = {'model-distribution-signal': delta_distribution(beta_signal = beta_signal_value), 'mle': mle, 'main': main, 'signal_prior':
         signal_prior_dict(signal_prior),  'options': cfg_options}
-    main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, input)
+    main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, input, **options)
     cfg_names_to_run = []
     for sp in signal_processes:
         model_parameters = sorted(list(model.get_parameters(sp)))

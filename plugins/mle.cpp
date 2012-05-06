@@ -37,7 +37,12 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     products_sink->set_product(c_nll, minres.fval);
     for(size_t i=0; i<save_ids.size(); ++i){
         products_sink->set_product(parameter_columns[i], minres.values.get(save_ids[i]));
-        products_sink->set_product(error_columns[i], 0.5 * (minres.errors_plus.get(save_ids[i]) + minres.errors_minus.get(save_ids[i])) );
+        if(minres.errors_plus.contains(save_ids[i])){
+            products_sink->set_product(error_columns[i], 0.5 * (minres.errors_plus.get(save_ids[i]) + minres.errors_minus.get(save_ids[i])) );
+        }
+        else{
+            products_sink->set_product(error_columns[i], NAN);
+        }
     }
     if(write_covariance){
        const size_t N = save_ids.size();

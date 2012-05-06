@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE(basic){
     ParValues values;
     values.set(p1, 0.0);
     values.set(p2, 0.0);
-    BOOST_CHECK(values.get_parameters() == f.get_parameters());
+    BOOST_CHECK(values.contains_all(f.get_parameters()));
     double expected = 0.5 * (pow(1.0, 2) / 0.5 + pow(2.0, 2) / 0.3);
     BOOST_CHECK(close_to_relative(f(values),expected));
     values.set(p1, 2.7);

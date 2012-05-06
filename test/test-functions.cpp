@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(add){
     values.set(p1, 0.0);
     values.set(p2, 0.0);
     values.set(p3, 0.0);
-    BOOST_REQUIRE(f.get_parameters() == values.get_parameters());
+    BOOST_REQUIRE(values.contains_all(f.get_parameters()));
     double expected = 1.7 + 3.2;
     BOOST_CHECK(close_to_relative(f(values),expected));
     values.set(p1, 24.7);

@@ -19,8 +19,7 @@ add::add(const Configuration & cfg): literal_addend(0.0){
         }
         else if(t==libconfig::Setting::TypeGroup){
             std::auto_ptr<Function> f = PluginManager<Function>::build(Configuration(cfg, cfg.setting["addends"][i]));
-            const ParIds & f_p = f->get_parameters();
-            par_ids.insert(f_p.begin(), f_p.end());
+            par_ids.insert_all(f->get_parameters());
             functions.push_back(f);
         }
         else{

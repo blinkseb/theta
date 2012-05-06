@@ -4,7 +4,7 @@ from Model import *
 from model_summary import *
 import config
 import plotutil
-import utils
+from utils import *
 from bayesian import *
 #from neyman import *
 from cls_limits import *

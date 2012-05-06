@@ -96,7 +96,7 @@ namespace theta {
     template<class id_type>
     class VarIds {
     public:
-        /// \brief A STL compliant forward iterator 
+        /// \brief Sort of an iterator. Not necessarily one of the standard flavor, but can be used to go through all ids.
         typedef typename std::set<id_type>::const_iterator const_iterator;
 
         /// \brief Get the an iterator pointing to the first element. 
@@ -110,28 +110,17 @@ namespace theta {
         }
 
         /** \brief Insert a new id
-         *
-         * \param id The id object to insert. 
-         * \return \c true, if an insertion actually took place and \c false if the id was already contained. 
          */
-        bool insert(const id_type & id) {
-            return vars.insert(id).second;
-        }
-        
-        /** \brief Erase a previously inserted id
-         *
-         * \param id The id object to erase.
-         */
-        void erase(const id_type & id) {
-            vars.erase(id);
+        void insert(const id_type & id) {
+            vars.insert(id).second;
         }
         
         /** \brief Insert new ids.
          *
          * Insert [first, last) in this container.
          */
-        void insert(const_iterator first, const_iterator last) {
-            vars.insert(first, last);
+        void insert_all(const VarIds & vids) {
+            vars.insert(vids.vars.begin(), vids.vars.end());
         }
 
         /** \brief Test whether an id is contained.
@@ -391,10 +380,6 @@ namespace theta {
         void clear(){
             std::fill(values.begin(), values.end(), NAN);
         }
-
-        /** \brief Return all \c ParIds of the variables in this \c VarValues.
-         */
-        ParIds get_parameters() const;
 
     private:
         //values are stored using the ParId.id as index

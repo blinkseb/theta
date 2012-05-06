@@ -30,7 +30,7 @@ namespace theta{
          * on. How this is calculated depends on the minimizer used. In cases where
          * the minimizer provides symmetrical errors, the entries are equal to \c errors_minus.
          *
-         * Set to -1 if not provided by the minimizer.
+         * Empty if not provided by the minimizer.
          */
         ParValues errors_plus;
 
@@ -43,7 +43,7 @@ namespace theta{
          * Note that while these are the errors in negative direction, the
          * entries are always positive in case it contains valid errors.
          *
-         * Set to -1 if not provided by the minimizer.
+         * Empty if not provided by the minimizer.
          */
         ParValues errors_minus;
 
@@ -53,7 +53,7 @@ namespace theta{
          * The index convention is such that 0 corresponds to the first ParId in
          * the sorted (=as iterated) list of parameter ids contained in \c values.
          *
-         * It is the negative unity matrix of the correct size in case the
+         * It is set to a Matrix of size 0 in case the
          * minimization does not provide errors.
          */
         Matrix covariance;

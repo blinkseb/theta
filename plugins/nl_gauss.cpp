@@ -23,8 +23,7 @@ nl_gauss::nl_gauss(const theta::Configuration & cfg) {
         }
         else{
             rows.push_back(PluginManager<Function>::build(Configuration(cfg, cfg.setting["rows"][i])));
-            const ParIds & pids = rows.back().get_parameters();
-            par_ids.insert(pids.begin(), pids.end());
+            par_ids.insert_all(rows.back().get_parameters());
         }
         mu[i] = cfg.setting["mu"][i];
         SettingWrapper s_row = cfg.setting["covariance"][i];

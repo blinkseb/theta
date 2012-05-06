@@ -2,6 +2,7 @@
 import ROOT, re, fnmatch, math
 import os, os.path
 from theta_interface import *
+from utils import *
 
 
 class rootfile:
@@ -113,6 +114,8 @@ class Model:
         self.additional_nll_term = None
         self.bb_uncertainties = False
         self.rvobs_distribution = Distribution()
+        self.signal_prior = Distribution()
+        self.signal_prior.set_distribution('beta_signal', 'gauss', 0.0, inf, (0.0, inf))
     
     def reset_binning(self, obs, xmin, xmax, nbins):
         assert obs in self.observables
@@ -330,6 +333,31 @@ class Model:
         return rc, sc
     
     # options supported: use_llvm (default: False)
+    # if signal_prior is None, self.signal_prior will be used
+    def get_cfg2(self, signal_processes = [], signal_prior = None, **options):
+        result = {}
+        if options.get('use_llvm', False): result['type'] = 'llvm_model'
+        for sp in signal_processes:
+            assert sp in self.signal_processes
+        for o in self.observable_to_pred:
+            result[o] = {}
+            for proc in self.observable_to_pred[o]:
+                if proc in self.signal_processes and proc not in signal_processes: continue
+                result[o][proc] = {'histogram': self.observable_to_pred[o][proc]['histogram'].get_cfg(),
+                     'coefficient-function': self.observable_to_pred[o][proc]['coefficient-function'].get_cfg()}
+                if proc in signal_processes:
+                    result[o][proc]['coefficient-function']['factors'].append('beta_signal')
+        dist = Distribution.merge(self.distribution, signal_prior if signal_prior is not None else self.signal_prior)
+        parameters = self.get_parameters(signal_processes)
+        result['parameter-distribution'] = dist.get_cfg(parameters)
+        #rv observables:
+        rvobservables = self.rvobs_distribution.get_parameters()
+        if len(rvobservables) > 0:
+            result['rvobs-distribution'] = self.rvobs_distribution.get_cfg(rvobservables)
+        if self.bb_uncertainties: result['bb_uncertainties'] = True
+        return result
+        
+        
     def get_cfg(self, signal_processes = [], **options):
         result = {}
         if options.get('use_llvm', False): result['type'] = 'llvm_model'

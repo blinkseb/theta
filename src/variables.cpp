@@ -132,7 +132,7 @@ ParIds VarIdManager::get_all_parameters() const{
 }
 
 /* ParValues */
-ParIds ParValues::get_parameters() const {
+/*ParIds ParValues::get_parameters() const {
     ParIds result;
     for (size_t i=0; i<values.size(); i++) {
         if(not isnan(values[i])){
@@ -140,7 +140,7 @@ ParIds ParValues::get_parameters() const {
         }
     }
     return result;
-}
+}*/
 
 void ParValues::fail_get(const ParId & pid) const{
     std::stringstream ss;

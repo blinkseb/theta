@@ -108,7 +108,7 @@ deltanll_hypotest::deltanll_hypotest(const theta::Configuration & cfg):
     }
     fill_mode_support(s_plus_b_mode, s_plus_b_support, *s_plus_b);
     fill_mode_support(b_only_mode, b_only_support, *b_only);
-    if(not (b_only_mode.get_parameters()==s_plus_b_mode.get_parameters())){
+    if(not (s_plus_b->get_parameters()==b_only->get_parameters())){
         throw ConfigurationException("parameters of the distributions 'signal-plus-background' and 'background-only' do not match");
     }
     c_nll_b = products_sink->declare_product(*this, "nll_b", theta::typeDouble);

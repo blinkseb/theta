@@ -2,7 +2,7 @@
  *      Limited memory BFGS (L-BFGS).
  *
  * Copyright (c) 1990, Jorge Nocedal
- * Copyright (c) 2007,2008,2009 Naoaki Okazaki
+ * Copyright (c) 2007-2010 Naoaki Okazaki
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,7 +24,7 @@
  * THE SOFTWARE.
  */
 
-/* $Id: lbfgs.c 59 2009-07-13 14:04:26Z naoaki $ */
+/* $Id$ */
 
 /*
 This library is a C port of the FORTRAN implementation of Limited-memory
@@ -61,18 +61,34 @@ distributing the effieicnt and explanatory implementation in an open source
 licence.
 */
 
-//#ifdef  HAVE_CONFIG_H
-//#include <config.h>
-//#endif/*HAVE_CONFIG_H*/
+#ifdef  HAVE_CONFIG_H
+#include <config.h>
+#endif/*HAVE_CONFIG_H*/
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
-#include "lbfgs.h"
+#include <liblbfgs/lbfgs.h>
 
+#ifdef  _MSC_VER
+#define inline  __inline
+#endif/*_MSC_VER*/
+
+#if     defined(USE_SSE) && defined(__SSE2__) && LBFGS_FLOAT == 64
+/* Use SSE2 optimization for 64bit double precision. */
+#include "arithmetic_sse_double.h"
+
+#elif   defined(USE_SSE) && defined(__SSE__) && LBFGS_FLOAT == 32
+/* Use SSE optimization for 32bit float precision. */
+#include "arithmetic_sse_float.h"
+
+#else
 /* No CPU specific optimization. */
 #include "arithmetic_ansi.h"
+
+#endif
 
 #define min2(a, b)      ((a) <= (b) ? (a) : (b))
 #define max2(a, b)      ((a) >= (b) ? (a) : (b))
@@ -95,7 +111,7 @@ struct tag_iteration_data {
 typedef struct tag_iteration_data iteration_data_t;
 
 static const lbfgs_parameter_t _defparam = {
-    6, 1e-5, 0, 1e-5,
+    6, 1e-5, 0, 0,
     0, LBFGS_LINESEARCH_DEFAULT, 40,
     1e-20, 1e20, 1e-4, 0.9, 0.9, 1.0e-16,
     0.0, 0, -1,
@@ -198,8 +214,21 @@ static void owlqn_project(
     );
 
 
+#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
+static int round_out_variables(int n)
+{
+    n += 7;
+    n /= 8;
+    n *= 8;
+    return n;
+}
+#endif/*defined(USE_SSE)*/
+
 lbfgsfloatval_t* lbfgs_malloc(int n)
 {
+#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
+    n = round_out_variables(n);
+#endif/*defined(USE_SSE)*/
     return (lbfgsfloatval_t*)vecalloc(sizeof(lbfgsfloatval_t) * n);
 }
 
@@ -248,10 +277,23 @@ int lbfgs(
     cd.proc_evaluate = proc_evaluate;
     cd.proc_progress = proc_progress;
 
+#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
+    /* Round out the number of variables. */
+    n = round_out_variables(n);
+#endif/*defined(USE_SSE)*/
+
     /* Check the input parameters for errors. */
     if (n <= 0) {
         return LBFGSERR_INVALID_N;
     }
+#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
+    if (n % 8 != 0) {
+        return LBFGSERR_INVALID_N_SSE;
+    }
+    if ((uintptr_t)(const void*)x % 16 != 0) {
+        return LBFGSERR_INVALID_X_SSE;
+    }
+#endif/*defined(USE_SSE)*/
     if (param.epsilon < 0.) {
         return LBFGSERR_INVALID_EPSILON;
     }
@@ -270,7 +312,7 @@ int lbfgs(
     if (param.ftol < 0.) {
         return LBFGSERR_INVALID_FTOL;
     }
-    if (param.linesearch == LBFGS_LINESEARCH_BACKTRACKING_WOLFE &&
+    if (param.linesearch == LBFGS_LINESEARCH_BACKTRACKING_WOLFE ||
         param.linesearch == LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE) {
         if (param.wolfe <= param.ftol || 1. <= param.wolfe) {
             return LBFGSERR_INVALID_WOLFE;
@@ -448,7 +490,7 @@ int lbfgs(
 
         /* Report the progress. */
         if (cd.proc_progress) {
-            if ((ret = cd.proc_progress(cd.instance, x, g, fx, xnorm, gnorm, step, cd.n, k, ls))!=0) {
+            if ((ret = cd.proc_progress(cd.instance, x, g, fx, xnorm, gnorm, step, cd.n, k, ls))) {
                 goto lbfgs_exit;
             }
         }
@@ -474,7 +516,7 @@ int lbfgs(
             /* We don't test the stopping criterion while k < past. */
             if (param.past <= k) {
                 /* Compute the relative improvement from the past. */
-                rate = (pf[k % param.past] - fx) / fx;
+                rate = fabs(pf[k % param.past] - fx);
 
                 /* The stopping criterion. */
                 if (rate < param.delta) {

@@ -4,7 +4,6 @@
 import os, os.path, datetime, re, sys, copy, traceback, shutil, hashlib, tempfile
 
 from theta_auto import *
-inf = float("inf")
 
 #TODO:
 # * support for studies using +-1sigma toy / asimov data as input and re-run the method --> input='toys:scan-nuisance[-asimov]'?

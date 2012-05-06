@@ -52,8 +52,7 @@ theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boos
     nll->set_override_distribution(override_parameter_distribution);
     nll->set_additional_term(additional_nll_term);
     if(additional_nll_term.get()){
-        const ParIds & additional_pars = additional_nll_term->get_parameters();
-        parameters.insert(additional_pars.begin(), additional_pars.end());
+        parameters.insert_all(additional_nll_term->get_parameters());
     }
     double nll_at_min = (*nll)(mode);
     ParValues result;

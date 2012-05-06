@@ -18,7 +18,7 @@ namespace theta {
     template<typename T>
     class copy_to: public functor<T>{
     private:
-        mutable T & into;
+        T & into;
     public:
         copy_to(T & into_): into(into_){}
         virtual void operator()(const T& t) const {
@@ -29,7 +29,7 @@ namespace theta {
     template<typename T>
     class add_with_coeff_to: public functor<T>{
     private:
-        mutable T & h0;
+        T & h0;
         double coeff;
     public:
         add_with_coeff_to(T & h0_, double coeff_): h0(h0_), coeff(coeff_){}
@@ -70,12 +70,10 @@ namespace theta {
          * hf.apply_functor(copy_to<Histogram1D>(h), values);
          * \endcode
          *
-         * There are two version: with and without bin-by-bin uncertainties. The default implementation of the "no-uncertainties"
-         * version gets the result by calling the version with uncertainties, strips the uncertainties, and calls the functor
-         * on this "stripped" Histogram. This has some copying overhead, so derived classes should implement both for better runtime performance.
+         * There are two version: with and without bin-by-bin uncertainties.
          */
         virtual void apply_functor(const functor<Histogram1DWithUncertainties> & f, const ParValues & values) const = 0;
-        virtual void apply_functor(const functor<Histogram1D> & f, const ParValues & values) const;
+        virtual void apply_functor(const functor<Histogram1D> & f, const ParValues & values) const = 0;
         //@}
 
         /** \brief Returns the parameters which this HistogramFunction depends on.

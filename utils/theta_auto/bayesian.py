@@ -29,6 +29,9 @@ def bayesian_quantiles(model, input = 'toys:0', n = 1000, signal_prior = 'flat',
     signal_prior = signal_prior_dict(signal_prior)
     nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
     main = {'n-events': n, 'model': '@model', 'producers': ['@bayes_interval'], 'output_database': sqlite_database(), 'log-report': False}
+    if options.get('n_threads', 0) > 0:
+        main['type'] = 'run_mt'
+        main['n_threads'] = options['n_threads']
     bayes_interval = {'type': 'mcmc_quantiles', 'name': 'bayes', 'parameter': 'beta_signal', 'diag': True, 're-init': 1,
        'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior"), 'quantiles': [quantile], 'iterations': 20000 }
     if 'mcmc_iterations' in options: bayes_interval['iterations'] = options['mcmc_iterations']

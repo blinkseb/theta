@@ -41,9 +41,6 @@ def get_histo_cfg(histogram, histogram_err = None):
 #
 # options are passed to model.get_cfg
 def write_cfg(model, signal_processes, method, input, id = None, additional_settings = {}, **options):
-    for sp in signal_processes:
-        if sp == '__fakesp__': continue
-        assert sp in model.signal_processes, "invalid signal process '%s'" % sp
     model_parameters = sorted(list(set(model.get_parameters(signal_processes))))
     all_parameters = set(model.get_parameters(signal_processes))
     if model.additional_nll_term is not None: all_parameters.update(model.additional_nll_term.get_parameters())

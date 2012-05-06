@@ -7,12 +7,6 @@ REGISTER_PLUGIN_BASETYPE(theta::HistogramFunction);
 
 using namespace theta;
 
-void HistogramFunction::apply_functor(const functor<Histogram1D> & f, const ParValues & values) const{
-    Histogram1DWithUncertainties res;
-    apply_functor(copy_to<Histogram1DWithUncertainties>(res), values);
-    f(res.get_values_histogram());
-}
-
 void ConstantHistogramFunction::apply_functor(const functor<Histogram1DWithUncertainties> & f, const ParValues & values) const{
     f(h_wu);
 }

@@ -1,5 +1,6 @@
 #include "plugins/exp_function.hpp"
 #include "interface/plugin.hpp"
+#include "interface/utils.hpp"
 
 using namespace std;
 using namespace theta;
@@ -31,23 +32,24 @@ exp_function::exp_function(const theta::Configuration & cfg){
     //convert to the "vector" version:
     lambdas_plus.reserve(par_ids.size());
     lambdas_minus.reserve(par_ids.size());
+    n = par_ids.size();
     v_pids.reserve(par_ids.size());
     for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it){
         v_pids.push_back(*it);
         lambdas_plus.push_back(val_lambdas_plus.get(*it));
         lambdas_minus.push_back(val_lambdas_minus.get(*it));
     }
+    
 }
 
 double exp_function::operator()(const theta::ParValues & values) const{
     double exponent_total = 0.0;
-    const size_t n = v_pids.size();
     for(size_t i=0; i<n; ++i){
         double val = values.get_unchecked(v_pids[i]);
         double lambda = val < 0 ? lambdas_minus[i] : lambdas_plus[i];
         exponent_total += lambda * val;
     }
-    return exp(exponent_total);
+    return theta::utils::exp(exponent_total);
 }
 
 REGISTER_PLUGIN(exp_function)

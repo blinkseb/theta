@@ -50,7 +50,7 @@ public:
     
 protected:
     /// To be used by derived classes, to fill name and products_sink
-    ProductsSource(const Configuration & cfg);
+    explicit ProductsSource(const Configuration & cfg);
     ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink);
     
     std::string name;

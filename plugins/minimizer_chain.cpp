@@ -1,5 +1,6 @@
 #include "plugins/minimizer_chain.hpp"
 #include "interface/plugin.hpp"
+#include "interface/phys.hpp"
 
 using namespace theta;
 using namespace std;
@@ -22,11 +23,14 @@ MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues
     if(last_minimizer.get()){
         ParValues step2 = step;
         // set step2 to the errors from the minimization, if available:
-        const ParIds & pids = res.errors_plus.get_parameters();
+        const ParIds & pids = f.get_parameters();
         for(ParIds::const_iterator it=pids.begin(); it!=pids.end(); ++it){
-            double width = res.errors_plus.get(*it);
-            if(width > 0)
-               step2.set(*it, width);
+            if(res.errors_plus.contains(*it)){
+                double width = res.errors_plus.get(*it);
+                if(width > 0){
+                step2.set(*it, width);
+                }
+            }
         }
         res = last_minimizer->minimize(f, res.values, step2, ranges);
     }

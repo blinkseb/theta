@@ -111,6 +111,7 @@ namespace theta {
     protected:
         /// proxy to ProductsSource constructor for derived classes
         DataSource(const theta::Configuration & cfg): ProductsSource(cfg){}
+        DataSource(const std::string & name, const boost::shared_ptr<ProductsSink> & sink): ProductsSource(name, sink){}
     };
     
 

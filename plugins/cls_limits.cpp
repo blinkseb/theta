@@ -24,6 +24,12 @@ using namespace libconfig;
 
 using boost::shared_ptr;
 
+
+// runid conventions for the products tables:
+// * runid = 0 is used to calculate the ts values for the current dataset; the eventid is set to idata
+// * runid >= 1 is used to make the toys at different truth values for the CLs construction
+
+
 // the negative log likelihood to fit the function
 // y = target_cls * exp(lambda * (x - limit)), with fixed target_cls and parameters lambda, limit
 // to a dataset with correlated uncertainties for y.
@@ -138,13 +144,18 @@ public:
     explicit SaveDoubleColumn(const string & name): column_name(name), value(NAN), value_set(false){}
 };
 
-class data_filler: public theta::RandomConsumer, public theta::ProductsSource{
+class data_filler: public theta::RandomConsumer, public theta::DataSource{
  private:
      boost::shared_ptr<Model> model;
      Column truth_column;
+     ParId truth_parameter;
+     double truth_value;
  public:
-     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_);
-     void fill(theta::Data & dat, const ParId & truth_parameter, double truth_value);
+     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_, const ParId & truth_parameter);
+     virtual void fill(Data & dat);
+     void set_truth_value(double truth_value_){
+         truth_value = truth_value_;
+     }
 };
 
 // contains the (numerically derived) cls values and uncertainties as function of the truth value for a fixed ts value.
@@ -458,12 +469,12 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
     return result;
 }
 
-data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_): RandomConsumer(cfg, "source"),
-    ProductsSource("source", cfg.pm->get<ProductsSink>()), model(model_){
+data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_, const ParId & par): RandomConsumer(cfg, "source"),
+    DataSource("source", cfg.pm->get<ProductsSink>()), model(model_), truth_parameter(par){
     truth_column = products_sink->declare_product(*this, "truth", theta::typeDouble);
 }
 
-void data_filler::fill(Data & dat, const ParId & truth_parameter, double truth_value){
+void data_filler::fill(Data & dat){
     dat.reset();
     Random & rnd = *rnd_gen;
     ParValues values;
@@ -503,7 +514,8 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
     for (int eventid = 1; eventid <= n_event; eventid++) {
         if(stop_execution) break;
         ++n_toys;
-        source->fill(data, truth_parameter, bkg_only?0.0:truth);
+        source->set_truth_value(bkg_only?0.0:truth);
+        source->fill(data);
         bool error = false;
         try {
             producer->produce(data, *model);
@@ -560,27 +572,27 @@ public:
 // away from target cls. Calling the method twice with the same truth and ts values does nothing(!).
 // In mode==1 (improvement), the number of toys at the given value is doubled, but not more than 2000 are made.
 // If no toys are at this value, the behaviour is the same as mode==0.
-void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, double ts_epsilon, double truth, int mode){
+void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, double ts_epsilon, double truth, int idata, e_mode mode){
     if(!tts->contains_truth_value(truth)){
         run_single_truth(truth, true, 200);
         run_single_truth(truth, false, 200);
-        update_truth_to_ts(truth_to_ts, ts_epsilon);
+        update_truth_to_ts(truth_to_ts, ts_epsilon, idata);
         if(stop_execution) return;
-        mode = 0;
+        mode = M_ADAPTIVE;
     }
     double ts_value = truth_to_ts[truth];
     for(int kk=0; kk<100; ++kk){
         if(stop_execution) return;
         truth_ts_values::cls_info res = tts->get_cls(ts_value, truth);
         double cls_uncertainty = sqrt(pow(res.cls_uncertainty_n0, 2) + pow(res.cls_uncertainty_n, 2));
-        debug_out << "run_single_truth_adaptive (iteration " << kk << "; truth = " << truth << "; ts = " << ts_value << "):\n";
+        debug_out << "run_single_truth_adaptive (iteration " << kk << "; truth = " << truth << "; idata = " << idata << "; ts = " << ts_value << "):\n";
         debug_out << " clsb = " << res.clsb << " +- " << res.clsb_uncertainty << "\n";
         debug_out << " clb  = " << res.clb  << " +- " << res.clb_uncertainty << "\n";
         debug_out << " cls  = " << res.cls  << " +- " << cls_uncertainty << "\n";
         if(res.clb + res.clb_uncertainty < clb_cutoff){
            throw OutlierException(numeric_limits<double>::infinity());
         }
-        if(mode == 0){
+        if(mode == M_ADAPTIVE){
             if(fabs(res.cls - (1 - cl)) / cls_uncertainty > 3) return;
             if(cls_uncertainty < tol_cls) return;
             double target_cls_uncertainty = max(tol_cls, fabs(res.cls - (1 - cl))/3) * 0.7;
@@ -763,7 +775,7 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
         n_toys_total = n_truth * (n_sb_toys_per_truth + n_b_toys_per_truth);
     }
     
-    source.reset(new data_filler(cfg, model));
+    source.reset(new data_filler(cfg, model, truth_parameter));
 }
 
 
@@ -855,9 +867,8 @@ pair<size_t, size_t> find_seed(const cls_vs_truth_data & data, double cl, double
 
 // update the truth_to_ts map to contain ts values for all truth_values in truth_to_ts using current_data.
 // throws an OutlierException if the ts value is too extreme to be considered for CLs limits.
-// All calling functions should catch this exception (TODO: check!)
-void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts_epsilon){
-    static int eventid = 0; // FIXME: this should not be static
+// All calling functions should catch this exception
+void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts_epsilon, int idata){
     set<double> truth_values = tts->truth_values();
     boost::optional<double> constant_ts; //filled only in case of constant, non-poi dependent ts, i.e., pp_producer == 0
     // in case of data and constant ts, check whether we have calculated the ts value already:
@@ -896,13 +907,13 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
         truth_to_ts[*it] = ts;
         //call source->fill to set products column
         Data dummy_data;
-        source->fill(dummy_data, truth_parameter, 0.0);
-        products_table->add_row(0, eventid);
+        source->set_truth_value(*it);
+        source->fill(dummy_data);
+        products_table->add_row(0, idata);
         // if ts value is constant, fill it to constant_ts, for the next iteration:
         if(pp_producer==0){
             constant_ts = ts;
         }
-        ++eventid;
     }
     correct_truth_to_ts(truth_to_ts);
 }
@@ -1058,15 +1069,16 @@ void cls_limits::run_set_limits(){
             }
             else{
                 // make a background-only toy:
-                source->fill(current_data, truth_parameter, 0.0);
+                source->set_truth_value(0.0);
+                source->fill(current_data);
             }
             map<double, double> truth_to_ts;
             // run an update, to get the ts values at the truth points from previous idata iterations:
-            update_truth_to_ts(truth_to_ts, ts_epsilon);
+            update_truth_to_ts(truth_to_ts, ts_epsilon, idata);
             //3.a. find a seed:
             //3.a.i. make some adaptive toys at the highest current truth value to make it significantly smaller:
             cls_vs_truth_data data = tts->get_cls_vs_truth(truth_to_ts);
-            run_single_truth_adaptive(truth_to_ts, ts_epsilon, data.truth_values().back());
+            run_single_truth_adaptive(truth_to_ts, ts_epsilon, data.truth_values().back(), idata, M_ADAPTIVE);
             if(stop_execution) return;
             data = tts->get_cls_vs_truth(truth_to_ts);
             while(not cls_is_significantly_smaller(data, data.cls_values().size()-1, 1 - cl, tol_cls)){
@@ -1077,7 +1089,7 @@ void cls_limits::run_set_limits(){
                  }
                  debug_out << "making toys at high truth values to find upper limit on limit; next is truth=" << next_value << "\n";
                  flush(debug_out);
-                 run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_value);
+                 run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_value, idata, M_ADAPTIVE);
                  if(stop_execution) return;
                  data = tts->get_cls_vs_truth(truth_to_ts);
             }
@@ -1143,7 +1155,7 @@ void cls_limits::run_set_limits(){
                 // 3. make new toys
                 // 3.a. If the CLs range includes 0, make a new truth point close to 0:
                 if(i_low == 0){
-                    run_single_truth_adaptive(truth_to_ts, ts_epsilon, 0.5 * data.truth_values()[1]);
+                    run_single_truth_adaptive(truth_to_ts, ts_epsilon, 0.5 * data.truth_values()[1], idata, M_ADAPTIVE);
                     if(stop_execution) return;
                 }
                 // 3.b. add a new point randomly in the interval:
@@ -1166,7 +1178,7 @@ void cls_limits::run_set_limits(){
                     debug_out << "rounded next truth value to existing point " << next_truth << "\n";
                     flush(debug_out);
                 }
-                run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_truth, 1);
+                run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_truth, idata, M_MORE);
                 if(stop_execution) return;
                 
                 // 4. update data and i_low, i_high, as new indices might have appeared:
@@ -1179,7 +1191,7 @@ void cls_limits::run_set_limits(){
                 if((fabs(truth_low - latest_res.limit) / latest_res.limit_error > 2 or i_low==0) && i_low+1 < i_high){
                      debug_out << "lower border " << truth_low << " far away from current limit --> test if can be removed ...\n";
                      //re-run next candidate point:
-                     run_single_truth_adaptive(truth_to_ts, ts_epsilon, data.truth_values()[i_low+1]);
+                     run_single_truth_adaptive(truth_to_ts, ts_epsilon, data.truth_values()[i_low+1], idata, M_ADAPTIVE);
                      if(stop_execution) return;
                      if(cls_is_significantly_larger(data, i_low+1, 1 - cl)){
                          ++i_low;
@@ -1193,7 +1205,7 @@ void cls_limits::run_set_limits(){
                 if(fabs(truth_high - latest_res.limit) / latest_res.limit_error > 2 && i_low < i_high-1){
                      debug_out << "upper border " << truth_high << " far away from current limit --> test if can be removed ...\n";
                      //re-run next candidate point:
-                     run_single_truth_adaptive(truth_to_ts, ts_epsilon, data.truth_values()[i_high-1]);
+                     run_single_truth_adaptive(truth_to_ts, ts_epsilon, data.truth_values()[i_high-1], idata, M_ADAPTIVE);
                      if(stop_execution) return;
                      if(cls_is_significantly_smaller(data, i_high-1, 1 - cl, tol_cls)){
                          --i_high;

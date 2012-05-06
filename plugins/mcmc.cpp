@@ -95,8 +95,7 @@ Matrix get_sqrt_cov2(Random & rnd, const Model & model, std::vector<double> & st
     const size_t iterations = 8000;
     ParIds parameters = model.get_parameters();
     if(additional_nll_term){
-        ParIds add_pars = additional_nll_term->get_parameters();
-        parameters.insert(add_pars.begin(), add_pars.end());
+        parameters.insert_all(additional_nll_term->get_parameters());
     }
     const size_t n = parameters.size();
     Matrix sqrt_cov(n, n);

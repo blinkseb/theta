@@ -128,10 +128,12 @@ private:
     // run toys at the given truth value (and at truth=0!) until either
     // * the uncertainty on the CLs value is below tol_cls
     //   or
-    // * the CLs value is found to be more than 3 sigma away from the target CLs 1-cl.
-    //void run_single_truth_adaptive(double ts_value, double truth);
-    void run_single_truth_adaptive(std::map<double, double> & truth_to_ts, double ts_epsilon, double truth, int mode = 0);
-    void update_truth_to_ts(std::map<double, double> & truth_to_ts, double ts_epsilon);
+    // * the CLs value is found to be more than 3 sigma away from the target CLs 1-cl.    
+    enum e_mode{
+        M_ADAPTIVE, M_MORE
+    };
+    void run_single_truth_adaptive(std::map<double, double> & truth_to_ts, double ts_epsilon, double truth, int idata, e_mode mode);
+    void update_truth_to_ts(std::map<double, double> & truth_to_ts, double ts_epsilon, int idata);
 
     // make truth_to_ts monotonic
     void correct_truth_to_ts(std::map<double, double> & truth_to_ts);

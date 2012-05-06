@@ -24,7 +24,7 @@ void add_sources::fill(theta::Data & dat){
         sources[i].fill(data_tmp);
         rvobs_values.set(data_tmp.get_rvobs_values());
         ObsIds obs_tmp = data_tmp.get_observables();
-        obs_all.insert(obs_tmp.begin(), obs_tmp.end());
+        obs_all.insert_all(obs_tmp);
         for(ObsIds::const_iterator it=obs_all.begin(); it!=obs_all.end(); ++it){
             // add data_tmp[*it]  to  dat[*it]. However, some might be empty, so check:
             if(!obs_tmp.contains(*it)) continue;

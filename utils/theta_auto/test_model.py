@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # this file defines some simple models useful for testing theta-auto
 
-from Model import *
-
+from theta_auto import *
 
 # returns a model with a counting experiment in one bin with the given backgruond with a log-normal uncertainty.
 # b_uncertainty is the absolute uncertainty on b.
@@ -95,3 +94,19 @@ def gaussoverflat(s, b, b_uncertainty = 0.0):
     model.set_signal_processes('s*')
     return model
     
+
+# create a model with one observable with n+1 "processes" (=n Berstein polynomial-shaped templates) with same yield. The yields
+# are unknown, but sampled such that n_events_total is the total number of events.
+def bernstein_model(n, n_events_total = 1000, nbins = 100):
+    model = Model()
+    bernstein = lambda x, nu, n: 1 if (nu,n) == (0,0) else (0 if nu > n or nu < 0 else (1 - x) * bernstein(x, nu, n-1) + x * bernstein(x, nu-1, n-1))
+    for nu in range(n + 1):
+        hf = HistogramFunction()
+        data = [bernstein((i + 0.5) / nbins, nu, n) for i in range(nbins)]
+        n_data = sum(data)
+        data = [x * n_events_total / n / n_data for x in data]
+        hf.set_nominal_histo((0.0, 1.0, data))
+        model.set_histogram_function('obs', 'proc%d' % nu, hf)
+        model.add_lognormal_uncertainty('proc%d_unc' % nu, 1.0, 'proc%d' % nu)
+	model.distribution.set_distribution_parameters('proc%d_unc' % nu, width = float("inf"))
+    return model

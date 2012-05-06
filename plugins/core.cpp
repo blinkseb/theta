@@ -114,8 +114,8 @@ delta_distribution::delta_distribution(const theta::Configuration & cfg){
         const double val = cfg.setting[i];
         values.set(pid, val);
         supports[pid].second = supports[pid].first = val;
+        par_ids.insert(pid);
     }
-    par_ids = values.get_parameters();
 }
 
 
@@ -402,9 +402,8 @@ void product_distribution::add_distributions(const Configuration & cfg, const th
             std::auto_ptr<Distribution> dist = PluginManager<Distribution>::build(Configuration(cfg, dist_setting));
             const ParIds & new_pids = dist->get_parameters();
             if(new_pids.size()==0) continue;
-            par_ids.insert(new_pids.begin(), new_pids.end());
-            const ParIds & dist_pids = dist->get_distribution_parameters();
-            distribution_par_ids.insert(dist_pids.begin(), dist_pids.end());
+            par_ids.insert_all(new_pids);
+            distribution_par_ids.insert_all(dist->get_distribution_parameters());
             distributions.push_back(dist);
             for(ParIds::const_iterator it=new_pids.begin(); it!=new_pids.end(); ++it){
                 parid_to_index[*it] = distributions.size()-1;
