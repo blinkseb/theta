@@ -36,7 +36,7 @@ void run_mt::run(){
     boost::thread_group group;
     for(int it=0; it<n_threads; ++it){
         int nev = n_event / n_threads;
-        if(it == n_threads-1) nev += n_event % n_threads;
+        if(it < n_event % n_threads) nev += 1;
         atomic_set(&workers[it].done, 0);
         group.create_thread(boost::bind(&worker::operator(), boost::ref(workers[it]), nev, &toy_count, &toy_error_count));
     }
@@ -70,7 +70,6 @@ void run_mt::run(){
             catch(...){
                 ss << " (unknown exception)";
             }
-            ss << endl;
         }
     }
     if(exception) throw Exception("at least one thread had an exception:\n " + ss.str());

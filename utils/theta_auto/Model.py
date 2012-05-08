@@ -577,6 +577,8 @@ class HistogramFunction:
     def scale(self, factor):
         n = len(self.nominal_histo[2])
         for i in range(n): self.nominal_histo[2][i] = self.nominal_histo[2][i] * factor
+        if self.nominal_uncertainty_histo is not None:
+            for i in range(n): self.nominal_uncertainty_histo[2][i] = self.nominal_uncertainty_histo[2][i] * factor
         for hp, hm in self.syst_histos.itervalues():
             for i in range(n):
                 hp[2][i] = hp[2][i] * factor

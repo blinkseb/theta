@@ -183,8 +183,12 @@ def model_summary(model, create_plots = True, all_nominal_templates = False, sha
                     rawcell['rate_plus'] = (rplus * 100)
                     rawcell['rate_minus'] = (rminus * 100)
                     if rplus==-rminus:
-                        cell += '&#xb1;%.2f (r)' % (rplus * 100)
-                        texcell += "$\\pm %.2f$ (r)" % (rplus * 100)
+                        if rplus > 0:
+                            cell += '&#xb1;%.2f (r)' % (rplus * 100)
+                            texcell += "$\\pm %.2f$ (r)" % (rplus * 100)
+                        else:
+                            cell += '&#x2213;%.2f (r)' % (-rplus * 100)
+                            texcell += "$\\mp %.2f$ (r)" % (-rplus * 100)
                     else:
                         cell += '<sup>%+.2f</sup><sub>%+.2f</sub> (r) ' % (rplus * 100, rminus * 100)
                         texcell += '$^{%+.2f}_{%+.2f}$ (r) ' % (rplus * 100, rminus * 100)
