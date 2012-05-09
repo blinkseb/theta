@@ -11,7 +11,8 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
-#include "boost/date_time/posix_time/posix_time_types.hpp"
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+#include <boost/timer/timer.hpp>
 
 #include <termios.h>
 
@@ -114,12 +115,16 @@ namespace{
 }
 
 
-boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
+boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_time){
     Config cfg;
     boost::shared_ptr<SettingUsageRecorder> rec(new SettingUsageRecorder());
     boost::shared_ptr<Main> main;
     bool init_complete = false;
+    std::auto_ptr<boost::timer::cpu_timer> timer;
     try {
+        if(print_time){
+            timer.reset(new boost::timer::cpu_timer());
+        }
         try {
             //as includes in config files should always be resolved relative to the config file's location:
             string old_path = fs::current_path().string();
@@ -144,6 +149,10 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
             s << "Error parsing configuration file: " << p.getError() << " in line " << p.getLine() << ", file " << p.getFile();
             throw ConfigurationException(s.str());
         }
+        if(print_time){
+            cout << timer->format(4, "Time to read and parse configuration file:        %w sec real, %t sec CPU") << endl;
+            
+        }
         
         SettingWrapper root(cfg.getRoot(), cfg.getRoot(), rec);
         Configuration config(root);
@@ -151,13 +160,23 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn){
         
         //process options:
         Configuration cfg_options(config, config.setting["options"]);
+        if(print_time){
+            timer.reset(new boost::timer::cpu_timer());
+        }
         PluginLoader::execute(cfg_options);
+        if(print_time){
+            cout << timer->format(4, "Time to load plugin .so files:                    %w sec real, %t sec CPU") << endl;
+            timer.reset(new boost::timer::cpu_timer());
+        }
         
         //populate VarIdManager from config:
         apply_vm_settings(config);
         //build run:
         main = PluginManager<Main>::build(Configuration(config, root["main"]));
         init_complete = true;
+        if(print_time){
+            cout << timer->format(4, "Time to construct object tree from configuration: %w sec real, %t sec CPU") << endl;
+        }
     }
     catch (SettingNotFoundException & ex) {
         cerr << "Error: the required setting " << ex.getPath() << " was not found." << endl;
@@ -190,6 +209,7 @@ int main(int argc, char** argv) {
     po::options_description desc("Options");
     desc.add_options()("help,h", "show help message")
     ("quiet,q", "quiet mode (suppress progress message)")
+    ("print-time", "print some time information to stdout")
     ("nowarn", "do not warn about unused configuration file statements");
 
     po::options_description hidden("Hidden options");
@@ -226,6 +246,7 @@ int main(int argc, char** argv) {
     vector<string> cfg_filenames = cmdline_vars["cfg-file"].as<vector<string> >();
     bool quiet = cmdline_vars.count("quiet");
     bool nowarn = cmdline_vars.count("nowarn");
+    bool print_time = cmdline_vars.count("print-time");
     
     //determine theta_dir (for config file replacements with $THETA_DIR
     fill_theta_dir(argv);
@@ -238,7 +259,7 @@ int main(int argc, char** argv) {
             if(!quiet and cfg_filenames.size() > 1){
                 cout << "processing file " << (i+1) << " of " << cfg_filenames.size() << ", " << cfg_filenames[i] << endl;
             }
-            boost::shared_ptr<Main> main = build_main(cfg_filenames[i], nowarn);
+            boost::shared_ptr<Main> main = build_main(cfg_filenames[i], nowarn, print_time);
             if(!main) return 1;
             if(not quiet){
                 boost::shared_ptr<ProgressListener> l(new MyProgressListener());
@@ -248,7 +269,14 @@ int main(int argc, char** argv) {
             //install signal handler now, not much earlier. Otherwise, plugin loading in build_run()
             // might change it ...
             install_sigint_handler();
+            std::auto_ptr<boost::timer::cpu_timer> timer;
+            if(print_time){
+                timer.reset(new boost::timer::cpu_timer());
+            }
             main->run();
+            if(print_time){
+                cout << timer->format(4, "Time to run main:                                 %w sec real, %t sec CPU") << endl;
+            }
             if(stop_execution) break;
         }
     }
