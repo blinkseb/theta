@@ -12,6 +12,9 @@ import matplotlib.text
 import matplotlib.lines
 import matplotlib.patches
 
+from scipy import interpolate
+import numpy as np
+
 def add_xlabel(axes, text, *args, **kwargs):
     label = axes.set_xlabel(text, size='large', ha='right', *args, **kwargs)
     label.set_position((1.0, 0.03))
@@ -67,6 +70,29 @@ class plotdata:
         binwidth = (h[1] - h[0]) / len(h[2])
         self.x = [h[0] + i * binwidth for i in range(len(h[2]))]
         self.y = h[2][:]
+    
+    # replace x, y and bands by a smoothed version, obtained by cubic interpolation
+    # evaluated n times more points than original
+    #
+    # s is the amount of smoothing (default None is the scipy default)
+    #
+    # relunc is the relative uncertainty for each y value to assume for s
+    #
+    # in case more control is needed, make the smoothing outside and re-set the x,y values.
+    #
+    # should only be used in cases self.as_function = True
+    def smooth(self, n = 3, s = None, relunc = 0.05):
+        oldx = self.x[:]
+        # assume a 5% uncertainty for the smoothing
+        tck = interpolate.splrep(oldx, self.y, w = [1 / (relunc * self.y[i]) for i in range(len(oldx))], s = s)
+        self.x = list(np.linspace(min(self.x), max(self.x), n * len(self.x)))
+        self.y = interpolate.splev(self.x, tck)
+        if self.bands is None: return
+        for band in self.bands:
+            tck = interpolate.splrep(oldx, band[0], w = [1 / (relunc * band[0][i]) for i in range(len(oldx))], s = s)
+            band[0][:] = interpolate.splev(self.x, tck)
+            tck = interpolate.splrep(oldx, band[1], w = [1 / (relunc * band[1][i]) for i in range(len(oldx))], s = s)
+            band[1][:] = interpolate.splev(self.x, tck)
         
     # ofile is a string (filename) or a handle to an open file
     def write_txt(self, ofile):

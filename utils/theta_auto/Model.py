@@ -56,11 +56,12 @@ class rootfile:
 #
 # returns a dictionary
 # (observable name) --> (process name) --> (xmin, xmax, data)
-def get_shifted_templates(model, par_values):
+def get_shifted_templates(model, par_values, include_signal = True):
     result = {}
     for obs in model.observables:
         result[obs] = {}
         for p in model.get_processes(obs):
+            if p in model.signal_processes and not include_signal: continue
             f = model.get_coeff(obs, p)
             factor = f.get_value(par_values)
             if p in model.signal_processes and 'beta_signal' in par_values: par_values['beta_signal']
@@ -114,8 +115,6 @@ class Model:
         self.additional_nll_term = None
         self.bb_uncertainties = False
         self.rvobs_distribution = Distribution()
-        self.signal_prior = Distribution()
-        self.signal_prior.set_distribution('beta_signal', 'gauss', 0.0, inf, (0.0, inf))
     
     def reset_binning(self, obs, xmin, xmax, nbins):
         assert obs in self.observables
@@ -138,6 +137,7 @@ class Model:
         self.processes.update(other_model.processes)
         self.data_histos.update(other_model.data_histos)
         self.observable_to_pred.update(other_model.observable_to_pred)
+        self.bb_uncertainties = self.bb_uncertainties or other_model.bb_uncertainties
         if other_model.additional_nll_term is not None:
             if self.additional_nll_term is None: self.additional_nll_term = other_model.additional_nll_term
             else: self.additional_nll_term = self.additional_nll_term + other_model.additional_nll_term
@@ -177,7 +177,13 @@ class Model:
     def get_data_histogram(self, obsname):
         if obsname in self.data_histos: return self.data_histos[obsname]
         else: return None
-        
+    
+    def get_data_rvobsvalues(self):
+        return self.data_rvobsvalues
+
+    def get_observables(self):
+        return set(self.observables.keys())
+    
     def has_data(self):
         for o in self.observables:
             if o not in self.data_histos: return False
@@ -333,10 +339,11 @@ class Model:
         return rc, sc
     
     # options supported: use_llvm (default: False)
-    # if signal_prior is None, self.signal_prior will be used
-    def get_cfg2(self, signal_processes = [], signal_prior = None, **options):
+    #
+    # signal_prior_cfg is the theta config dictionary
+    def get_cfg2(self, signal_processes, signal_prior_cfg, options):
         result = {}
-        if options.get('use_llvm', False): result['type'] = 'llvm_model'
+        if options.getboolean('model', 'use_llvm'): result['type'] = 'llvm_model'
         for sp in signal_processes:
             assert sp in self.signal_processes
         for o in self.observable_to_pred:
@@ -347,9 +354,8 @@ class Model:
                      'coefficient-function': self.observable_to_pred[o][proc]['coefficient-function'].get_cfg()}
                 if proc in signal_processes:
                     result[o][proc]['coefficient-function']['factors'].append('beta_signal')
-        dist = Distribution.merge(self.distribution, signal_prior if signal_prior is not None else self.signal_prior)
         parameters = self.get_parameters(signal_processes)
-        result['parameter-distribution'] = dist.get_cfg(parameters)
+        result['parameter-distribution'] = product_distribution(self.distribution.get_cfg(parameters), signal_prior_cfg)
         #rv observables:
         rvobservables = self.rvobs_distribution.get_parameters()
         if len(rvobservables) > 0:

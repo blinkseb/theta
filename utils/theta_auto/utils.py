@@ -43,13 +43,17 @@ def reldiff(d1, d2):
     return abs(d1 - d2) / max(abs(d1), abs(d2))
 
 # returns a default minimizer specification which should be pretty robust
-def minimizer(need_error = True, always_mcmc = False):
+def minimizer(need_error = True, always_mcmc = False, minimizer_insane = False):
+    n_iterations = 1000
+    if minimizer_insane:
+        n_iterations = 100000
+        always_mcmc = True
     minimizers = []
     #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex.
     if not always_mcmc: minimizers.append({'type': 'root_minuit'})
-    minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': 1000, 'after_minimizer': {'type': 'root_minuit'}})
+    minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': n_iterations, 'after_minimizer': {'type': 'root_minuit'}})
     if not always_mcmc: minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
-    minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 1000, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+    minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': n_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
     result = {'type': 'minimizer_chain', 'minimizers': minimizers}
     if need_error: result['last_minimizer'] = {'type': 'root_minuit'}
     return result
@@ -231,7 +235,7 @@ def warning(s):
     print "[WARN] ", s
 
 # return a list of result rows for the given query on the .db filename.
-def sql_singlefile(filename, query):
+def sql_singlefile(filename, query, return_colnames = False):
     if not os.path.exists(filename): raise RuntimeError, "sql: the file %s does not exist!" % filename
     conn = sqlite3.connect(filename)
     c = conn.cursor()
@@ -240,8 +244,11 @@ def sql_singlefile(filename, query):
         print "exception executing %s on file %s: %s" % (query, filename, str(ex))
         raise ex
     result = c.fetchall()
+    if return_colnames:
+        desc = c.description
     c.close()
     conn.close()
+    if return_colnames: return result, desc
     return result
 
 def sql(filename_pattern, query):

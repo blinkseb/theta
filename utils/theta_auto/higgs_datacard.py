@@ -155,7 +155,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
 #
 # \param filter_channel is a function which, for each channel name (as given in the model configuration in fname), returns
 # True if this channel should be kept and False otherwise. The default is to keep all channels.
-def build_model(fname, filter_channel = lambda chan: True):
+def build_model(fname, filter_channel = lambda chan: True, debug = False):
     model = Model()
     lines = [l.strip() for l in file(fname)]
     lines = [(lines[i], i+1) for i in range(len(lines)) if not lines[i].startswith('#') and lines[i]!='' and not lines[i].startswith('--')]
@@ -277,8 +277,9 @@ def build_model(fname, filter_channel = lambda chan: True):
     # factors of 0 are omitted.
     shape_systematics = {}
     for i in range(kmax):
+        if debug: print "processing line %d" % lines[i][1]
         cmds = get_cmds(lines[i])
-        assert len(cmds) >= len(processes_for_table) + 2, "Line %d: wrong number of entries for uncertainty '%s'" % (lines[0][1], cmds[0])
+        assert len(cmds) >= len(processes_for_table) + 2, "Line %d: wrong number of entries for uncertainty '%s'" % (lines[i][1], cmds[0])
         uncertainty = transform_name_to_theta(cmds[0])
         if cmds[1] == 'gmN':
             values = cmds[3:]

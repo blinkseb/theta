@@ -42,13 +42,14 @@ class MleProducer(ProducerBase):
 
 
 class PliProducer(ProducerBase):
-    def __init__(self, parameter_dist, cls, name = 'pli'):
+    def __init__(self, parameter_dist, cls, name = 'pli', **options):
         ProducerBase.__init__(self, parameter_dist, name)
         self.cls = cls[:]
         self.parameter = 'beta_signal'
+        self.options = options
 
     def get_cfg(self, model, signal_processes, parameters_write = None):
-        result = {'type': 'deltanll_intervals', 'minimizer': minimizer(need_error = False), 'parameter': self.parameter, 'clevels': self.cls}
+        result = {'type': 'deltanll_intervals', 'minimizer': minimizer(need_error = False, **self.options), 'parameter': self.parameter, 'clevels': self.cls}
         result.update(self.get_cfg_base(model, signal_processes))
         return result
         
@@ -390,7 +391,7 @@ def ml_fit_coefficients(model, signal_processes = None, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     spids = [''.join(sps) for sps in signal_processes]
     result = {}
-    res = ml_fit(model, **options)
+    res = ml_fit(model, signal_processes = signal_processes, **options)
     for i in range(len(spids)):
         sp = spids[i]
         values = {}
@@ -620,7 +621,7 @@ def pl_intervals(model, input = 'toys:0', n = 100, signal_prior = 'flat', nuisan
     cfg_names_to_run = []
     for sp in signal_processes:
         main = Run(n, data_source_dict, model_signal_prior)
-        pl = PliProducer(Distribution.merge(signal_prior, nuisance_constraint), cls)
+        pl = PliProducer(Distribution.merge(signal_prior, nuisance_constraint), cls, **options)
         main.add_producer(pl)
         name = write_cfg2(main, model, sp, 'pl_intervals', input)
         cfg_names_to_run.append(name)
@@ -669,10 +670,10 @@ def pl_intervals(model, input = 'toys:0', n = 100, signal_prior = 'flat', nuisan
 # returns a dictionary (signal process id) --> (expected limit on beta_signal).
 #
 # Note that the PL method is an asymptotic method, so this method is mainly useful to compare different scenarios, but not for the final result.
-def get_expected_pl_limits(model, input = 'toys-asimov:0.0', signal_processes = None):
+def get_expected_pl_limits(model, input = 'toys-asimov:0.0', signal_processes = None, **options):
     dist_orig = model.distribution
     model.distribution = get_fixed_dist(dist_orig)
-    res = pl_intervals(model, input = input, n=1, signal_processes = signal_processes, nuisance_constraint = dist_orig)
+    res = pl_intervals(model, input = input, n=1, signal_processes = signal_processes, nuisance_constraint = dist_orig, **options)
     result = {}
     for spid in res:
         result[spid] = res[spid][0.9][0][1]

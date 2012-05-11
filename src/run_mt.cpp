@@ -34,6 +34,8 @@ void run_mt::run(){
     atomic_set(&toy_count, 0);
     atomic_set(&toy_error_count, 0);
     boost::thread_group group;
+    // in case n_events < n_threads, only create n_events threads:
+    int n_threads = min(this->n_threads, n_event);
     for(int it=0; it<n_threads; ++it){
         int nev = n_event / n_threads;
         if(it < n_event % n_threads) nev += 1;

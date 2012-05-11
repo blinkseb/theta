@@ -61,7 +61,8 @@ RandomConsumer::RandomConsumer(const theta::Configuration & cfg, const std::stri
    }
    rnd_gen.reset(new Random(rnd_source));
    int runid = *(cfg.pm->get<int>("runid"));
-   rnd_gen->set_seed(seed + runid - 1);
+   seed += runid - 1 ;
+   rnd_gen->set_seed(seed);
    cfg.pm->get<RndInfoTable>()->append(runid, name, seed);
 }
 
