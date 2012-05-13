@@ -56,19 +56,18 @@ class rootfile:
 #
 # returns a dictionary
 # (observable name) --> (process name) --> (xmin, xmax, data)
-def get_shifted_templates(model, par_values, include_signal = True):
+def get_shifted_templates(model, par_values, include_signal = True, observables = None):
     result = {}
-    for obs in model.observables:
+    if observables is None: observables = model.get_observables()
+    for obs in observables:
         result[obs] = {}
         for p in model.get_processes(obs):
             if p in model.signal_processes and not include_signal: continue
-            f = model.get_coeff(obs, p)
-            factor = f.get_value(par_values)
-            if p in model.signal_processes and 'beta_signal' in par_values: par_values['beta_signal']
-            hf = model.get_histogram_function(obs, p)
-            histo = hf.evaluate(par_values)
+            coeff = model.get_coeff(obs, p).get_value(par_values)
+            if p in model.signal_processes: coeff *= par_values['beta_signal']
+            histo = model.get_histogram_function(obs, p).evaluate(par_values)
             for i in range(len(histo[2])):
-                histo[2][i] *= factor
+                histo[2][i] *= coeff
             result[obs][p] = histo
     return result
 

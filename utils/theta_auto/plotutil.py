@@ -153,14 +153,14 @@ class plotdata:
 # For other cases, see matplotlib legend guide for details.
 #
 # xmin, xmax, ymin, ymax control the region shown in the plot. the default is to determine the region automatically (by matplotblib)
-def plot(histos, xlabel, ylabel, outname, logy = False, logx = False, ax_modifier=None, title_ul=None, title_ur = None,
-extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None, legend_args = {}):
+def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_modifier=None, title_ul=None, title_ur = None,
+extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None, legend_args = {}, fig = None):
     cm = 1.0/2.54
     fsize = 15*cm, 12*cm
     fp = fm.FontProperties(size=10)
-    fig = plt.figure(figsize = fsize)
-    rect = 0.15, 0.15, 0.8, 0.75
-    ax = fig.add_axes(rect)
+    if fig is None:
+        fig = plt.figure(figsize = fsize)
+    ax = fig.add_axes((0.15, 0.15, 0.8, 0.75))
     if logy:  ax.set_yscale('log')
     if logx: ax.set_xscale('log')
     add_xlabel(ax, xlabel, fontproperties=fp)
@@ -240,7 +240,7 @@ extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None, legend_ar
         ax.set_xlim(xmax=xmax)
     
     if ax_modifier!=None: ax_modifier(ax)
-    fig.savefig(outname)
+    if outname is not None: fig.savefig(outname)
     del fig
     
 def make_stack(pdatas):

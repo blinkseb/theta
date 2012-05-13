@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # this file defines some simple models useful for testing theta-auto
 
-from theta_auto import *
+from Model import *
 
 # returns a model with a counting experiment in one bin with the given backgruond with a log-normal uncertainty.
 # b_uncertainty is the absolute uncertainty on b.
