@@ -27,10 +27,10 @@ namespace theta{
 // note: keep this class to the minimum, so it's a POD and has guaranteed alignment and size
 // on as many platformas as possible ...
 class atomic_int{
-friend void ::atomic_add(theta::atomic_int * a, uint64_t addend);
-friend void ::atomic_inc(theta::atomic_int * a);
-friend uint64_t ::atomic_get(const theta::atomic_int * a);
-friend void ::atomic_set(theta::atomic_int * a, uint64_t value);
+void friend ::atomic_add(theta::atomic_int * a, uint64_t addend);
+void friend ::atomic_inc(theta::atomic_int * a);
+uint64_t friend ::atomic_get(const theta::atomic_int * a);
+void friend ::atomic_set(theta::atomic_int * a, uint64_t value);
 private:
     uint64_t value;
 };

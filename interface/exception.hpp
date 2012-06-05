@@ -35,14 +35,13 @@ protected:
     mutable std::string whatstring;
 };
 
-/** \brief Thrown during configuration file processing.
+/** \brief Thrown during configuration file processing and initial object construction
  */
 class ConfigurationException: public Exception{
 public:
     /// Constructor taking a message intended for the user which will be written to Exception::message
     ConfigurationException(const std::string & msg);
 };
-
 
 /// \brief Thrown in case of database errors.
 class DatabaseException: public Exception{

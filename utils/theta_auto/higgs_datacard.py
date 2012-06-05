@@ -84,7 +84,7 @@ def add_entry(d, *l):
 #
 # names for obs, proc, uncs are according to the datacard, not the theta-converted names!
 add_shapes_rootfiles = {}
-def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
+def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, include_uncertainties):
     if filename not in add_shapes_rootfiles:
         add_shapes_rootfiles[filename] = rootfile(filename)
     rf = add_shapes_rootfiles[filename]
@@ -94,10 +94,10 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
     hname_with_systematics = hname_with_systematics.replace('$CHANNEL', obs)
     if proc == 'DATA':
         hname_tmp = hname.replace('$PROCESS', 'DATA')
-        histo = rf.get_histogram(hname_tmp)
+        histo = rf.get_histogram(hname_tmp, include_uncertainties = False)
         if histo is None:
             hname_tmp = hname.replace('$PROCESS', 'data_obs')
-            histo = rf.get_histogram(hname_tmp)
+            histo = rf.get_histogram(hname_tmp, include_uncertainties = False)
         if histo is None: raise RuntimeError, "did not find data histogram in rootfile"
         model.set_data_histogram(theta_obs, histo, reset_binning = True)
         return
@@ -108,7 +108,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
     assert len(old_nominal_histogram[2])==1, "expected a counting-only histogram with only one bin"
     hname = hname.replace('$PROCESS', proc)
     hname_with_systematics = hname_with_systematics.replace('$PROCESS', proc)
-    nominal_histogram = rf.get_histogram(hname)
+    nominal_histogram = rf.get_histogram(hname, include_uncertainties = include_uncertainties)
     if utils.reldiff(sum(old_nominal_histogram[2]), sum(nominal_histogram[2])) > 0.01 and abs(sum(old_nominal_histogram[2]) - sum(nominal_histogram[2])) > 1e-4:
         raise RuntimeError, "add_shapes: histogram normalisation given in datacard and from root file differ by more than >1% (and absolute difference is > 1e-4)"
     hf.set_nominal_histo(nominal_histogram, reset_binning = True)
@@ -126,8 +126,8 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
         else:
             hname_plus = hname_with_systematics.replace('$SYSTEMATIC', u + 'Up')
             hname_minus = hname_with_systematics.replace('$SYSTEMATIC', u + 'Down')
-        histo_plus = rf.get_histogram(hname_plus, True)
-        histo_minus = rf.get_histogram(hname_minus, True)
+        histo_plus = rf.get_histogram(hname_plus, include_uncertainties = include_uncertainties, fail_with_exception = True)
+        histo_minus = rf.get_histogram(hname_minus, include_uncertainties = include_uncertainties, fail_with_exception = True)
         # make the rate uncertainty part of the coefficient function, i.e., normalize plus and minus histograms
         # to nominal and add a lognormal uncertainty to the coefficient function:
         lambda_plus = math.log(sum(histo_plus[2]) / sum(nominal_histogram[2])) * uncs[u]
@@ -155,7 +155,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics):
 #
 # \param filter_channel is a function which, for each channel name (as given in the model configuration in fname), returns
 # True if this channel should be kept and False otherwise. The default is to keep all channels.
-def build_model(fname, filter_channel = lambda chan: True, debug = False):
+def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = lambda unc: True, debug = False, include_mc_uncertainties = False):
     model = Model()
     lines = [l.strip() for l in file(fname)]
     lines = [(lines[i], i+1) for i in range(len(lines)) if not lines[i].startswith('#') and lines[i]!='' and not lines[i].startswith('--')]
@@ -212,7 +212,7 @@ def build_model(fname, filter_channel = lambda chan: True, debug = False):
     for i in range(len(channel_labels)):
         if not filter_channel(channel_labels[i][1:]): continue
         theta_obs = transform_name_to_theta(channel_labels[i])
-        model.set_data_histogram(theta_obs, (0.0, 1.0, [observed_flt[i]]))
+        model.set_data_histogram(theta_obs, Histogram(0.0, 1.0, [observed_flt[i]]))
     lines = lines[1:]
 
     cmds = get_cmds(lines[0])
@@ -262,7 +262,7 @@ def build_model(fname, filter_channel = lambda chan: True, debug = False):
         n_exp = float(cmds[i+1])
         #print o,p,n_exp
         hf = HistogramFunction()
-        hf.set_nominal_histo((0.0, 1.0, [n_exp]))
+        hf.set_nominal_histo(Histogram(0.0, 1.0, [n_exp]))
         #print "setting prediction for (theta) channel '%s', (theta) process '%s'" % (theta_obs, theta_proc)
         model.set_histogram_function(theta_obs, theta_proc, hf)
         assert model.get_histogram_function(theta_obs, theta_proc) is not None
@@ -280,6 +280,7 @@ def build_model(fname, filter_channel = lambda chan: True, debug = False):
         if debug: print "processing line %d" % lines[i][1]
         cmds = get_cmds(lines[i])
         assert len(cmds) >= len(processes_for_table) + 2, "Line %d: wrong number of entries for uncertainty '%s'" % (lines[i][1], cmds[0])
+        if not filter_uncertainty(cmds[0]): continue
         uncertainty = transform_name_to_theta(cmds[0])
         if cmds[1] == 'gmN':
             values = cmds[3:]
@@ -369,16 +370,17 @@ def build_model(fname, filter_channel = lambda chan: True, debug = False):
         for l in shape_lines: # l = (process, channel, file, histogram, histogram_with_systematics)
             if l[1]!='*' and l[1]!=obs: continue
             if obs not in data_done and l[0] in ('*', 'data_obs', 'DATA'):
-                add_shapes(model, obs, 'DATA', {}, l[2], l[3], '')
+                add_shapes(model, obs, 'DATA', {}, l[2], l[3], '', include_mc_uncertainties)
                 data_done.add(obs)
             if l[0]!='*' and l[0]!=proc: continue
             uncs = shape_systematics[obs].get(proc, {})
             #print "adding shapes for channel %s, process %s" % (obs, proc)
-            add_shapes(model, obs, proc, uncs, l[2], l[3], l[4])
+            add_shapes(model, obs, proc, uncs, l[2], l[3], l[4], include_mc_uncertainties)
             found_matching_shapeline = True
             break
         if not found_matching_shapeline:
             raise RuntimeError, "did not find a matching 'shapes' specification for channel '%s', process '%s'" % (obs, proc)
     model.set_signal_processes([transform_name_to_theta(proc) for proc in signal_processes])
+    if include_mc_uncertainties: model.bb_uncertainties = True
     return model
 

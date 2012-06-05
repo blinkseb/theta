@@ -132,7 +132,7 @@ void mcmc_mean_prediction::declare_products(const boost::shared_ptr<VarIdManager
 mcmc_mean_prediction::mcmc_mean_prediction(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, get_name()),
         init(false){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     
     size_t n = s["observables"].size();
     if(n==0){

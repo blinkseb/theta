@@ -14,20 +14,20 @@ using namespace std;
 
 
 ConfigCreator::ConfigCreator(const std::string & cfg_string, const boost::shared_ptr<theta::VarIdManager> & vm):
-      dummy(setup_config(cfg_string)), rec(new SettingUsageRecorder()), cfg(SettingWrapper(config.getRoot(), config.getRoot(), rec)){
+      rec(new SettingUsageRecorder()), cfg(setup_cfg(cfg_string)){
     cfg.pm->set("default", vm);
 }
 
-int ConfigCreator::setup_config(const std::string & cfg_string){
+Configuration ConfigCreator::setup_cfg(const string & cfg_string){
     try{
-        config.readString(cfg_string);
+        Setting root = LibconfigSetting::parse(cfg_string, rec);
+        return Configuration(root);
     }
-    catch(libconfig::ParseException & ex){
-        std::cerr << "ConfigCreator: parse Exception: " << ex.getError() << " on line " << ex.getLine() << ":\n" << cfg_string << endl;
+    catch(Exception & ex){
+        std::cerr << "ConfigCreator: " << ex.what() << endl;
+        throw;
     }
-    return 0;
 }
-
 
 void load_core_plugins(){
     static bool loaded(false);

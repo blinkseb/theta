@@ -126,6 +126,7 @@ def ts_toys(model, beta_signal_values, n, ts, signal_prior = 'flat', nuisance_pr
     elif ret=='cfg_names': return cfg_names_to_run
 
 
+"""
 # returns (spid) --> (list of ts values)
 def ts_toys_frequentist_bootstrapping(model, beta_signal, n, ts = 'lhclike', nuisance_constraint = '', signal_processes = None, bkg_only_toys = False):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
@@ -148,8 +149,28 @@ def ts_toys_frequentist_bootstrapping(model, beta_signal, n, ts = 'lhclike', nui
         model.distribution = dist
         result[spid] = toys[(spid, beta_signal)]
     return result
-        
-        
+""" 
+
+# Returns a new model, leaves the "model" parameter unchanged.
+#
+# * for each nuisance parameter:
+#   - add a real-valued observable "rvobs_<parameter name>"
+#   - add a Gaussian distribution for the rvobs with mean = nuisance parameter, parameter = rvobs_...
+# * make all nuisance parameter priors flat in the model distribution, s.t.
+#   all constraints come from the real-valued observables, not from the priors.
+# * add the default value according to model.distribution to the real-valued observables in data
+def frequentize_model(model):
+    result = copy.deepcopy(model)
+    for p in model.distribution.get_parameters():
+        prior_nuisance = model.distribution.get_distribution(p)
+        # have to use the conjugate distribution here. gauss is self-conjugate, so no problem here in most cases:
+        if prior_nuisance['typ'] != 'gauss': raise RuntimeError, "currently, only gaussian nuisance parameters are supported"
+        rvobs = 'rvobs_%s' % p
+        result.rvobs_distribution.set_distribution(rvobs, 'gauss', mean = p, width = prior_nuisance['width'], range = prior_nuisance['range'])
+        result.distribution.set_distribution_parameters(p, width = inf)
+        result.data_rvobsvalues[rvobs] = prior_nuisance['mean'] # usually 0.0
+    return result
+    
 # returns tuple (Z, Z_error), where Z_error is from the limited number of toys (the larger one in Z):
 def p_to_Z(n, n0):
     p = n*1.0 / n0
@@ -219,6 +240,30 @@ def discovery(model, ts = 'lr', use_data = True, Z_error_max = 0.05, **options):
         if max_Z_error < Z_error_max: break
     return expected_significance, observed_significance
 
+# Calculate an approximation to the observed significance (using Wilks' theorem)
+#
+# Returns a dictionary (signal process id) --> (observed Z value)
+def obs_significance_approx(model):
+    result1 = ml_fit2(model, nuisance_constraint = '')
+    result2 = ml_fit2(model, signal_prior = 'fix:0.0', nuisance_constraint = '')
+    result = {}
+    for spid in result1:
+        result[spid] = math.sqrt(max(2 * (result2[spid]['nll'][0] - result1[spid]['nll'][0]), 0.0))
+    return result
+
+# Calculate an approximation to the expected significance (using asimov data and Wilks' theorem)
+#
+# Returns a dictionary (signal process id) --> (expected Z value)
+def exp_significance_approx(model):
+    dist_orig = model.distribution
+    model.distribution = get_fixed_dist(model.distribution)
+    result1 = ml_fit2(model, 'toys-asimov:1.0', nuisance_constraint = dist_orig)
+    result2 = ml_fit2(model, 'toys-asimov:1.0', signal_prior = 'fix:0.0', nuisance_constraint = dist_orig)
+    model.distribution = dist_orig
+    result = {}
+    for spid in result1:
+        result[spid] = math.sqrt(max(2 * (result2[spid]['nll'][0] - result1[spid]['nll'][0]), 0.0))
+    return result
 
 # container for toys made for the CLs construction
 class truth_ts_values:
@@ -418,7 +463,7 @@ def get_cls_limits_from_dbfile(dbfile):
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
 def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
-   signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, **options):
+   signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, bootstrap_nuisancevalues = False, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     assert len(signal_processes) > 0
     if signal_prior_bkg is None:
@@ -432,6 +477,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = '
         'tol_cls': 0.025, 'clb_cutoff': 0.02, 'debuglog': '@debuglog-name', 'rnd_gen': {'seed': options.get('toydata_seed', 1)}}
     if truth_max is not None: main['truth_max'] = float(truth_max)
     if 'reltol_limit' in options: main['reltol_limit'] = float(options['reltol_limit'])
+    if bootstrap_nuisancevalues: main['nuisancevalues-for-toys'] = 'datafit'
     if what in ('expected', 'all'):
         main['expected_bands'] = 2000
     elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what

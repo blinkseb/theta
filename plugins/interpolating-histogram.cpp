@@ -3,7 +3,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace libconfig;
 
 void interpolating_histo::fill_h(const ParValues & values) const {
     h.set_all_values(1.0);
@@ -35,7 +34,7 @@ void interpolating_histo::get_histogram_dimensions(size_t & nbins, double & xmin
 }
 
 interpolating_histo::interpolating_histo(const Configuration & ctx){
-    SettingWrapper psetting = ctx.setting["parameters"];
+    Setting psetting = ctx.setting["parameters"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     //build nominal histogram:
     h0 = get_constant_histogram(Configuration(ctx, ctx.setting["nominal-histogram"])).get_values_histogram();

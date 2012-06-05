@@ -10,7 +10,6 @@
 
 using namespace theta;
 using namespace std;
-using namespace libconfig;
 
 //the result class for the metropolisHastings routine.
 class MCMCPosteriorQuantilesResult{
@@ -105,7 +104,7 @@ void mcmc_quantiles::declare_products(){
 
 mcmc_quantiles::mcmc_quantiles(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, get_name()),
    init(false), par_id(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])), re_init(0), itoy(0), diag(false){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     string parameter = s["parameter"];
     size_t n = s["quantiles"].size();
     if(n==0){

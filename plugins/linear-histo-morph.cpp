@@ -3,8 +3,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace libconfig;
-
 
 void linear_histo_morph::fill_h(const ParValues & values) const {
     h.set_all_values(1.0);
@@ -53,7 +51,7 @@ void linear_histo_morph::get_histogram_dimensions(size_t & nbins, double & xmin,
 }
 
 linear_histo_morph::linear_histo_morph(const Configuration & ctx){
-    SettingWrapper psetting = ctx.setting["parameters"];
+    Setting psetting = ctx.setting["parameters"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     size_t n = psetting.size();
     for(size_t i=0; i<n; i++){

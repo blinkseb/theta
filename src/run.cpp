@@ -75,7 +75,7 @@ void Run::run(){
 }
 
 Run::Run(const Configuration & cfg){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     
     //0. set default values for members:
     log_report = true;

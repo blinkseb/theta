@@ -11,7 +11,6 @@
 
 using namespace theta;
 using namespace std;
-using namespace libconfig;
 
 namespace{
 
@@ -102,7 +101,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
 }
 
 mle::mle(const theta::Configuration & cfg): Producer(cfg), start_step_ranges_init(false), write_covariance(false), write_ks_ts(false), write_pchi2(false){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["minimizer"]));
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     size_t n_parameters = s["parameters"].size();

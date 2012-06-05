@@ -18,10 +18,7 @@
 
 using namespace std;
 using namespace boost::bimaps;
-using namespace libconfig;
 using namespace theta;
-
-
 
 class SaveDoubleProducts: public ProductsSink{
 private:

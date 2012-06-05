@@ -75,7 +75,7 @@ MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues 
 
 mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer(cfg, cfg.setting["name"]), name(cfg.setting["name"]),
   stepsize_factor(1.0){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     iterations = s["iterations"];
     if(s.exists("burn-in")){
         burn_in = s["burn-in"];

@@ -49,7 +49,7 @@ namespace theta{
     class DataSource;
     class NLLikelihood;
     
-    class SettingWrapper;
+    class Setting;
     class atomic_int;
 
     class ToyMaker;

@@ -88,7 +88,7 @@ root_ntuple_source::root_ntuple_source(const Configuration & cfg): DataSource(cf
         mean_nevents = cfg.setting["mean_nevents"];
     }
     
-    SettingWrapper so = cfg.setting["observables"];
+    Setting so = cfg.setting["observables"];
     size_t n_obs = so.size();
     vector<string> observable_branchnames;
     for(size_t i=0; i < n_obs; ++i){

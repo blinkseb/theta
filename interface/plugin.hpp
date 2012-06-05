@@ -37,17 +37,17 @@ namespace theta {
         boost::shared_ptr<PropertyMap> pm;
 
         /// The setting in the configuration file from which to build the instance
-        SettingWrapper setting;
+        Setting setting;
 
         /** \brief Construct Configuration by specifying all data members
          */
-        Configuration(const SettingWrapper & setting_);
+        Configuration(const Setting & setting_);
 
         /** \brief Copy elements from another Configuration, but replace Configuration::setting
          *
          * Copy all from \c cfg but \c cfg.setting which is replaced by \c setting_.
          */
-        Configuration(const Configuration & cfg, const SettingWrapper & setting_);
+        Configuration(const Configuration & cfg, const Setting & setting_);
     };
 
 

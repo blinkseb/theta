@@ -1,6 +1,7 @@
 #ifndef CFG_UTILS_HPP
 #define CFG_UTILS_HPP
 
+#include "interface/decls.hpp"
 #include "libconfig/libconfig.h++"
 
 #include <string>
@@ -8,10 +9,13 @@
 #include <vector>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/ptr_container/ptr_map.hpp>
 
 
 namespace theta{
-
+    
+    class SettingImplementation;
+   
     /** \brief A class to keep record of the used configuration parameters
      * 
      * In order to warn users about unused configuration file flags,
@@ -22,9 +26,9 @@ namespace theta{
      */
     class SettingUsageRecorder{
     public:
-        /** \brief Mark a setting as used
+        /** \brief Mark the setting at the given path as used
          */
-        void markAsUsed(const libconfig::Setting & s);
+        void markAsUsed(const std::string & path);
         
         /** \brief Get a list of paths of unused settings
          *
@@ -33,25 +37,19 @@ namespace theta{
          * \param[out] unused The unused paths will be stored here
          * \param[in] aggregate_setting The setting to start the recursion; usually the root setting of the configuration file
          */
-        void get_unused(std::vector<std::string> & unused, const libconfig::Setting & aggregate_setting) const;
+        void get_unused(std::vector<std::string> & unused, const Setting & aggregate_setting) const;
 
     private:
         std::set<std::string> used_paths;
     };
     
     /** \brief A Setting in a configuration file
-     *
-     * It is assumed that you are familiar with the configuration file syntax and types. If not,
-     * please read the libconfig documentation on these points first.
-     *
-     * SettingWrapper represents a single, read-only Setting in a configuration file. It overloads
-     * casting operators to allow access to scalar types and index operators to access members
-     * in aggregate type either by name (for setting groups) or by numeric index. Whenever
-     * a value is read out, it will be recorded in an instance of SettingUsageRecorder. This
-     * is mainly for user feedback of unused settings.
-     *
-     * For many methods, this class is merely a proxy to libconfig::Setting. Therefore, there will be many
-     * references to the (very detailed) libconfig documentation in the documentation of this class.
+     * 
+     * A configuration file is a hierarchy of Settings. Each Setting is either a
+     * primitive type (boolean, int float, string) or a compund type of key/value pairs (group)
+     * or a list.
+     * 
+     * The Setting provides a read-only view on a setting/setting hierarchy.
      *
      * A setting is considered <em>used</em> one of the following methods are called on it:
      * <ul>
@@ -59,101 +57,191 @@ namespace theta{
      *  <li>access to a member in a compound with operator[]</li>
      *  <li>calling size()</li>
      * </ul>
-     * The last definition is required to treat empty lists, groups and arrays correctly as used.
+     * The last definition is required to treat empty lists and groups correctly as used.
+     * 
+     * Note that the actual implementation is done in derived classes of SettingImplementation which actually reflects the hierarchally
+     * structured, typed data. This class takes care of link resolving (with the "@..." notation) and the tracking
+     * of which settings have been used. It also converts library-specific exceptions of cases in which a type is not found or type mismatches
+     * to theta::ConfigurationException.
      */
-    class SettingWrapper{
-        const libconfig::Setting & rootsetting;
-        boost::shared_ptr<SettingUsageRecorder> rec;
-        const libconfig::Setting & setting;
-        //the original name of the seting. Does not need to be setting.getName(), if 
-        // setting was found by resolving a link
-        std::string setting_name;
-        
-        static const libconfig::Setting & resolve_link(const libconfig::Setting & setting, const libconfig::Setting & root, const boost::shared_ptr<SettingUsageRecorder> & rec);
+    class Setting{
     public:
-            ///@{
-            /** \brief Convert the current setting to the given type
-             *
-             * If the setting has not the correct type, a SettingTypeException will be thrown.
-             */
-            operator bool() const;
-            operator std::string() const;
-            operator int() const;
-            operator unsigned int() const;
-            operator double() const;
-            ///@}
-            
-            /** \brief Get number of entries in a setting group, list or array
-             *
-             * Returns 0 if the setting is not a group, list or array. Same
-             * as libconfig::Setting::getLength()
-             */
-            size_t size() const;
-            
-            /** \brief Get entry by index in a setting group, list or array
-             *
-             * same as libconfig::Setting::operator[](int)
-             */
-            SettingWrapper operator[](int i) const;
-            
-            /** \brief Get entry by name in a setting group
-             *
-             * same as libconfig::Setting::operator[](string), with the only difference
-             * that links of the form "@&lt;path&gt;" are followed
-             */
-            ///@{
-            SettingWrapper operator[](const std::string & name) const;
-	    
-            //This must be defined in addition to operator[](string). Otherwise,
-            // an expression in SettingWrapper s; s["abc"]; could also be read as
-            // (int)s ["abc"]  (which is the same as "abc"[(int)s]) and the compiler would not
-            // have a clear priority ...
-            SettingWrapper operator[](const char * name) const;
-            ///@}
-            
-           /** \brief Return a double, but allow the special strings "inf", "-inf" for infinity
-            *
-            * At some places in the configuration, it is allowed to use "inf" or "-inf" instead of a double.
-            * This function is used to parse these settings.
-            */
-            double get_double_or_inf() const;
-            
-            /** \brief Returns whether a setting of this name exists in the current setting group
-             *
-             * same as libconfig::Setting::exists
-             */
-            bool exists(const std::string & path) const;
-            
-            /** \brief Returns the name of the current setting within its parent setting
-             *
-             * same as libconfig::Setting::getName. In case the setting has no name,
-             * the special string "&lt;noname&gt;" is returned.
-             */
-            std::string get_name() const;
-            
-            /** \brief Returns the configuration file path of the current setting
-             *
-             * same as libconfig::Setting::getPath
-             */
-            std::string get_path() const;
-            
-            /** \brief Returns the type of the setting
-             *
-             * See libconfig documentation for details.
-             */
-            libconfig::Setting::Type get_type() const;
-            
-            /** \brief Construct a SettingWrapper from a Setting, the root Setting and a setting recorder
-             *
-             * The SettingRecorder \c recorder will be used to record the usage of all settings accessed through
-             * the constructed SettingWrapper.
-             *
-             * \c root is the root setting of a configuration file used to resolve any links.
-             *
-             * \c s is the Setting which to be wrapped, i.e., the access and casting methods of SettingWrapper will
-             *    forward these requests to \c s.
-             */
-            SettingWrapper(const libconfig::Setting & s, const libconfig::Setting & root, const boost::shared_ptr<SettingUsageRecorder> & recorder);
+        
+        enum Type{
+            TypeBoolean, TypeInt, TypeFloat, TypeString, TypeGroup, TypeList
+        };
+        
+        /// return a string representation of the Type enum (for error messages and debugging)
+        static std::string type_to_string(const Type & type);
+        
+        ///@{
+        /** \brief Convert the current setting to the given type
+         *
+         * If the setting has not the correct type, a SettingTypeException will be thrown.
+         */
+        operator bool() const;
+        operator std::string() const;
+        operator double() const;
+        operator long int() const;
+        operator int() const;
+        operator unsigned int() const;
+        ///@}
+        
+       /** \brief Return a double, but allow the special strings "inf", "-inf" for infinity
+        *
+        * At some places in the configuration, it is allowed to use "inf" or "-inf" instead of a double,
+        * and some imeplmentations can't express that natively as double type.
+        * This function is used to parse these settings.
+        */
+        double get_double_or_inf() const;
+        
+        
+       /** \brief Get number of entries in a setting group, list or array
+        *
+        * Returns 0 if the setting is not a group, list or array, and the number of
+        * sub-settings otherwise.
+        */
+        size_t size() const;
+        
+       /** \brief Get entry by index in a setting group, list or array
+        *
+        * same as libconfig::Setting::operator[](int)
+        */
+        Setting operator[](int i) const;
+        
+       /** \brief Get entry by name in a setting group
+        *
+        * same as libconfig::Setting::operator[](string), with the only difference
+        * that links of the form "@&lt;path&gt;" are followed
+        */
+        ///@{
+        Setting operator[](const std::string & name) const;
+        
+        //This is defined in addition to operator[](string). Otherwise,
+        // an expression in Setting s; s["abc"]; could also be read as
+        // (int)s ["abc"]  (which is the same as "abc"[(int)s]) and the compiler would not
+        // have a clear priority ...
+        Setting operator[](const char * name) const{
+            return operator[](std::string(name));
+        }
+        ///@}        
+        
+        /** \brief Returns whether a setting of this key exists in the current setting group
+        */
+        bool exists(const std::string & key) const;
+        
+        /** \brief Returns the name of the current setting within its parent setting
+        *
+        * In case the setting has no name, the string "&lt;noname&gt;" is returned.
+        */
+        std::string get_name() const;
+        
+        /** \brief Returns the configuration path of the current setting
+         *
+         * The path is a string built of all keys of the settings in the current hierarchy, separated by dots.
+         */
+        std::string get_path() const;
+        
+        /** \brief Returns the type of the setting
+         */
+        Type get_type() const;
+        
+        /** construct from a root setting.
+         * 
+         * Note that ownership of impl_root transferred.
+         */
+        Setting(std::auto_ptr<SettingImplementation> & impl_root, const boost::shared_ptr<SettingUsageRecorder> & rec);
+        
+    private:
+        // memory is managed by the toplevel SettingImplementation (e.g. hierarchally, but that's up to the implementation)
+        // and this Setting class takes care of deleting impl_root. This means that the destructor of this class
+        // should call delete on impl_root if and only if:
+        // 1. impl_this == impl_root   and
+        // 2. the current instance is the last one referencing to this SettingImplementation
+        // While 1. can be easily checked, 2. is handled by putting the root setting into a shared_ptr container, but only if this is the toplevel setting.
+        const SettingImplementation * impl_this;
+        const SettingImplementation * impl_root;
+        boost::shared_ptr<SettingImplementation> sp_impl_root;
+        
+        
+        boost::shared_ptr<SettingUsageRecorder> rec;
+        
+        static Setting resolve_link(const SettingImplementation * setting, const SettingImplementation * root, const boost::shared_ptr<SettingUsageRecorder> & rec);
+        Setting(const SettingImplementation * impl_this, const SettingImplementation * impl_root, const boost::shared_ptr<SettingUsageRecorder> & rec);
+    };    
+    
+    /// The methods are the same as in Setting.
+    /** \brief Base class for actual implementations of Settings
+     * 
+     * Not copyable; always passed around pointers. Note that Config manages the memory of a
+     * SettingImplementation; derived classes should make sure that direct construction is not possible.
+     */
+    class SettingImplementation{
+    public:
+        virtual operator bool() const = 0;
+        virtual operator std::string() const = 0;
+        // note: implementations imlement long int only. Setting will convert it to int and unsigned int as required and perform range checking.
+        virtual operator long int() const = 0;
+        virtual operator double() const = 0;
+        /// size is always 0 for types other than TypeList / TypeGroup
+        virtual size_t size() const = 0;
+        
+        /// throws exception if type is not TypeList
+        virtual const SettingImplementation & operator[](int i) const = 0;
+        
+        /// throws exception if type is not TypeGroup
+        virtual const SettingImplementation & operator[](const std::string & name) const = 0;
+        
+        /** return whether a setting with the name exists in the current TypeGroup.
+         * 
+         * throws exception if type is not TypeGroup
+         */
+        virtual bool exists(const std::string & path) const = 0;
+        
+        /** return the name of the current setting.
+         * 
+         * empty string for the top-level setting
+         */        
+        virtual std::string get_name() const = 0;
+        
+        /** return the path, i.e., dot-separated names in the current hierarchy
+         */
+        virtual std::string get_path() const = 0;
+        
+        /// return the type of this setting
+        virtual Setting::Type get_type() const = 0;
+        
+        virtual ~SettingImplementation();
+    protected:
+        SettingImplementation(){}
+    private:
+        SettingImplementation(const SettingImplementation & rhs); // not implemented
+    };    
+    
+    class LibconfigSetting: public SettingImplementation {
+        const libconfig::Setting * setting;
+        std::auto_ptr<libconfig::Config> cfg; // filled only if this is the toplevel setting
+        mutable boost::ptr_map<libconfig::Setting*, LibconfigSetting> children;
+        
+        LibconfigSetting(const LibconfigSetting &); // not implemented
+
+        explicit LibconfigSetting(const libconfig::Setting * setting_);
+    public:
+        LibconfigSetting();
+        
+        static Setting parse(const std::string & cfg_string, const boost::shared_ptr<SettingUsageRecorder> & rec);
+        virtual operator bool() const;
+        virtual operator std::string() const;
+        virtual operator long int() const;
+        virtual operator double() const;
+        virtual size_t size() const;
+        virtual const SettingImplementation & operator[](int i) const;
+        virtual const SettingImplementation & operator[](const std::string & name) const;
+        virtual bool exists(const std::string & path) const;
+        virtual std::string get_name() const;
+        virtual std::string get_path() const;
+        virtual Setting::Type get_type() const;
+        virtual ~LibconfigSetting();
     };
 }
 

@@ -24,7 +24,7 @@ EXTRA_LINK := -lMinuit2 $(shell root-config --libs) $(shell root-config --ldflag
 EXTRA_LINK := $(patsubst -lNet,,$(EXTRA_LINK))
 EXTRA_LINK := $(patsubst -lTree,-lTree -lNet,$(EXTRA_LINK))
 
-all: ../lib/root.so ../bin/histos
+all: ../lib/root.so
 
 ifeq ($(OPTIONS_BUILD_TESTS),yes)
 all: create_testhistos create_testtree

@@ -112,7 +112,7 @@ namespace theta {
         /** \brief Insert a new id
          */
         void insert(const id_type & id) {
-            vars.insert(id).second;
+            vars.insert(id);
         }
         
         /** \brief Insert new ids.

@@ -8,7 +8,7 @@ histo_source::histo_source(const Configuration & cfg): DataSource(cfg){
     size_t n = cfg.setting.size();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<n; ++i){
-        SettingWrapper s = cfg.setting[i];
+        Setting s = cfg.setting[i];
         if(not s.exists("type")) continue;
         string obs_name = s.get_name();
         ObsId obs_id = vm->get_obs_id(obs_name);

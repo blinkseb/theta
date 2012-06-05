@@ -3,8 +3,6 @@
 using namespace std;
 using namespace theta;
 
-using namespace libconfig;
-
 void simple_linear_histomorph::fill_h(const ParValues & values) const {
     h = h0;
     const size_t n_sys = hplus_diff.size();
@@ -40,7 +38,7 @@ void simple_linear_histomorph::get_histogram_dimensions(size_t & nbins, double &
 
 
 simple_linear_histomorph::simple_linear_histomorph(const Configuration & cfg){
-    SettingWrapper psetting = cfg.setting["parameters"];
+    Setting psetting = cfg.setting["parameters"];
     //build nominal histogram:
     h0 = get_constant_histogram(Configuration(cfg, cfg.setting["nominal-histogram"])).get_values_histogram();
     size_t n = psetting.size();

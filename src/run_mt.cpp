@@ -13,7 +13,6 @@
 #include <boost/thread.hpp>
 
 using namespace theta;
-using namespace std;
 
 run_mt::~run_mt(){}
 
@@ -35,7 +34,7 @@ void run_mt::run(){
     atomic_set(&toy_error_count, 0);
     boost::thread_group group;
     // in case n_events < n_threads, only create n_events threads:
-    int n_threads = min(this->n_threads, n_event);
+    int n_threads = std::min(this->n_threads, n_event);
     for(int it=0; it<n_threads; ++it){
         int nev = n_event / n_threads;
         if(it < n_event % n_threads) nev += 1;
@@ -58,7 +57,7 @@ void run_mt::run(){
     group.join_all();
     // check for exceptions:
     bool exception = false;
-    stringstream ss;
+    std::stringstream ss;
     for(int it=0; it<n_threads; ++it){
         if(workers[it].exception){
             exception = true;
@@ -91,19 +90,19 @@ void run_mt::run(){
     if(log_report){
         const int* n_messages = logtable->get_n_messages();
         LogTable::e_severity s = logtable->get_loglevel();
-        cout << endl << endl << "Log report:" << endl;
-        cout << "  errors:   " << setw(6) << n_messages[0] << endl;
+        std::cout << std::endl << std::endl << "Log report:" << std::endl;
+        std::cout << "  errors:   " << std::setw(6) << n_messages[0] << std::endl;
         if(s > 0)
-            cout << "  warnings: " << setw(6) << n_messages[1] << endl;
+            std::cout << "  warnings: " << std::setw(6) << n_messages[1] << std::endl;
         if(s > 1)
-            cout << "  infos:    " << setw(6) << n_messages[2] << endl;
+            std::cout << "  infos:    " << std::setw(6) << n_messages[2] << std::endl;
         if(s > 2)
-            cout << "  debug:    " << setw(6) << n_messages[3] << endl;
+            std::cout << "  debug:    " << std::setw(6) << n_messages[3] << std::endl;
     }
 }
 
 run_mt::run_mt(const Configuration & cfg){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     log_report = true;
     n_event = s["n-events"];
     if(s.exists("n_threads")){

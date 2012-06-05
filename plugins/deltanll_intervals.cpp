@@ -12,7 +12,6 @@
 
 using namespace theta;
 using namespace std;
-using namespace libconfig;
 
 void deltanll_intervals::produce(const theta::Data & data, const theta::Model & model) {
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
@@ -98,7 +97,7 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
 
 deltanll_intervals::deltanll_intervals(const theta::Configuration & cfg): Producer(cfg),
    pid(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])), re_minimize(true), start_step_ranges_init(false){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     minimizer = theta::PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));
     size_t ic = s["clevels"].size();
     if (ic == 0) {

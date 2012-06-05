@@ -146,7 +146,7 @@ void mcmc_posterior_histo::declare_products(){
 
 mcmc_posterior_histo::mcmc_posterior_histo(const theta::Configuration & cfg): Producer(cfg), RandomConsumer(cfg, get_name()),
         init(false), smooth(false){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     size_t n = s["parameters"].size();
     for(size_t i=0; i<n; ++i){

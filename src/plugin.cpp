@@ -6,12 +6,12 @@
 using namespace std;
 using namespace theta;
 
-Configuration::Configuration(const SettingWrapper & setting_): pm(new theta::PropertyMap()), setting(setting_){}
+Configuration::Configuration(const Setting & setting_): pm(new theta::PropertyMap()), setting(setting_){}
 
-Configuration::Configuration(const Configuration & cfg, const SettingWrapper & setting_): pm(cfg.pm), setting(setting_){}
+Configuration::Configuration(const Configuration & cfg, const Setting & setting_): pm(cfg.pm), setting(setting_){}
 
 void PluginLoader::execute(const Configuration & cfg) {
-    SettingWrapper files = cfg.setting["plugin_files"];
+    Setting files = cfg.setting["plugin_files"];
     size_t n = files.size();
     for (size_t i = 0; i < n; i++) {
         std::string filename = utils::replace_theta_dir(files[i]);

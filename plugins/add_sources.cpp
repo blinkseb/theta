@@ -4,7 +4,7 @@
 using namespace theta;
 
 add_sources::add_sources(const theta::Configuration & cfg): DataSource(cfg){
-    SettingWrapper s = cfg.setting["sources"];
+    Setting s = cfg.setting["sources"];
     size_t n = s.size();
     if(n==0) ConfigurationException("have to specify at least one source in 'sources'");
     for(size_t i=0; i<n; ++i){

@@ -4,9 +4,13 @@ import numpy.linalg, array, math
 
 import theta_interface, plotutil
 
+import scipy.stats
+
 import Model
 
 inf = float("inf")
+cl_1sigma = 0.68268949213708585
+cl_2sigma = 0.95449973610364158
 
 # returns a dictionary float x --> signal process group id
 #
@@ -27,6 +31,8 @@ def get_x_to_sp(spgids, **options):
     assert len(spgids) == len(x_to_sp)
     return x_to_sp
 
+
+def make_tuple(*args): return tuple(args)
 
 # options: booleans load_root_ plugins  (default: True)
 # use_llvm (default: False)
@@ -54,6 +60,7 @@ def minimizer(need_error = True, always_mcmc = False, minimizer_insane = False):
     minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': n_iterations, 'after_minimizer': {'type': 'root_minuit'}})
     if not always_mcmc: minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
     minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': n_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+    #minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min2', 'iterations': n_iterations * 10, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
     result = {'type': 'minimizer_chain', 'minimizers': minimizers}
     if need_error: result['last_minimizer'] = {'type': 'root_minuit'}
     return result
@@ -142,6 +149,14 @@ def get_trunc_mean_width(l):
    l2 = [x for x in l if x >= median-width and x <= median+width]
    return get_mean_width(l2)
 
+   
+def p_to_Z(p_value):
+   return -scipy.stats.norm.ppf(p_value)
+   
+def Z_to_p(z_value):
+    return scipy.stats.norm.sf(z_value)
+   
+   
 # returns the theta config dictionary, given a signal_prior specification ('flat' / 'fix:X')
 def signal_prior_dict(spec):
     if type(spec) == str:
@@ -173,7 +188,7 @@ def data_source_dict(model, input_spec, **options):
     if input_spec == 'data':
         source_dict = {'type': 'histo_source', 'name': 'source'}
         for o in model.observables:
-            source_dict[o] = theta_interface.get_histo_cfg(model.data_histos[o])
+            source_dict[o] = model.data_histos[o].get_cfg(False)
         if len(model.data_rvobsvalues) > 0:
             source_dict['rvobs-values'] = dict(model.data_rvobsvalues)
         return (source_dict, theta_interface.delta_distribution(beta_signal = 0.0))

@@ -39,7 +39,7 @@ MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues
 
 
 minimizer_chain::minimizer_chain(const theta::Configuration & cfg){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     const size_t n = s["minimizers"].size();
     minimizers.reserve(n);
     size_t n_minimizers = 0;

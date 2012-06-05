@@ -3,11 +3,9 @@
 #include "interface/phys.hpp"
 #include "interface/data.hpp"
 #include "interface/histogram.hpp"
-#include <sstream>
 
 using namespace theta;
 using namespace std;
-using namespace libconfig;
 
 void pseudodata_writer::produce(const Data & data, const Model & model) {
     for(size_t i=0; i<observables.size(); ++i){
@@ -21,11 +19,20 @@ void pseudodata_writer::produce(const Data & data, const Model & model) {
 }
 
 pseudodata_writer::pseudodata_writer(const theta::Configuration & cfg): Producer(cfg){
-    size_t n = cfg.setting["observables"].size();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
-    observables.reserve(n);
-    for(size_t i=0; i<n; i++){
-        observables.push_back(vm->get_obs_id(cfg.setting["observables"][i]));
+    if(cfg.setting.exists("observables")){
+        size_t n = cfg.setting["observables"].size();
+        observables.reserve(n);
+        for(size_t i=0; i<n; i++){
+            observables.push_back(vm->get_obs_id(cfg.setting["observables"][i]));
+        }
+    }
+    else{
+        ObsIds oids = vm->get_all_observables();
+        observables.reserve(oids.size());
+        for(ObsIds::const_iterator oit=oids.begin(); oit!=oids.end(); ++oit){
+            observables.push_back(*oit);
+        }
     }
     write_data = cfg.setting["write-data"];
     for(size_t i=0; i<observables.size(); ++i){

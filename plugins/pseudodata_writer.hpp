@@ -18,9 +18,9 @@
  * \code
  * pd = {
  *  type = "pseudodata_writer";
- *  name = "pd";
- *  observables = ("o0", "o1");
+ *  name = "pdw";
  *  write-data = true;
+ *  observables = ("o0", "o1"); // optional; default is to write out all observables
  * }
  * \endcode
  *

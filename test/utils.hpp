@@ -48,10 +48,7 @@ public:
     }
     
 private:
-    int setup_config(const std::string &);
-    
-    libconfig::Config config;
-    int dummy;
+    theta::Configuration setup_cfg(const std::string & cfg_string);
     
     boost::shared_ptr<theta::SettingUsageRecorder> rec;
     theta::Configuration cfg;

@@ -7,9 +7,8 @@
 
 #include "interface/database.hpp"
 
-#include "libconfig/libconfig.h++"
-
 #include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
@@ -25,8 +24,6 @@
 using namespace std;
 using namespace theta;
 using namespace theta::utils;
-
-using namespace libconfig;
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
@@ -117,9 +114,29 @@ namespace{
     }
 }
 
+// read the whole file into a string
+std::string read_file(const string & fname){
+    try{
+        size_t s = fs::file_size(fname);
+        string result;
+        result.resize(s);
+        ifstream in(fname.c_str());
+        if(!in){
+            throw string(); // will be catched below and converted to exception with proper message
+        }
+        in.read(&result[0], s);
+        if(!in){
+            throw string();
+        }
+        return result;
+    }
+    catch(...){
+        throw ConfigurationException("error reading file '" + fname + "'");
+    }
+}
 
 boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_time){
-    Config cfg;
+    boost::optional<Setting> root;
     boost::shared_ptr<SettingUsageRecorder> rec(new SettingUsageRecorder());
     boost::shared_ptr<Main> main;
     bool init_complete = false;
@@ -143,17 +160,14 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
                  cfg_filename = to_string(fs::path(cfg_filename).filename());
             }
             catch(fs::filesystem_error & ex){
-                 throw FileIOException();
+                 throw ConfigurationException("error during resolving config file path for filename '" + cfg_filename + "'");
             }
-            cfg.readFile(cfg_filename.c_str());
+            std::string cfg_string = read_file(cfg_filename);
+            root = LibconfigSetting::parse(cfg_string, rec);
             fs::current_path(old_path);
-        } catch (FileIOException & f) {
+        }catch (Exception & ex) {
             stringstream s;
-            s << "Configuration file " << cfg_filename << " could not be read";
-            throw ConfigurationException(s.str());
-        } catch (ParseException & p) {
-            stringstream s;
-            s << "Error parsing configuration file: " << p.getError() << " in line " << p.getLine() << ", file " << p.getFile();
+            s << "Error while parsing configuration file '" << cfg_filename << "': " << ex.what();
             throw ConfigurationException(s.str());
         }
         #ifdef USE_TIMER
@@ -161,9 +175,8 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
             cout << timer->format(4, "Time to read and parse configuration file:        %w sec real, %t sec CPU") << endl;
         }
         #endif
-        
-        SettingWrapper root(cfg.getRoot(), cfg.getRoot(), rec);
-        Configuration config(root);
+        theta_assert(root);
+        Configuration config(*root);
         config.pm->set("default", boost::shared_ptr<VarIdManager>(new VarIdManager));
         
         //process options:
@@ -184,7 +197,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
         //populate VarIdManager from config:
         apply_vm_settings(config);
         //build run:
-        main = PluginManager<Main>::build(Configuration(config, root["main"]));
+        main = PluginManager<Main>::build(Configuration(config, (*root)["main"]));
         init_complete = true;
         #ifdef USE_TIMER
         if(print_time){
@@ -192,12 +205,8 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
         }
         #endif
     }
-    catch (SettingNotFoundException & ex) {
-        cerr << "Error: the required setting " << ex.getPath() << " was not found." << endl;
-    } catch (SettingTypeException & ex) {
-        cerr << "Error: the setting " << ex.getPath() << " has the wrong type." << endl;
-    } catch (Exception & e) {
-        cerr << "Error: " << e.message << endl;
+    catch (Exception & e) {
+        cerr << "Error: " << e.what() << endl;
     }
     if(not init_complete){
         main.reset();
@@ -206,7 +215,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
     
     if(not nowarn){
         vector<string> unused;
-        rec->get_unused(unused, cfg.getRoot());
+        rec->get_unused(unused, *root);
         if (unused.size() > 0) {
             cout << "WARNING: following setting paths in the configuration file have not been used: " << endl;
             for (size_t i = 0; i < unused.size(); ++i) {

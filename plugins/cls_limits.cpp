@@ -20,7 +20,6 @@
 
 using namespace std;
 using namespace theta;
-using namespace libconfig;
 
 using boost::shared_ptr;
 
@@ -145,17 +144,37 @@ public:
 };
 
 class data_filler: public theta::RandomConsumer, public theta::DataSource{
- private:
-     boost::shared_ptr<Model> model;
-     Column truth_column;
-     ParId truth_parameter;
-     double truth_value;
  public:
-     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_, const ParId & truth_parameter);
+     enum t_toy_mode {
+        ttm_prior, ttm_datafit
+     };
+     
+     data_filler(const theta::Configuration & cfg, const boost::shared_ptr<Model> & model_, const ParId & truth_parameter, const t_toy_mode & mode_, const Data & real_data_, const boost::shared_ptr<Minimizer> & minimizer_, std::auto_ptr<ostream> & debug_out_);
      virtual void fill(Data & dat);
      void set_truth_value(double truth_value_){
          truth_value = truth_value_;
      }
+     
+private:
+    boost::shared_ptr<Model> model;
+    Column truth_column;
+    ParId truth_parameter;
+    double truth_value;
+    
+    // for debugging:
+    boost::shared_ptr<VarIdManager> vm;
+    std::auto_ptr<ostream> & debug_out;
+    
+    t_toy_mode mode;
+    // all from here is only relevant for mode = ttm_datafit
+    map<double, ParValues> truth_to_nuisancevalues;
+    Data real_data;
+    boost::shared_ptr<Minimizer> minimizer;
+    
+    // for the maximum likelihood fit:
+    bool start_step_ranges_init;
+    theta::ParValues start, step;
+    std::map<theta::ParId, std::pair<double, double> > ranges;
 };
 
 // contains the (numerically derived) cls values and uncertainties as function of the truth value for a fixed ts value.
@@ -469,18 +488,83 @@ fitexp_result fitexp(const cls_vs_truth_data & data, double target_cls, fitexp_p
     return result;
 }
 
-data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_, const ParId & par): RandomConsumer(cfg, "source"),
-    DataSource("source", cfg.pm->get<ProductsSink>()), model(model_), truth_parameter(par){
+data_filler::data_filler(const Configuration & cfg, const boost::shared_ptr<Model> & model_, const ParId & par, const t_toy_mode & mode_, const Data & real_data_,
+                         const boost::shared_ptr<Minimizer> & minimizer_, std::auto_ptr<ostream> & debug_out_): RandomConsumer(cfg, "source"),
+    DataSource("source", cfg.pm->get<ProductsSink>()), model(model_), truth_parameter(par), debug_out(debug_out_), mode(mode_), real_data(real_data_), minimizer(minimizer_), start_step_ranges_init(false){
     truth_column = products_sink->declare_product(*this, "truth", theta::typeDouble);
+    if(mode==ttm_datafit){
+        theta_assert(model->get_observables() == real_data.get_observables());
+    }
+    vm = cfg.pm->get<VarIdManager>();
 }
 
 void data_filler::fill(Data & dat){
-    dat.reset();
-    Random & rnd = *rnd_gen;
-    ParValues values;
-    model->get_parameter_distribution().sample(values, rnd);
-    values.set(truth_parameter, truth_value);
     products_sink->set_product(truth_column, truth_value);
+    dat.reset();
+    ParValues values;
+    Random & rnd = *rnd_gen;
+    if(mode==ttm_prior){
+        model->get_parameter_distribution().sample(values, rnd);
+    }
+    else{
+        map<double, ParValues>::const_iterator it = truth_to_nuisancevalues.find(truth_value);
+        if(it != truth_to_nuisancevalues.end()){
+            values.set(it->second);
+        }
+        else{
+            std::auto_ptr<NLLikelihood> nll = model->get_nllikelihood(real_data);
+            if(not start_step_ranges_init){
+                const Distribution & d = nll->get_parameter_distribution();
+                fill_mode_support(start, ranges, d);
+                step.set(asimov_likelihood_widths(*model, boost::shared_ptr<theta::Distribution>(), boost::shared_ptr<theta::Function>()));
+                step.set(truth_parameter, 0.0);
+                start_step_ranges_init = true;
+            }
+            ParValues mystart(start);
+            map<double, ParValues>::const_iterator it_higher = truth_to_nuisancevalues.lower_bound(truth_value);
+            map<double, ParValues>::const_iterator it_lower = it_higher;
+            if(it_lower != truth_to_nuisancevalues.begin()) --it_lower;
+            if(it_higher == truth_to_nuisancevalues.end()){
+                if(it_lower != truth_to_nuisancevalues.end()){
+                    mystart.set(it_lower->second);
+                }
+            }else{
+                if(it_lower == it_higher){
+                    mystart.set(it_lower->second);
+                }
+                else{
+                    //TODO: could interpolate here ...
+                    mystart.set(it_lower->second);
+                }
+            }
+            mystart.set(truth_parameter, truth_value);
+            ranges[truth_parameter] = make_pair(truth_value, truth_value);
+            try{
+                MinimizationResult minres = minimizer->minimize(*nll, mystart, step, ranges);
+                truth_to_nuisancevalues[truth_value].set(minres.values);
+                values.set(minres.values);
+                if(debug_out.get()){
+                    debug_out << "datafit minimization for truth_value=" << truth_value << ": ";
+                    const ParIds & pids = model->get_parameters();
+                    for(ParIds::const_iterator pit=pids.begin(); pit!=pids.end(); ++pit){
+                        debug_out << vm->get_name(*pit) << " = " <<  values.get(*pit) << "; ";
+                    }
+                    debug_out << "\n";
+                }
+            }
+            catch(Exception & ex){
+                debug_out << "datafit minimization for truth_value=" << truth_value << " failed.\n";
+                ex.message = "in datafiller::fill: " + ex.message;
+                throw;
+            }
+        }
+    }
+    values.set(truth_parameter, truth_value);
+    const Distribution * rvobsdist = model->get_rvobservable_distribution();
+    if(rvobsdist){
+        rvobsdist->sample(values, rnd);
+        dat.set_rvobs_values(ParValues(values, model->get_rvobservables()));
+    }
     DataWithUncertainties data_wu;
     model->get_prediction(data_wu, values);
     const ObsIds & observables = model->get_observables();
@@ -555,8 +639,8 @@ void cls_limits::run_single_truth(double truth, bool bkg_only, int n_event){
 
 class OutlierException{
 public:
-    double limit;
-    explicit OutlierException(double limit_ = numeric_limits<double>::quiet_NaN()): limit(limit_){};
+    string message;
+    explicit OutlierException(const string & message_): message(message_){};
 };
 
 
@@ -590,7 +674,10 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
         debug_out << " clb  = " << res.clb  << " +- " << res.clb_uncertainty << "\n";
         debug_out << " cls  = " << res.cls  << " +- " << cls_uncertainty << "\n";
         if(res.clb + res.clb_uncertainty < clb_cutoff){
-           throw OutlierException(numeric_limits<double>::infinity());
+            debug_out << "run_single_truth_adaptive: clb is below cutoff!\n";
+            if(idata!=0){
+                throw OutlierException("run_single_truth_adaptive: clb too low");
+            }
         }
         if(mode == M_ADAPTIVE){
             if(fabs(res.cls - (1 - cl)) / cls_uncertainty > 3) return;
@@ -636,15 +723,14 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
             return;
         }
     }
-    debug_out << "run_single_truth_adaptive: could not reach target accuracy for CLs after 100 iterations; marking as outlier.\n";
-    throw OutlierException();
+    throw OutlierException("run_single_truth_adaptive: too many iterations to reach CLs accuracy");
 }
 
 
 cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->get_par_id(cfg.setting["truth_parameter"])),
   runid(1), n_toys(0), n_toy_errors(0), n_toys_total(-1), pid_limit(vm->create_par_id("__limit")), pid_lambda(vm->create_par_id("__lambda")), 
   expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
 
     if(s.exists("debuglog")){
         string fname = s["debuglog"];
@@ -744,7 +830,7 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
             clb_cutoff = s["clb_cutoff"];
         }
         if(s.exists("reuse_toys")){
-            SettingWrapper s2 = s["reuse_toys"];
+            Setting s2 = s["reuse_toys"];
             input_database = PluginManager<DatabaseInput>::build(Configuration(cfg, s2["input_database"]));
             input_ts_colname = colname;
             if(s2.exists("truth_column")){
@@ -775,7 +861,19 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
         n_toys_total = n_truth * (n_sb_toys_per_truth + n_b_toys_per_truth);
     }
     
-    source.reset(new data_filler(cfg, model, truth_parameter));
+    data_filler::t_toy_mode toy_mode = data_filler::ttm_prior;
+    if(cfg.setting.exists("nuisancevalues-for-toys")){
+        string s = cfg.setting["nuisancevalues-for-toys"];
+        if(s=="prior"){}
+        else if(s=="datafit"){
+            toy_mode = data_filler::ttm_datafit;
+        }
+        else{
+            throw ConfigurationException("invalid setting nuisancevalues-for-toys=\"" + s + "\"");
+        }
+    }
+    
+    source.reset(new data_filler(cfg, model, truth_parameter, toy_mode, data_source_data, minimizer, debug_out));
 }
 
 
@@ -898,10 +996,13 @@ void cls_limits::update_truth_to_ts(map<double, double> & truth_to_ts, double ts
             throw;
         }
         double ts = sdc->consum_value() + ts_epsilon;
-        // for truth!=0, check if ts is an outlier and if it is, reject this toy by throwing an OutlierException:
+        // for truth!=0, and if this is not real data, check if ts is an outlier and if it is, reject this toy by throwing an OutlierException:
         if(*it!=0){
             if(tts->is_outlier(*it, ts, ts_epsilon)){
-                throw OutlierException();
+                debug_out << "update_truth_to_ts: ts for truth = " << *it << " is " << ts << " which was identified as outlier.\n";
+                if(idata!=0){
+                    throw OutlierException("update_truth_to_ts: test statistic outlier");
+                }
             }
         }
         truth_to_ts[*it] = ts;
@@ -1085,7 +1186,7 @@ void cls_limits::run_set_limits(){
                  double next_value = data.truth_values().back()*2.0;
                  if(next_value > truth_max){
                      debug_out << "to high truth value: " << next_value << ". Marking as outlier\n";
-                     throw OutlierException();
+                     throw OutlierException("run_set_limits: too high truth value");
                  }
                  debug_out << "making toys at high truth values to find upper limit on limit; next is truth=" << next_value << "\n";
                  flush(debug_out);
@@ -1102,7 +1203,7 @@ void cls_limits::run_set_limits(){
                 // 0. debugging stuff:
                 if(i==N_maxit){
                     debug_out << idata << "." << i << ": maximum number of iterations reached. Marking as outlier.\n";
-                    throw OutlierException();
+                    throw OutlierException("run_set_limits: too many iterations necessary");
                 }
                 debug_out << idata << "." << i << "\n";
                 if(debug_out.get()){
@@ -1225,26 +1326,15 @@ void cls_limits::run_set_limits(){
             cls_limits_table->add_row(r);
             debug_out << "final limit for idata = " << idata << ": " << latest_res.limit << " +- " << latest_res.limit_error << "\n";
             flush(debug_out);
-            if(idata==0) break;
         }
         catch(OutlierException & ex){
-            if(isnan(ex.limit)){ 
-                debug_out << "idata " << idata  << " identified as outlier; skipping.\n";
-            }
-            else{ // an infinity outlier
-                debug_out << "idata " << idata  << " identified as outlier, limit is " << ex.limit << " \n";
-                flush(debug_out);
-                ++n_results;
-                Row r;
-                r.set_column(cls_limits__index, idata);
-                r.set_column(cls_limits__limit, ex.limit);
-                r.set_column(cls_limits__limit_uncertainty, 0.0);
-                cls_limits_table->add_row(r);
-            }
+            debug_out << "idata " << idata  << " identified as outlier (reason: " << ex.message << "); skipping\n";
         }
         catch(MinimizationException & ex){
             debug_out << "idata " << idata << " had minimizationexception; skipping.\n";
+            
         }
+        if(idata==0) break;
     }
     // print the total number of toys per point (hint for setting up grid ...)
     if(debug_out.get()){

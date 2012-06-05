@@ -9,7 +9,8 @@
 #include <unistd.h>
 
 #ifdef __clang__
-#include "/usr/include/fenv.h"
+#define BOOST_DETAIL_FENV_HPP
+#include <fenv.h>
 #endif
 
 #include <boost/math/special_functions/gamma.hpp>

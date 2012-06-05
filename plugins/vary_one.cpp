@@ -8,7 +8,7 @@ using namespace theta;
 void vary_one::sample(ParValues & result, Random &) const{
     result.set(default_values);
     if(next_index==0){
-       next_index = (next_index + 1) % n_total;
+       next_index = 1 % n_total;
        return;
     }
     size_t k = next_index - 1;

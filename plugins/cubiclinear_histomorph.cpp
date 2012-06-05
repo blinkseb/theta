@@ -64,7 +64,7 @@ cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx): norma
     if(ctx.setting.exists("normalize_to_nominal")){
         normalize_to_nominal = ctx.setting["normalize_to_nominal"];
     }
-    SettingWrapper psetting = ctx.setting["parameters"];
+    Setting psetting = ctx.setting["parameters"];
     size_t n = psetting.size();
     parameter_factors.resize(n, 1.0);
     bool have_parameter_factors = ctx.setting.exists("parameter_factors");

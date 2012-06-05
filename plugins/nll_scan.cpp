@@ -9,7 +9,6 @@
 
 using namespace theta;
 using namespace std;
-using namespace libconfig;
 
 void nll_scan::produce(const Data & data, const Model & model) {
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
@@ -35,7 +34,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
 
 nll_scan::nll_scan(const theta::Configuration & cfg): Producer(cfg), pid(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])),
    re_minimize(true), start_step_ranges_init(false){
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     minimizer = PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));
     if(s.exists("re-minimize")){
         re_minimize = s["re-minimize"];

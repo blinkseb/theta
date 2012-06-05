@@ -6,11 +6,10 @@
 #include <boost/scoped_array.hpp>
 
 using namespace theta;
-using namespace libconfig;
 using namespace std;
 
 fixed_poly::fixed_poly(const Configuration & ctx){
-    SettingWrapper s = ctx.setting;
+    Setting s = ctx.setting;
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     ObsId obs_id = vm->get_obs_id(s["observable"]);
     int order = s["coefficients"].size() - 1;
@@ -45,7 +44,7 @@ fixed_poly::fixed_poly(const Configuration & ctx){
 }
 
 fixed_gauss::fixed_gauss(const Configuration & ctx){
-    SettingWrapper s = ctx.setting;
+    Setting s = ctx.setting;
     double width = s["width"];
     double mean = s["mean"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
@@ -70,7 +69,7 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
 log_normal::log_normal(const Configuration & cfg){
     support_.first = 0.0;
     support_.second = std::numeric_limits<double>::infinity();
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     mu = s["mu"];
     sigma = s["sigma"];
@@ -144,7 +143,7 @@ flat_distribution::flat_distribution(const theta::Configuration & cfg){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
         if(cfg.setting[i].get_name()=="type") continue;
-        SettingWrapper s = cfg.setting[i];
+        Setting s = cfg.setting[i];
         ParId pid = vm->get_par_id(s.get_name());
         par_ids.insert(pid);
         double low = ranges[pid].first = s["range"][0].get_double_or_inf();
@@ -351,9 +350,9 @@ gauss1d::gauss1d(const Configuration & cfg){
    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
    string par_name = cfg.setting["parameter"];
    par_ids.insert(vm->get_par_id(par_name));
-   libconfig::Setting::Type typ = cfg.setting["mean"].get_type();
+   Setting::Type typ = cfg.setting["mean"].get_type();
    mu = NAN;
-   if(typ==libconfig::Setting::TypeFloat){
+   if(typ==Setting::TypeFloat){
        mu = cfg.setting["mean"];
    }
    else{
@@ -390,10 +389,10 @@ void gauss1d::mode(theta::ParValues & result) const{
 
 
 //product_distribution
-void product_distribution::add_distributions(const Configuration & cfg, const theta::SettingWrapper & s, int depth){
+void product_distribution::add_distributions(const Configuration & cfg, const theta::Setting & s, int depth){
     if(depth==0) throw ConfigurationException("product_distribution: nesting too deep while trying to resolve distributions");
     for(size_t i=0; i<s.size(); ++i){
-        SettingWrapper dist_setting = s[i];
+        Setting dist_setting = s[i];
         string dist_setting_type = dist_setting["type"]; 
         if(dist_setting_type=="product_distribution"){
             add_distributions(cfg, dist_setting["distributions"], depth-1);
@@ -467,10 +466,11 @@ model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), R
             string pname = cfg.setting["parameters-for-nll"][i].get_name();
             ParId pid = vm->get_par_id(pname);
             pids_for_nll.insert(pid);
-            try{
-                double value = cfg.setting["parameters-for-nll"][i];
+            if(cfg.setting["parameters-for-nll"][i].get_type() == Setting::TypeFloat){
+                double value = cfg.setting;
                 parameters_for_nll.set(pid, value);
-            }catch(SettingTypeException &){
+            }
+            else{
                string s_value = cfg.setting["parameters-for-nll"][i];
                if(s_value != "diced_value"){
                    throw ConfigurationException("illegal value given in parameters-for-nll for parameter " + pname);

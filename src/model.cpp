@@ -99,7 +99,7 @@ std::auto_ptr<NLLikelihood> default_model::get_nllikelihood(const Data & data) c
 }
 
 default_model::default_model(const Configuration & ctx): bb_uncertainties(false) {
-    SettingWrapper s = ctx.setting;
+    Setting s = ctx.setting;
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     if(s.exists("bb_uncertainties")){
         bb_uncertainties =  s["bb_uncertainties"];
@@ -109,7 +109,7 @@ default_model::default_model(const Configuration & ctx): bb_uncertainties(false)
     for (ObsIds::const_iterator obsit = observables.begin(); obsit != observables.end(); obsit++) {
         string obs_name = vm->get_name(*obsit);
         if(not s.exists(obs_name)) continue;
-        SettingWrapper obs_setting = s[obs_name];
+        Setting obs_setting = s[obs_name];
         if(obs_setting.size()==0) throw ConfigurationException("observable '" + vm->get_name(*obsit) + "' is empty");
         boost::ptr_vector<HistogramFunction> histos;
         boost::ptr_vector<Function> coeffs;

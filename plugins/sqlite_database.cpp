@@ -15,29 +15,29 @@ sqlite_database::sqlite_database(const Configuration & cfg) :
     db(0), transaction_active(false), save_all_products(true){
     std::string filename = cfg.setting["filename"];
     if(cfg.setting.exists("products_data")){
-      try{
-         string s = cfg.setting["products_data"];
-         if(s=="*")save_all_products = true;
-         else throw ConfigurationException("products_data setting is a string but not '*'");
-      }
-      catch(libconfig::SettingTypeException & e){
-          save_all_products = false;
-          size_t n = cfg.setting["products_data"].size();
-          for(size_t i=0; i<n; ++i){
-              string column_name = cfg.setting["products_data"][i];
-              products_data.insert(column_name);
-              if(column_name=="*"){
-                 save_all_products = true;
-                 products_data.clear();
-                 break;
-              }
-          }
-          //if anything is written at all, also write runid and eventid:
-          if(products_data.size()){
-             products_data.insert("runid");
-             products_data.insert("eventid");
-          }
-      }
+        if(cfg.setting["products_data"].get_type()==Setting::TypeString){
+            string s = cfg.setting["products_data"];
+            if(s=="*")save_all_products = true;
+            else throw ConfigurationException("products_data setting is a string but not '*'");
+        }
+        else{
+            save_all_products = false;
+            size_t n = cfg.setting["products_data"].size();
+            for(size_t i=0; i<n; ++i){
+                string column_name = cfg.setting["products_data"][i];
+                products_data.insert(column_name);
+                if(column_name=="*"){
+                    save_all_products = true;
+                    products_data.clear();
+                    break;
+                }
+            }
+            //if anything is written at all, also write runid and eventid:
+            if(products_data.size()){
+                products_data.insert("runid");
+                products_data.insert("eventid");
+            }
+        }
     }
     if (boost::filesystem::exists(filename)) {
         boost::filesystem::remove(filename);

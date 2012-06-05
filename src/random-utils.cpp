@@ -14,7 +14,7 @@ RandomConsumer::RandomConsumer(const theta::Configuration & cfg, const std::stri
    std::auto_ptr<RandomSource> rnd_source;
    std::string source_type = "taus";
    if(cfg.setting.exists("rnd_gen")){
-       SettingWrapper s = cfg.setting["rnd_gen"];
+       Setting s = cfg.setting["rnd_gen"];
        if(s.exists("source_type")){
            source_type = static_cast<std::string>(s["source_type"]);
        }

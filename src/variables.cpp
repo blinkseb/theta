@@ -10,7 +10,6 @@
 using namespace theta;
 using namespace theta::utils;
 using namespace std;
-using namespace libconfig;
 
 ParId VarIdManager::create_par_id(const std::string & name, const std::string & type) {
     if (name_to_pid.find(name) != name_to_pid.end()) {
@@ -132,16 +131,6 @@ ParIds VarIdManager::get_all_parameters() const{
 }
 
 /* ParValues */
-/*ParIds ParValues::get_parameters() const {
-    ParIds result;
-    for (size_t i=0; i<values.size(); i++) {
-        if(not isnan(values[i])){
-            result.insert(ParId(i));
-        }
-    }
-    return result;
-}*/
-
 void ParValues::fail_get(const ParId & pid) const{
     std::stringstream ss;
     ss << "ParValues::get: given VarId " << pid.id << " not found";
@@ -157,7 +146,7 @@ std::ostream & theta::operator<<(std::ostream & out, const ParIds & pids){
 
 
 void theta::apply_vm_settings(Configuration & ctx){
-    SettingWrapper s = ctx.setting;
+    Setting s = ctx.setting;
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     if(s.exists("observables")){
         size_t nobs = s["observables"].size();
@@ -165,7 +154,10 @@ void theta::apply_vm_settings(Configuration & ctx){
             string obs_name = s["observables"][i].get_name();
             double min = s["observables"][i]["range"][0].get_double_or_inf();
             double max = s["observables"][i]["range"][1].get_double_or_inf();
-            unsigned int nbins = s["observables"][i]["nbins"];
+            int nbins = s["observables"][i]["nbins"];
+            if(nbins <= 0){
+                throw ConfigurationException("Observable '" + obs_name + "' has nbins <= 0 which is not allowed.");
+            }
             vm->create_obs_id(obs_name, static_cast<size_t>(nbins), min, max);
         }
     }

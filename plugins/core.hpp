@@ -329,7 +329,7 @@ public:
     
 
 private:
-    void add_distributions(const theta::Configuration & cfg, const theta::SettingWrapper & s, int depth);
+    void add_distributions(const theta::Configuration & cfg, const theta::Setting & s, int depth);
     
     boost::ptr_vector<theta::Distribution> distributions;
     std::map<theta::ParId, size_t> parid_to_index;

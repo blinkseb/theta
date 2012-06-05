@@ -33,10 +33,10 @@ class MleProducer(ProducerBase):
         
     # parameters_write is the list of parameters to write the mle for in the db. The default (None) means
     # to use all parameters.
-    def get_cfg(self, model, signal_processes, parameters_write = None):
+    def get_cfg(self, model, signal_processes, parameters_write = None, **options):
         model_parameters = model.get_parameters(signal_processes, True)
         if parameters_write is None: parameters_write = model_parameters
-        result = {'type': 'mle', 'minimizer': minimizer(), 'parameters': list(parameters_write)}
+        result = {'type': 'mle', 'minimizer': minimizer(**options), 'parameters': list(parameters_write)}
         result.update(self.get_cfg_base(model, signal_processes))
         return result
 
@@ -84,13 +84,13 @@ class Run(MainBase):
     def add_producer(self, producer):
         self.producers.append(producer)
         
-    def get_cfg(self, model, signal_processes):
+    def get_cfg(self, model, signal_processes, **options):
         main = {'n-events': self.n_events, 'producers': [], 'log-report': False, 'output_database': sqlite_database(), 'model': "@model", 'data_source': self.data_source_dict}
         toplevel_settings = {'main': main, 'options': self.cfg_options, 'model': model.get_cfg(signal_processes)}
         model_parameters = model.get_parameters(signal_processes)
         toplevel_settings['model']['parameter-distribution'] = Distribution.merge(model.distribution, self.model_dist).get_cfg(model_parameters)
         for p in self.producers:
-            toplevel_settings['p%s' % p.name] = p.get_cfg(model, signal_processes)
+            toplevel_settings['p%s' % p.name] = p.get_cfg(model, signal_processes, **options)
             main['producers'].append('@p%s' % p.name)
         return toplevel_settings
 
@@ -148,7 +148,7 @@ def write_cfg2(main, model, signal_processes, method, input, id = None, **option
         xmin, xmax, nbins = model.observables[o]
         obs[o] = {'range': [xmin, xmax], 'nbins': nbins}
     theta_cfg += "observables = " + settingvalue_to_cfg(obs, 0, ['observables']) + ";\n"
-    cfg = main.get_cfg(model, signal_processes)
+    cfg = main.get_cfg(model, signal_processes, **options)
     cfg['main']['output_database']['filename'] = '@output_name';
     for s in cfg:
         theta_cfg += s + " = " + settingvalue_to_cfg(cfg[s]) + ";\n"
@@ -177,7 +177,7 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
         main = Run(n, data_source_dict, model_signal_prior)
         mle = MleProducer(Distribution.merge(signal_prior, nuisance_constraint))
         main.add_producer(mle)
-        name = write_cfg2(main, model, sp, 'ml_fit', input)
+        name = write_cfg2(main, model, sp, 'ml_fit', input, **options)
         cfg_names_to_run.append(name)
     run_theta_ = options.get('run_theta', True)
     if run_theta_: run_theta(cfg_names_to_run)
@@ -593,13 +593,13 @@ def ks_test_individual_channels(model, fit_yield = False, **options):
 #  two-tuples (lower interval border, upper interval border). In addition to the confidence levels, there is a special key 'mle' which contains a list
 #  of beta_signal values at the maximum.
 #
-# For example, if the only signal process is called 'signal' and cl=[0.68, 0.84], the 1sigma intervals are
+# For example, if the only signal process is called 'signal' and cl=[0.68, 0.95], the 1sigma intervals are
 # \code
 #  result['signal'][0.68][i] # i=0..n-1
 # \endcode
 # and the 2signma intervals are
 # \code
-#  result['signal'][0.84][i] # i=0..n-1
+#  result['signal'][0.95][i] # i=0..n-1
 # \endcode
 # and the beta_signal values at the maximum are 
 # \code

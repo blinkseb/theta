@@ -51,11 +51,13 @@ class truth_ts_values;
  *   
  *   truth_parameter = "beta_signal";
  *   debuglog = "debug.txt"; // optional, default is no debug output
+ *   minimizer = { ... };
+ * 
+ *   nuisancevalues-for-toys = "datafit"; // optional, default is "prior"
  *
  *   // A. in limit setting mode (default):
  *   mode = "set_limits"; // optional; default is "set_limits"
  *   data_source = { ... }; //optional; for the observed data
- *   minimizer = { ... };
  *   ts_column = "lr__nll_diff";
  *   cl = 0.90; // optional; default is 0.95
  *   expected_bands = 500; //optional; default is 1000
@@ -77,15 +79,18 @@ class truth_ts_values;
  * given in \c truth_parameter (all other parameters are drawn randomly from the model's parameter distribution). For each toy, the \c producer is run and the
  * value from the given \c ts_column is used as test statistic for the construction of CLs limits.
  *
- * \c data_source and \c expected_bands control for which data / test statistic the limits are calculated. \c data_source
- * is a data source and used to calculate the <em>observed</em> limit; provide the actual data here (do <em>not</em> use a random
- * data source here, this is not meaningful). \c expected_bands 
- * specifies the number of background-only toys to dice to determine the expected limits.
+ * \c data_source and \c expected_bands control for which data / test statistic the limits are calculated.
+ * \c data_source is a DataSource specification used as the <em>observed</em> data; provide the actual data here (do <em>not</em> use a random
+ * data source here, this is not meaningful). \c expected_bands specifies the number of background-only toys to dice to determine the expected limits.
  *
  * The calculation of CLs limits in general requires making a large number of toys at different truth values, to scan for the 
  * desired CLs value 1 - cl. How many toys are drawn and where is done automatically and is driven by \c reltol_limit:
  * this is the relative 1sigma uncertainty tolerance for the limit. \c tol_cls is an absolute accuracy for the CLs value. It is used
- * internally only and does not affect the accuracy of the result directly. However, it can affect robustness of the method.
+ * to control how many toys are done: if the CLs uncertainty from the finite number of toys is below \c tol_cls, no more toys are made. Setting this to a smaller value
+ * does not affect the accuracy of the result directly, but it can increase the robustness of the method.
+ * \c nuisancevalues-for-toys specifies how the parameter values for the nuisance parameters are chosen to perform toy experiments. In the
+ * default setting, "prior", the parameter-distributution from the model is used to sample values for those parameters. The alternative is "datafit"
+ * in which case the nuisance parameter values at a given value for the truth parameter are always the same, namely the values from a maximum likelihood fit to data.
  *
  * If \c limit_hint is given, it should be an interval where the limits are probably contained.
  * It does not have to be exact, but wil be used for a starting point to make some toys which can make the
@@ -143,7 +148,7 @@ private:
     enum t_mode {
         m_set_limits, m_generate_grid
     };
-
+    
     boost::shared_ptr<theta::VarIdManager> vm;
     boost::shared_ptr<theta::Model> model;
     //note: the tables hold a shared_ptr to this database to ensure proper destruction order
@@ -166,13 +171,12 @@ private:
     std::auto_ptr<std::ostream> debug_out;
 
     t_mode mode;
+    boost::shared_ptr<theta::Minimizer> minimizer;
 
     // A. for mode = "set_limits":
     std::auto_ptr<theta::Table> cls_limits_table;
     theta::Column cls_limits__index, cls_limits__limit, cls_limits__limit_uncertainty;
-
     
-    std::auto_ptr<theta::Minimizer> minimizer;
     theta::ParId pid_limit, pid_lambda;
     
     theta::Data current_data;

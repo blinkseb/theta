@@ -94,7 +94,7 @@ void deltanll_hypotest::set_parameter_values(const theta::ParValues & values){
 
 deltanll_hypotest::deltanll_hypotest(const theta::Configuration & cfg):
         ParameterDependentProducer(cfg), init(false) {
-    SettingWrapper s = cfg.setting;
+    Setting s = cfg.setting;
     minimizer = theta::PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));
     s_plus_b = theta::PluginManager<Distribution>::build(theta::Configuration(cfg, s["signal-plus-background-distribution"]));
     b_only = theta::PluginManager<Distribution>::build(theta::Configuration(cfg, s["background-only-distribution"]));

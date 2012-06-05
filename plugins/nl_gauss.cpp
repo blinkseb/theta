@@ -16,7 +16,7 @@ nl_gauss::nl_gauss(const theta::Configuration & cfg) {
     Matrix cov_tmp(n,n);
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<n; ++i){
-        if(cfg.setting["rows"][i].get_type() == libconfig::Setting::TypeString){
+        if(cfg.setting["rows"][i].get_type() == Setting::TypeString){
             ParId pid = vm->get_par_id(cfg.setting["rows"][i]);
             rows.push_back(new IdFunction(pid));
             par_ids.insert(pid);
@@ -26,7 +26,7 @@ nl_gauss::nl_gauss(const theta::Configuration & cfg) {
             par_ids.insert_all(rows.back().get_parameters());
         }
         mu[i] = cfg.setting["mu"][i];
-        SettingWrapper s_row = cfg.setting["covariance"][i];
+        Setting s_row = cfg.setting["covariance"][i];
         if(s_row.size() != n){
             throw ConfigurationException("invalid cov matrix size");
         }
