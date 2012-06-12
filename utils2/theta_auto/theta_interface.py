@@ -55,8 +55,10 @@ workdir = analysis
         
 # minimizer options
 [minimizer]
-always_mcmc = True
+always_mcmc = False
 mcmc_iterations = 1000
+# strategy can be 'fast' or 'robust'
+strategy = fast
         
 [data_source]
 seed = 1
@@ -263,14 +265,22 @@ class DeltaNllHypotest(ProducerBase):
         self.add_submodule(self.minimizer)
         if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
         else: dist = model.distribution
-        parameters = set(model.get_parameters(signal_processes, True))
-        self.sb_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(parameters), _signal_prior_dict('flat')]}
-        self.b_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(parameters), _signal_prior_dict('fix:0.0')]}
+        sb_parameters = set(model.get_parameters(signal_processes, True))
+        b_parameters = set(model.get_parameters('', True))
+        means = dist.get_means()
+        # the "signal parameters": those which the model depends only for the signal ...
+        means_spar = {}
+        for p in means:
+            if p in sb_parameters and p not in b_parameters: means_spar[p] = means[p]
+        dist_bkg = Distribution.merge(dist, get_fixed_dist_at_values(means_spar))
+        self.sb_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(sb_parameters), _signal_prior_dict('flat')]}
+        self.b_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist_bkg.get_cfg(sb_parameters), _signal_prior_dict('fix:0.0')]}
         
         
     def get_cfg(self, options):
         result = {'type': 'deltanll_hypotest', 'minimizer': self.minimizer.get_cfg(options), 'background-only-distribution': self.b_distribution_cfg, 'signal-plus-background-distribution': self.sb_distribution_cfg}
         result.update(self.get_cfg_base(options))
+        if 'override-parameter-distribution' in result: del result['override-parameter-distribution']
         return result
        
     
@@ -299,14 +309,17 @@ class Minimizer(ModuleBase):
     def get_cfg(self, options):
         always_mcmc = options.getboolean('minimizer', 'always_mcmc')
         mcmc_iterations = options.getint('minimizer', 'mcmc_iterations')
+        strategy = options.get('minimizer', 'strategy')
+        assert strategy in ('fast', 'robust')
         minimizers = []
         #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex, more mcmc+simplex
         if not always_mcmc: minimizers.append({'type': 'root_minuit'})
         minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit'}})
         if not always_mcmc: minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
         minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
-        minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 50 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
-        minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 500 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+        if strategy == 'robust':
+            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 50 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 500 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
         result = {'type': 'minimizer_chain', 'minimizers': minimizers}
         if self.need_error: result['last_minimizer'] = {'type': 'root_minuit'}
         return result
@@ -360,7 +373,7 @@ def _signal_prior_dict(spec):
             signal_prior_dict = {'type': 'flat_distribution', 'beta_signal': {'range': [xmin, xmax], 'fix-sample-value': value}}
         elif spec.startswith('fix:'):
             v = float(spec[4:])
-            signal_prior_dict = theta_interface.delta_distribution(beta_signal = v)
+            signal_prior_dict = {'type': 'delta_distribution', 'beta_signal': v}
         else: raise RuntimeError, "signal_prior specification '%s' unknown" % spec
     else:
         if type(spec) != dict: raise RuntimeError, "signal_prior specification has to be a string ('flat' / 'fix:X') or a dictionary!"
@@ -371,39 +384,72 @@ def _signal_prior_dict(spec):
 # get_cfg returns a toplevel configuration
 #
 # corresponds to the "run" class in theta:
-class Run:
+class Run(ModuleBase):
     
     # signal_prior can be a string or a dictionary.
     # input is a string (toys:XXX, toy-asimov:XXX, ...), see DataSource for documentation
-    def __init__(self, model, signal_processes, signal_prior, input, n, producers, nuisance_prior_toys = None):
+    #
+    # typ can be 'default' or 'cls_limits'. For 'cls_limits', you have to specify
+    # exactly one producer which produces the test statistic
+    def __init__(self, model, signal_processes, signal_prior, input, n, producers, nuisance_prior_toys = None, typ = 'default'):
+        ModuleBase.__init__(self)
+        assert typ in ('default', 'cls_limits')
+        self.typ = 'default'
         self.model = model
         self.signal_processes = signal_processes
         self.n_events = n
         self.producers = producers
+        for p in producers: self.add_submodule(p)
         self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys)
         self.input_id = self.data_source.get_id()
         self.signal_prior_cfg = _signal_prior_dict(signal_prior)
+        
         self.result_available = False
         # full path + filename of theta configuration file, if created:
         self.theta_cfg_fname = None
         self.theta_db_fname = None
         self.thread = None
+        
+        # cls_limits specifics:
+        if typ=='cls_limits':
+            assert len(producers)==1
+            self.cls_options = {'ts_column': self.producers[0].name + '__nll_diff'}
+            self.minimizer = Minimizer(need_error = True)
+            self.add_submodule(self.minimizer)
+        
+        
+    def set_cls_options(self, **args):
+        assert self.typ == 'cls_limits'
+        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit']
+        for k in allowed_keys:
+            if k in args:
+                self.cls_options[k] = args[k]
+                del args[k]
+        if len(args) > 0: raise RuntimeError, "unrecognized cls options: %s" % str(args.keys())
     
     def _get_cfg(self, options):
-        plugins = set()
-        for p in self.producers:
-            plugins.update(p.get_required_plugins(options))
-        main = {'n-events': self.n_events, 'producers': [], 'log-report': False, 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
+        plugins = self.get_required_plugins(options)
+        result = {}
+        if self.typ!='cls_limits':
+            main = {'n-events': self.n_events, 'producers': [], 'log-report': False, 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
                 'model': "@model", 'data_source': self.data_source.get_cfg(options)}
-        n_threads = options.getint('main', 'n_threads')
-        if n_threads > 1:
-            main['type'] = 'run_mt'
-            main['n_threads'] = n_threads
-        result = {'main': main, 'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]},
-                  'model': self.model.get_cfg2(self.signal_processes, self.signal_prior_cfg, options)}
-        for p in self.producers:
-            result['p%s' % p.name] = p.get_cfg(options)
-            main['producers'].append('@p%s' % p.name)
+            n_threads = options.getint('main', 'n_threads')
+            if n_threads > 1:
+                main['type'] = 'run_mt'
+                main['n_threads'] = n_threads
+            for p in self.producers:
+                result['p%s' % p.name] = p.get_cfg(options)
+                main['producers'].append('@p%s' % p.name)
+        else:
+            main = {'type': 'cls_limits', 'producer': producers[0].get_cfg(options), 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
+                'truth_parameter': 'beta_signal', 'tol_cls': self.cls_options.get('tol_cls', 0.025),
+                'clb_cutoff': self.cls_options.get('clb_cutoff', 0.02),
+                'debuglog': '@debuglog_name', 'rnd_gen': {'seed': options.get('data_source', 'seed')},
+                'minimizer': self.minimizer.get_cfg(options), 'expected_bands': self.cls_options.get('expected_bands', 2000)}
+            if 'truth_max' in self.cls_options: main['truth_max'] = float(self.cls_options['truth_max'])
+            if 'reltol_limit' in self.cls_options: main['reltol_limit'] = float(self.cls_options['reltol_limit'])
+        result.update({'main': main, 'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]},
+                  'model': self.model.get_cfg2(self.signal_processes, self.signal_prior_cfg, options)})
         result['parameters'] = sorted(list(self.model.get_parameters(self.signal_processes, True)))
         rvobservables = sorted(list(self.model.rvobs_distribution.get_parameters()))
         if len(rvobservables) > 0:
@@ -560,21 +606,4 @@ def histogram_from_dbblob(blob_data):
     a = array.array('d')
     a.fromstring(blob_data)
     return Histogram(xmin = a[0], xmax = a[1], values = a[3:-1])
-
-# the nuisance prior used for the 
-"""
-def toys(model, input, signal_prior, signal_processes, producers, n, nuisance_constraint = None, nuisance_prior_toys = None, options):
-    data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys)
-    r = Run(model, signal_processes, signal_prior, data_source, n, producers)
-"""
-
-def mle(model, input, signal_prior, signal_processes, n, nuisance_constraint = None, nuisance_prior_toys = None):
-    r = Run(model, signal_processes, signal_prior, input, n, [MleProducer(model, signal_processes, nuisance_constraint)], nuisance_prior_toys)
-    #if options is None: options = Options()
-    return r
-    #r.run_theta(options)
-    #return r.get_products()
-
-
-
 

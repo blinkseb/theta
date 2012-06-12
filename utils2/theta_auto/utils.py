@@ -31,6 +31,15 @@ def get_x_to_sp(spgids, **options):
 
 def make_tuple(*args): return tuple(args)
 
+
+# count how often predicate evaluates to true on iterable
+def count(pred, iterable):
+    result = 0
+    for i in iterable:
+        if pred(i): result += 1
+    return result
+    
+
 def reldiff(d1, d2):
     return abs(d1 - d2) / max(abs(d1), abs(d2))
 

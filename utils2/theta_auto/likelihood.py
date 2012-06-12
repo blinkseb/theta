@@ -48,21 +48,22 @@ def pl_interval(model, input, n, cls = [cl_1sigma, cl_2sigma], signal_process_gr
 
 
 # Get the approximate "Z value" (significance in sigma), based on Wilks' Theorem. Note that this only works if
-# the conditions for Wilks' Theorem apply which is assume here for one degree of freedom.
+# the conditions for Wilks' Theorem apply which is assumed here for a difference between s+b and b-only model of one degree of freedom.
 #
 # The result is a dictionary (spid) --> (list of z values)
-#
-# Note that Z-values can be <0 in principle, but this method yields always values >=0.0 by construction.
 def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None):
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
+        #np_b = len(model.get_parameters(''))
+        #np_sb = len(model.get_parameters(signal_processes))
+        #np_diff = np_sb - np_b
         r = Run(model, signal_processes = signal_processes, signal_prior = signal_prior, input = input, n=n,
              producers = [DeltaNllHypotest(model, signal_processes, nuisance_constraint)], nuisance_prior_toys = nuisance_prior_toys)
         r.run_theta(options)
         data = r.get_products(['dnll__nll_diff'])
-        result[spid] = [math.sqrt(max(x, 0.0)) for x in data['dnll__nll_diff']]
+        result[spid] = [p_to_Z(scipy.stats.chi2.sf(2 * x, 1)) for x in data['dnll__nll_diff']]
     return result
 
 

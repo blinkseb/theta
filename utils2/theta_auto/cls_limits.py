@@ -145,6 +145,105 @@ def debug_cls_plots(dbfile, ts_column = 'lr__nll_diff'):
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
+def cls_limits(model, what = 'all',  signal_process_groups = None, signal_prior = 'flat', nuisance_prior = None, signal_processes = None, cls_options = {}):
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    result = {}
+    assert len(signal_processes) > 0
+    
+    #TODO: from here ...!
+
+    if bootstrap_nuisancevalues: main['nuisancevalues-for-toys'] = 'datafit'
+    if what in ('expected', 'all'):
+        main['expected_bands'] = 2000
+    elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what
+    if what in ('observed', 'all'):
+        main['data_source'], dummy = data_source_dict(model, 'data')
+    ts_producer, main['ts_column'] = ts_producer_dict(ts, signal_prior_bkg)
+    toplevel_settings = {'signal_prior': signal_prior, 'main': main, 'ts_producer': ts_producer, 'minimizer': minimizer(need_error = False), 'debuglog-name': 'XXX',
+       'model-distribution-signal': {'type': 'flat_distribution', 'beta_signal': {'range': [0.0, float("inf")], 'fix-sample-value': 0.0}}}
+    if ts == 'lhclike': del toplevel_settings['signal_prior']
+    toplevel_settings.update(get_common_toplevel_settings(**options))
+    cachedir = os.path.join(config.workdir, 'cache')
+    cfg_names_to_run = []
+    for sp in signal_processes:
+        model_parameters = model.get_parameters(sp)
+        spid = ''.join(sp)
+        toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
+        toplevel_settings['debuglog-name'] = 'debuglog' + spid + '.txt'
+        spid = ''.join(sp)
+        if spid in reuse_toys:
+            reuse_names = reuse_toys[spid]
+            filenames = map(lambda s: os.path.join(cachedir, s) + '.db', reuse_names)
+            #TODO: check whether files exist and complain here already!
+            main['reuse_toys'] = {'input_database': {'type': 'sqlite_database_in', 'filenames': filenames}}
+        elif 'reuse_toys' in main: del main['reuse_toys']
+        name = write_cfg(model, sp, 'cls_limits', '', additional_settings = toplevel_settings, **options)
+        cfg_names_to_run.append(name)
+    if 'run_theta' not in options or options['run_theta']:
+        run_theta(cfg_names_to_run, **options)
+    else: return None
+    
+    #expected results maps (process name) -> (median, band1, band2)
+    # where band1 and band2 are tuples for the central 68 and 95%, resp.
+    expected_results = {}
+    # observed result maps (process name) -> (limit, limit_uncertainty)
+    observed_results = {}
+    spids = set()    
+    for name in cfg_names_to_run:
+        method, sp, dummy = name.split('-',2)
+        spids.add(sp)
+        sqlfile = os.path.join(cachedir, '%s.db' % name)
+        data = sql(sqlfile, 'select "index", "limit", limit_uncertainty from cls_limits order by "index"')
+        if what in ('all', 'observed'):
+            assert data[0][0] == 0, "cls limit calculation for data failed! See debug.txt."
+            observed_results[sp] = data[0][1], data[0][2]
+            del data[0] # so rest is expected ...
+        if what in ('all', 'expected'):
+            # sort by limit:
+            limits = sorted([r[1] for r in data if r[1] != float("inf")])
+            n = len(limits)
+            expected_results[sp] = (limits[n/2], (limits[int(0.16*n)], limits[int(0.84*n)]), (limits[int(0.025*n)], limits[int(0.975*n)]))                
+        if debug_cls:
+            debug_cls_plots(sqlfile, main['ts_column'])
+    x_to_sp = get_x_to_sp(spids, **options)
+    
+    pd_expected, pd_observed = None, None
+    if what in ('all', 'expected'):
+        pd_expected = plotutil.plotdata()
+        pd_expected.color = '#000000'
+        pd_expected.as_function = True
+        pd_expected.legend = 'expected limit'
+        pd_expected.x = sorted(list(x_to_sp.keys()))
+        pd_expected.y  = []
+        pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
+    if what in ('all', 'observed'):
+        pd_observed = plotutil.plotdata()
+        pd_observed.color = '#000000'
+        pd_observed.as_function = True
+        pd_observed.x = sorted(list(x_to_sp.keys()))
+        pd_observed.y = []
+        pd_observed.yerrors = []
+        pd_observed.legend = 'observed limit'
+    
+    for x in sorted(x_to_sp.keys()):
+        sp = x_to_sp[x]
+        if what in ('all', 'expected'):
+            expected, band1, band2 = expected_results[sp]
+            pd_expected.y.append(expected)
+            pd_expected.bands[1][0].append(band1[0])
+            pd_expected.bands[1][1].append(band1[1])
+            pd_expected.bands[0][0].append(band2[0])
+            pd_expected.bands[0][1].append(band2[1])
+        if what in ('all', 'observed'):
+            observed, observed_unc = observed_results[sp]
+            pd_observed.y.append(observed)
+            pd_observed.yerrors.append(observed_unc)
+    report_limit_band_plot(pd_expected, pd_observed, 'CLs', 'cls')
+    return pd_expected, pd_observed
+
+
+"""
 def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
    signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, bootstrap_nuisancevalues = False, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
@@ -248,3 +347,4 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = '
             pd_observed.yerrors.append(observed_unc)
     report_limit_band_plot(pd_expected, pd_observed, 'CLs', 'cls')
     return pd_expected, pd_observed
+"""
