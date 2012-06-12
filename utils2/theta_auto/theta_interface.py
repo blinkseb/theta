@@ -50,8 +50,6 @@ class Options(SafeConfigParser):
 [global]
 debug = False
 check_cache = True
-# workdir either relative to the current directory or an absolute path.
-workdir = analysis
         
 # minimizer options
 [minimizer]
@@ -76,8 +74,7 @@ n_threads = 1
         self.readfp(io.BytesIO(self.default_config))
         
     def get_workdir(self):
-        workdir_rel = self.get('global', 'workdir')
-        return os.path.realpath(workdir_rel)
+        return os.path.realpath(config.workdir)
 
 # each class representing a theta module should inherit from ModuleBase
 class ModuleBase:
