@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import hashlib, io, os, time, re, numpy, shutil
+import hashlib, io, os, time, re, numpy, shutil, termios
 from Model import *
 from utils import *
 import config
@@ -280,22 +280,22 @@ class DeltaNllHypotest(ProducerBase):
         if 'override-parameter-distribution' in result: del result['override-parameter-distribution']
         return result
        
-    
-       
-"""        
 class NllScanProducer(ProducerBase):
-    def __init__(self, parameter_dist, parameter = 'beta_signal', name = 'nll_scan', range = [0.0, 3.0], npoints = 101):
-        ProducerBase.__init__(self, parameter_dist, name)
+    def __init__(self, model, signal_processes, override_distribution = None, signal_prior = 'flat', name = 'nllscan', parameter = 'beta_signal', range = [0.0, 3.0], npoints = 101, adaptive_startvalues = False):
+        ProducerBase.__init__(self, model, signal_processes, override_distribution = override_distribution, name = name, signal_prior = signal_prior)
         self.parameter = parameter
         self.range = range
         self.npoints = npoints
+        self.adaptive_startvalues = adaptive_startvalues
+        self.minimizer = Minimizer(need_error = False)
+        self.add_submodule(self.minimizer)
 
-    def get_cfg(self, model, signal_processes, parameters_write = None):
-        result = {'type': 'nll_scan', 'minimizer': minimizer(need_error = False), 'parameter': self.parameter,
-               'parameter-values': {'start': self.range[0], 'stop': self.range[1], 'n-steps': self.npoints}}
-        result.update(self.get_cfg_base(model, signal_processes))
+    def get_cfg(self, options):
+        result = {'type': 'nll_scan', 'minimizer': self.minimizer.get_cfg(options), 'parameter': self.parameter,
+               'parameter-values': {'start': self.range[0], 'stop': self.range[1], 'n-steps': self.npoints}, 'adaptive_startvalues': self.adaptive_startvalues}
+        result.update(self.get_cfg_base(options))
         return result
-"""
+
 
 class Minimizer(ModuleBase):
     def __init__(self, need_error):
@@ -496,6 +496,10 @@ class Run(ModuleBase):
         ret = os.system(cmd)
         if ret != 0:
             self.error = "executing theta ('%s') failed with exit code %d" % (cmd, ret)
+            if os.isatty(1):
+                attr = termios.tcgetattr(1)
+                attr[3] |= termios.ECHO
+                termios.tcsetattr(1, termios.TCSANOW, attr)
                         
     # should always be run in the main thread, after _exec() returns
     def _cleanup_exec(self):
@@ -566,9 +570,10 @@ class Run(ModuleBase):
     # get the result (in the products table) of this invocation of theta as dictionary
     #  column_name --> list of values
     # which columns are returned can be controlled by the columns argument wich is either a list of column names
-    # or as special case the string '*'. The defaul is '*' in which case all columns are returned.
+    # or as special case the string '*'. The default is '*' in which case all columns are returned.
     #
-    #
+    # if fail_if_empty is True and no rows are found, some information from the log table is printed and a RuntimeError is raised.
+    # This can happen e.g. in case there was one attempt to fit on data which failed due to a minimizer which failed.
     def get_products(self, columns = '*', fail_if_empty = True):
         if not self.result_available: return None
         assert self.theta_db_fname is not None
@@ -576,7 +581,7 @@ class Run(ModuleBase):
             columns = '"' + '", "'.join(columns) + '"'
         else: assert columns == '*'
         data, columns = sql_singlefile(self.theta_db_fname, 'select %s from products' % columns, True)
-        if len(data)==0 and fail_empty:
+        if len(data)==0 and fail_if_empty:
             self.print_logtable_errors()
             raise RuntimeError, "No result is available, see errors above"
         result = {}

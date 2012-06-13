@@ -4,8 +4,8 @@
 import matplotlib
 # note: some matplotlib backends are broken and cause segfaults in fig.save.
 # try commenting out and in the use of Cairo in case of problems ...
-try:matplotlib.use('Cairo')
-except ImportError: pass
+#try:matplotlib.use('Cairo')
+#except ImportError: pass
 
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
@@ -72,7 +72,7 @@ class plotdata:
             band[0][:] = [y * factor for y in band[0]]
             band[1][:] = [y * factor for y in band[1]]
 
-    # set data according to the "histo triple" h = (xmin, xmax, data)
+    # set data according to the "histo triple" h = (xmin, xmax, data) or Histogram instance
     def histo_triple(self, h):
         binwidth = (h[1] - h[0]) / len(h[2])
         self.x = [h[0] + i * binwidth for i in range(len(h[2]))]
