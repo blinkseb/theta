@@ -4,7 +4,7 @@
 import matplotlib
 # note: some matplotlib backends are broken and cause segfaults in fig.save.
 # try commenting out and in the use of Cairo in case of problems ...
-matplotlib.use('Cairo')
+#matplotlib.use('Cairo')
 
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
