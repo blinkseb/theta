@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import numpy, os.path, hashlib, shutil, copy, threading
+import numpy, os.path, hashlib, shutil, copy, threading, termios
 
 import config as global_config
 import array
@@ -106,48 +106,15 @@ def _run_theta_single(name, debug):
     #if debug: params += " --redirect-io=False"
     retval = os.system(theta + params + " " + cfgfile_full)
     if retval != 0:
+        if os.isatty(1):
+                attr = termios.tcgetattr(1)
+                attr[3] |= termios.ECHO
+                termios.tcsetattr(1, termios.TCSANOW, attr)
         if os.path.exists(dbfile) and not debug: os.unlink(dbfile)
         raise RuntimeError, "executing theta for cfg file '%s' failed with exit code %d" % (cfgfile, retval)
     # move to cache, also the config file ...
     shutil.move(dbfile, dbfile_cache)
     shutil.copy(cfgfile_full, cfgfile_cache)
-
-"""
-def run_function_then_notify(f, condvar):
-    ex, result = None, None
-    try:
-        result = f()
-    except Exception, e:
-        ex = e
-    condvar.acquire()
-    condvar.notify()
-    condvar.release()
-    if ex is not None: raise ex
-    return result
-
-
-# like map(func, l), but run in threads.
-def parallel_map(func, l, n_threads):
-    done = [False] * len(l)
-    threads_current = []
-    condvar = threading.Condition()
-    while not all(done):
-        while len(threads_current) < n_threads and not all(done):
-            i=0
-            while done[i]: i+=1
-            done[i] = True
-            t = threading.Thread(target = lambda: run_function_then_notify(lambda: func(l[i]), condvar))
-            threads_current.append(t)
-            t.start()
-            print 'current threads: ', len(threads_current)
-        condvar.acquire()
-        condvar.wait(5.0)
-        # remove non-alive threads:
-        for i in range(len(threads_current)):
-            if not threads_current[i].isAlive():
-                threads_current[i].join()
-                del threads_current[i]
-"""
 
 # cfg_names is a list of filenames (without ".cfg") which are expected to be located in the working directory
 # valid options:

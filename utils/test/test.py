@@ -200,9 +200,13 @@ suite4 = unittest.TestLoader().loadTestsFromTestCase(TestBB)
 suite5 = unittest.TestLoader().loadTestsFromTestCase(TestRootModel)
 suite6 = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
 alltests = unittest.TestSuite([suite1, suite2, suite3, suite4, suite5, suite6])
-unittest.TextTestRunner(verbosity=2).run(alltests)
 
+# verbose version:
+res = unittest.TextTestRunner(verbosity=2).run(alltests)
+
+# silent version:
 #f = open('/dev/null', 'a')
 #res = unittest.TextTestRunner(stream = f, descriptions = False, verbosity=0).run(alltests)
-#print res
-#print "Failures=%d" % len(res.failures + res.errors)
+
+
+print "Failures=%d" % len(res.failures + res.errors)

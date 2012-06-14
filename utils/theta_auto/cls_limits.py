@@ -463,7 +463,7 @@ def get_cls_limits_from_dbfile(dbfile):
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
 def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
-   signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, bootstrap_nuisancevalues = False, **options):
+   signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, write_debuglog = True, bootstrap_nuisancevalues = False, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     assert len(signal_processes) > 0
     if signal_prior_bkg is None:
@@ -494,7 +494,11 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = '
         model_parameters = model.get_parameters(sp)
         spid = ''.join(sp)
         toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
-        toplevel_settings['debuglog-name'] = 'debuglog' + spid + '.txt'
+        if write_debuglog:
+            toplevel_settings['debuglog-name'] = 'debuglog' + spid + '.txt'
+        else:
+            del toplevel_settings['debuglog-name']
+            del main['debuglog']
         spid = ''.join(sp)
         if spid in reuse_toys:
             reuse_names = reuse_toys[spid]
