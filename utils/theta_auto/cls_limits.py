@@ -497,8 +497,8 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = '
         if write_debuglog:
             toplevel_settings['debuglog-name'] = 'debuglog' + spid + '.txt'
         else:
-            del toplevel_settings['debuglog-name']
-            del main['debuglog']
+            toplevel_settings.pop('debuglog-name', None)
+            main.pop('debuglog', None)
         spid = ''.join(sp)
         if spid in reuse_toys:
             reuse_names = reuse_toys[spid]
