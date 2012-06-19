@@ -105,12 +105,15 @@ class plotdata:
     def write_txt(self, ofile):
         if type(ofile)==str: ofile = open(ofile, 'w')
         ofile.write('# x; y')
+        if self.yerrors is not None: ofile.write('; yerror')
         if self.bands is not None:
             for k in range(len(self.bands)):
                 ofile.write('; band %d low; band %d high' % (k, k))
         ofile.write("\n")
         for i in range(len(self.x)):
             ofile.write("%10.5g %10.5g " % (self.x[i], self.y[i]))
+            if self.yerrors is not None:
+                ofile.write("%10.5g " % self.yerrors[i])
             if self.bands is not None:
                 for k in range(len(self.bands)):
                     ofile.write("%10.5g %10.5g" % (self.bands[k][0][i], self.bands[k][1][i]))
@@ -129,16 +132,20 @@ class plotdata:
                 if len(values[0]) != len(line_values): raise RuntimeError, "number of values given is inconsistent!"
             values.append(line_values)
         n_values = len(values[0])
-        assert n_values % 2 == 0, "invalid number of values (has to be even)"
+        have_yerrors = (n_values % 2 == 1)
         # read x, y values:
         self.x = [row[0] for row in values]
         self.y = [row[1] for row in values]
+        if have_yerrors:
+            self.yerrors = [row[2] for row in values]
         # read bands:
         n_bands = (n_values - 2) / 2
         self.bands = []
         colors = ['#ffff00', '#00ff00']
+        yerror_offset = 0
+        if have_yerrors: yerror_offset = 1
         for i in range(n_bands):
-            band = ([row[2+2*i] for row in values], [row[3+2*i] for row in values], colors[i % len(colors)])
+            band = ([row[2+2*i +  yerror_offset] for row in values], [row[3+2*i  + yerror_offset] for row in values], colors[i % len(colors)])
             self.bands.append(band)
         
         
