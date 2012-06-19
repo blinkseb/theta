@@ -106,7 +106,7 @@ def extract_number(s):
 # include_band is a boolean indicating whether to also include the +-1sigma and +-2sigma bands, or only the median line.
 #
 # options:
-# - signalprocess_to_value: a dictionary mapping signal process name to values to be used as x axis for the band plot. As default, the first integer
+# - spid_to_xvalue: a dictionary mapping signal process name to values to be used as x axis for the band plot. As default, the first integer
 #     in the signal process name is used for the x axis value.
 #
 # returns one plotutil.plotdata instance containing the 'observed' (or median expected) limit and 'expected' bands.

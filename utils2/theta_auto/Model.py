@@ -57,8 +57,8 @@ class rootfile:
 # it is not mutliplied, effectively assuming beta_signal = 1.0.
 #
 # returns a dictionary
-# (observable name) --> (process name) --> (xmin, xmax, data)
-def get_shifted_templates(model, par_values, include_signal = True, observables = None, eval2 = False):
+# (observable name) --> (process name) --> (histogram)
+def evaluate_prediction(model, par_values, include_signal = True, observables = None):
     result = {}
     if observables is None: observables = model.get_observables()
     for obs in observables:
@@ -67,13 +67,7 @@ def get_shifted_templates(model, par_values, include_signal = True, observables 
             if p in model.signal_processes and not include_signal: continue
             coeff = model.get_coeff(obs, p).get_value(par_values)
             if p in model.signal_processes: coeff *= par_values['beta_signal']
-            if eval2:
-                histo = model.get_histogram_function(obs, p).evaluate2(par_values).scale(coeff)
-            else:
-                histo = model.get_histogram_function(obs, p).evaluate(par_values)
-                for i in range(len(histo[2])):
-                    histo[2][i] *= coeff
-            result[obs][p] = histo
+            result[obs][p] = model.get_histogram_function(obs, p).evaluate2(par_values).scale(coeff)
     return result
 
 
@@ -204,7 +198,7 @@ class Model:
         self.processes.add(procname)
         if procname not in self.observable_to_pred[obsname]: self.observable_to_pred[obsname][procname] = {}
         self.observable_to_pred[obsname][procname]['histogram'] = histo
-        self.observable_to_pred[obsname][procname]['coefficient-function'] = Function()
+        if 'coefficient-function' not in self.observable_to_pred[obsname][procname]: self.observable_to_pred[obsname][procname]['coefficient-function'] = Function()
         
     def get_coeff(self, obsname, procname):
         return self.observable_to_pred[obsname][procname]['coefficient-function']
@@ -235,7 +229,7 @@ class Model:
                     n_eff = s**2 / unc**2
                     # the average MC event weight; this is used as minimum uncertainty ...
                     w = s / n_eff
-                    #print o, p, n_eff, w
+                    print o, p, n_eff, w
                     uncs = h.get_uncertainties()
                     new_uncs = [max(u, w) for u in uncs]
                     hf.set_nominal_histo(Histogram(h.get_xmin(), h.get_xmax(), h.get_values(), new_uncs, h.get_name()))
@@ -376,7 +370,10 @@ class Model:
                 if proc in signal_processes:
                     result[o][proc]['coefficient-function']['factors'].append('beta_signal')
         parameters = self.get_parameters(signal_processes)
-        result['parameter-distribution'] = {'type': 'product_distribution', 'distributions': (self.distribution.get_cfg(parameters), signal_prior_cfg)}
+        if 'beta_signal' in parameters:
+            result['parameter-distribution'] = {'type': 'product_distribution', 'distributions': (self.distribution.get_cfg(parameters), signal_prior_cfg)}
+        else:
+            result['parameter-distribution'] = self.distribution.get_cfg(parameters)
         #rv observables:
         rvobservables = self.rvobs_distribution.get_parameters()
         if len(rvobservables) > 0:
@@ -558,6 +555,7 @@ class Histogram:
         
     def get_xmin(self): return self.xmin
     def get_xmax(self): return self.xmax
+    def get_nbins(self): return len(self.values)
     
     def get_cfg(self, include_error = True):
         result = {'type': 'direct_data_histo', 'range': [self.xmin, self.xmax], 'nbins': len(self.values), 'data': self.values}
@@ -642,6 +640,7 @@ class HistogramFunction:
     def get_nominal_histo(self): return self.nominal_histo
     def get_plus_histo(self, par): return self.syst_histos[par][0]
     def get_minus_histo(self, par): return self.syst_histos[par][1]
+    def get_factor(self, par): return self.factors[par]
         
 
     def rename_parameter(self, current_name, new_name):
@@ -728,13 +727,6 @@ class HistogramFunction:
         self.nominal_histo = self.nominal_histo.scale(factor)
         for s in self.syst_histos:
             self.syst_histos[s] = self.syst_histos[s][0].scale(factor), self.syst_histos[s][1].scale(factor)
-    """    
-    def rebin(self, rebin_factor):
-        rebin_hlist(self.nominal_histo[2], rebin_factor)
-        for hp, hm in self.syst_histos.itervalues():
-            rebin_hlist(hp, rebin_factor)
-            rebin_hlist(hm, rebin_factor)
-    """
 
     def get_cfg(self):
         if len(self.syst_histos) == 0:

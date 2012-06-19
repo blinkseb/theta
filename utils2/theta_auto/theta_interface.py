@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import hashlib, io, os, time, re, numpy, shutil, termios
+import hashlib, io, os, time, re, numpy, shutil, termios, threading
 from Model import *
 from utils import *
 import config
@@ -55,12 +55,10 @@ check_cache = True
 [minimizer]
 always_mcmc = False
 mcmc_iterations = 1000
+bootstrap_mcmcpars = 0
 # strategy can be 'fast' or 'robust'
 strategy = fast
-        
-[data_source]
-seed = 1
-        
+       
 [cls_limits]
 clb_cutoff = 0.01
 create_debuglog = True
@@ -103,10 +101,11 @@ class DataSource(ModuleBase):
     # override_distribution is a Distribution which can override the default choice in the 'toys' case. If None, the default is to
     # * use model.distribution in case of input_string = 'toys:XXX'
     # * use the model.distrribution fixed to the most probable parameter values in case of input_string = 'toys-asimov:XXX'
-    def __init__(self, input_string, model, signal_processes, override_distribution = None, name = 'source'):
+    def __init__(self, input_string, model, signal_processes, override_distribution = None, name = 'source', seed = None):
         ModuleBase.__init__(self)
         flt_regex = r'([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)'
         self.name = name
+        self.seed = seed
         self._id = input_string
         self.signal_processes = signal_processes
         self.model = model
@@ -150,7 +149,8 @@ class DataSource(ModuleBase):
     def get_cfg(self, options):
         result = {'name': self.name}
         if self.mode == 'toys':
-            seed = options.getint('data_source', 'seed')
+            seed = self.seed
+            if seed is None: seed = -1
             parameters = self.model.get_parameters(self.signal_processes, True)
             dist = {'type': 'product_distribution', 'distributions': [self.distribution.get_cfg(parameters)]}
             if 'beta_signal' in parameters: dist['distributions'].append({'type': 'delta_distribution', 'beta_signal' : self.beta_signal})
@@ -194,7 +194,10 @@ class ProducerBase(ModuleBase):
             parameters = set(model.get_parameters(signal_processes, True))
             if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
             else: dist = model.distribution
-            self.override_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(parameters), signal_prior_cfg]}
+            if 'beta_signal' in parameters:
+                self.override_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(parameters), signal_prior_cfg]}
+            else:
+                self.override_distribution_cfg = dist.get_cfg(parameters)
             if model.additional_nll_term is not None:
                 self.additional_nll_cfg = model.additional_nll_term.get_cfg()
         
@@ -203,15 +206,19 @@ class ProducerBase(ModuleBase):
 class MleProducer(ProducerBase):
     # parameters_write is the list of parameters to write the mle for in the db. The default (None) means
     # to use all parameters.
-    def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'mle', need_error = True, parameters_write = None):
+    def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'mle', need_error = True, parameters_write = None, ks = False, chi2 = False):
         ProducerBase.__init__(self, model, signal_processes, override_distribution, name, signal_prior)
         self.minimizer = Minimizer(need_error)
         self.add_submodule(self.minimizer)
+        self.ks = ks
+        self.chi2 = chi2
         if parameters_write is None: self.parameters_write = sorted(list(model.get_parameters(signal_processes, True)))
         else: self.parameters_write = sorted(list(parameters_write))
         
     def get_cfg(self, options):
         result = {'type': 'mle', 'minimizer': self.minimizer.get_cfg(options), 'parameters': list(self.parameters_write)}
+        if self.ks: result['write_ks_ts'] = True
+        if self.chi2: result['write_pchi2'] = True
         result.update(self.get_cfg_base(options))
         return result
         
@@ -256,9 +263,10 @@ class PliProducer(ProducerBase):
         
         
 class DeltaNllHypotest(ProducerBase):
-    def __init__(self, model, signal_processes, override_distribution = None, name = 'dnll'):
+    def __init__(self, model, signal_processes, override_distribution = None, name = 'dnll', restrict_poi = None, signal_prior_sb = 'flat', signal_prior_b = 'fix:0.0'):
         ProducerBase.__init__(self, model, signal_processes, override_distribution = None, name = name, signal_prior = None)
         self.minimizer = Minimizer(need_error = False)
+        self.restrict_poi = restrict_poi
         self.add_submodule(self.minimizer)
         if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
         else: dist = model.distribution
@@ -270,14 +278,15 @@ class DeltaNllHypotest(ProducerBase):
         for p in means:
             if p in sb_parameters and p not in b_parameters: means_spar[p] = means[p]
         dist_bkg = Distribution.merge(dist, get_fixed_dist_at_values(means_spar))
-        self.sb_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(sb_parameters), _signal_prior_dict('flat')]}
-        self.b_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist_bkg.get_cfg(sb_parameters), _signal_prior_dict('fix:0.0')]}
+        self.sb_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(sb_parameters), _signal_prior_dict(signal_prior_sb)]}
+        self.b_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist_bkg.get_cfg(sb_parameters), _signal_prior_dict(signal_prior_b)]}
         
         
     def get_cfg(self, options):
         result = {'type': 'deltanll_hypotest', 'minimizer': self.minimizer.get_cfg(options), 'background-only-distribution': self.b_distribution_cfg, 'signal-plus-background-distribution': self.sb_distribution_cfg}
         result.update(self.get_cfg_base(options))
         if 'override-parameter-distribution' in result: del result['override-parameter-distribution']
+        if self.restrict_poi is not None: result['restrict_poi'] = self.restrict_poi
         return result
        
 class NllScanProducer(ProducerBase):
@@ -317,6 +326,10 @@ class Minimizer(ModuleBase):
         if strategy == 'robust':
             minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 50 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
             minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 500 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+        bootstrap_mcmcpars = options.getint('minimizer', 'bootstrap_mcmcpars')
+        if bootstrap_mcmcpars > 0:
+            for m in minimizers:
+                if m['type'] == 'mcmc_minimizer': m['bootstrap_mcmcpars'] = bootstrap_mcmcpars
         result = {'type': 'minimizer_chain', 'minimizers': minimizers}
         if self.need_error: result['last_minimizer'] = {'type': 'root_minuit'}
         return result
@@ -388,16 +401,18 @@ class Run(ModuleBase):
     #
     # typ can be 'default' or 'cls_limits'. For 'cls_limits', you have to specify
     # exactly one producer which produces the test statistic
-    def __init__(self, model, signal_processes, signal_prior, input, n, producers, nuisance_prior_toys = None, typ = 'default'):
+    def __init__(self, model, signal_processes, signal_prior, input, n, producers, nuisance_prior_toys = None, typ = 'default', seed = None):
         ModuleBase.__init__(self)
         assert typ in ('default', 'cls_limits')
-        self.typ = 'default'
+        self.typ = typ
         self.model = model
         self.signal_processes = signal_processes
         self.n_events = n
         self.producers = producers
         for p in producers: self.add_submodule(p)
-        self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys)
+        self.seed = seed
+        if input is None: self.data_source = None
+        else: self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
         self.input_id = self.data_source.get_id()
         self.signal_prior_cfg = _signal_prior_dict(signal_prior)
         
@@ -417,7 +432,7 @@ class Run(ModuleBase):
         
     def set_cls_options(self, **args):
         assert self.typ == 'cls_limits'
-        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit']
+        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit', 'frequentist_bootstrapping', 'write_debuglog']
         for k in allowed_keys:
             if k in args:
                 self.cls_options[k] = args[k]
@@ -438,13 +453,19 @@ class Run(ModuleBase):
                 result['p%s' % p.name] = p.get_cfg(options)
                 main['producers'].append('@p%s' % p.name)
         else:
-            main = {'type': 'cls_limits', 'producer': producers[0].get_cfg(options), 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
+            assert 'ts_column' in self.cls_options
+            seed = self.seed
+            if seed is None: seed = -1
+            main = {'type': 'cls_limits', 'producer': self.producers[0].get_cfg(options), 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
                 'truth_parameter': 'beta_signal', 'tol_cls': self.cls_options.get('tol_cls', 0.025),
-                'clb_cutoff': self.cls_options.get('clb_cutoff', 0.02),
-                'debuglog': '@debuglog_name', 'rnd_gen': {'seed': options.get('data_source', 'seed')},
+                'clb_cutoff': self.cls_options.get('clb_cutoff', 0.02), 'model': '@model',
+                'debuglog': '@debuglog_name', 'rnd_gen': {'seed': seed }, 'ts_column': self.cls_options['ts_column'],
                 'minimizer': self.minimizer.get_cfg(options), 'expected_bands': self.cls_options.get('expected_bands', 2000)}
+            if not self.cls_options.get('write_debuglog', True): del main['debuglog']
+            if self.cls_options.get('frequentist_bootstrapping', False):  main['nuisancevalues-for-toys'] = 'datafit'
             if 'truth_max' in self.cls_options: main['truth_max'] = float(self.cls_options['truth_max'])
             if 'reltol_limit' in self.cls_options: main['reltol_limit'] = float(self.cls_options['reltol_limit'])
+            if self.data_source is not None: main['data_source'] = self.data_source.get_cfg(options)
         result.update({'main': main, 'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]},
                   'model': self.model.get_cfg2(self.signal_processes, self.signal_prior_cfg, options)})
         result['parameters'] = sorted(list(self.model.get_parameters(self.signal_processes, True)))
@@ -479,8 +500,13 @@ class Run(ModuleBase):
         if self.theta_cfg_fname is not None: return self.theta_cfg_fname
         cfg_dict = self._get_cfg(options)
         cfg_string = _settingvalue_to_cfg(cfg_dict, value_is_toplevel_dict = True)
-        output_name = ''.join([p.name for p in self.producers]) + '-' + self.input_id + '-' + ''.join(self.signal_processes) + '-' + hashlib.md5(cfg_string).hexdigest()[:10]
+        if self.typ == 'cls_limits':
+            firstpart = 'cls'
+        else:
+            firstpart = ''.join([p.name for p in self.producers])
+        output_name =  firstpart + '-' + self.input_id + '-' + ''.join(self.signal_processes) + '-' + hashlib.md5(cfg_string).hexdigest()[:10]
         cfg_string += "output_name = \"%s.db\";\n" % output_name
+        if '@debuglog_name' in cfg_string: cfg_string += 'debuglog_name = "%s-debuglog.txt";\n' % output_name
         workdir = options.get_workdir()
         assert os.path.exists(workdir)
         self.theta_cfg_fname = os.path.join(workdir, output_name + '.cfg')
@@ -567,6 +593,20 @@ class Run(ModuleBase):
     def get_db_fname(self):
         return self.theta_db_fname
     
+    # get the content of a table in the output database of theta.
+    def get_results(self, table_name, columns):
+        if not self.result_available: return None
+        assert self.theta_db_fname is not None
+        if type(columns)!=str:
+            columns = '"' + '", "'.join(columns) + '"'
+        else: assert columns == '*'
+        data, columns = sql_singlefile(self.theta_db_fname, 'select %s from "%s"' % (columns, table_name), True)
+        result = {}
+        for i in range(len(columns)):
+            result[columns[i][0]] = [row[i] for row in data]
+        return result
+        
+    
     # get the result (in the products table) of this invocation of theta as dictionary
     #  column_name --> list of values
     # which columns are returned can be controlled by the columns argument wich is either a list of column names
@@ -575,19 +615,11 @@ class Run(ModuleBase):
     # if fail_if_empty is True and no rows are found, some information from the log table is printed and a RuntimeError is raised.
     # This can happen e.g. in case there was one attempt to fit on data which failed due to a minimizer which failed.
     def get_products(self, columns = '*', fail_if_empty = True):
-        if not self.result_available: return None
-        assert self.theta_db_fname is not None
-        if type(columns)!=str:
-            columns = '"' + '", "'.join(columns) + '"'
-        else: assert columns == '*'
-        data, columns = sql_singlefile(self.theta_db_fname, 'select %s from products' % columns, True)
-        if len(data)==0 and fail_if_empty:
+        res = self.get_results('products', columns)
+        if fail_if_empty and len(res[res.keys()[0]])==0:
             self.print_logtable_errors()
             raise RuntimeError, "No result is available, see errors above"
-        result = {}
-        for i in range(len(columns)):
-            result[columns[i][0]] = [row[i] for row in data]
-        return result
+        return res
         
     def print_logtable_errors(self, limit = 10):
         if not self.result_available: return

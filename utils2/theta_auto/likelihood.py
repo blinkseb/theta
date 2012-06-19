@@ -5,20 +5,24 @@ from theta_interface import *
 import itertools
 
 
-# The result is a dictionary (spid) --> (parameter name | '__nll') --> (list of results of length n)
+# The result is a dictionary (spid) --> (parameter name | underscore name) --> (list of results of length n)
 #
-# For '__nll', the list of results contains the negative log-likelihood values at the minimum.
+# Undercore names:
+# * '__nll': the list of results contains the negative log-likelihood values at the minimum
+# * '__ks': ks test values, after the fit (only available if ks=True)
+# * '__chi2': chi2 test values, after the fit (only available if chi2 = True)
 #
 # For a parameter name, the "list of results" contains pairs of (value, error). In case with_error is False, error is always None.
 # Note that the list can have less entries than n, if the minimization failed for some toys. If it fails for all toys,
 # an RuntimeError is thrown.
-def mle(model, input, n, with_error = True, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None):
+def mle(model, input, n, with_error = True, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', ks = False, chi2 = False, options = None):
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
         r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
-             producers = [MleProducer(model, signal_processes, nuisance_constraint, signal_prior, need_error = with_error)], nuisance_prior_toys = nuisance_prior_toys)
+             producers = [MleProducer(model, signal_processes, nuisance_constraint, signal_prior, need_error = with_error, ks = ks, chi2 = chi2)],
+             nuisance_prior_toys = nuisance_prior_toys)
         r.run_theta(options)
         res = r.get_products()
         parameters = [m.group(1) for m in map(lambda colname: re.match('mle__(.+)_error', colname), res.keys()) if m is not None]
@@ -27,6 +31,8 @@ def mle(model, input, n, with_error = True, signal_process_groups = None, nuisan
             if not with_error: result[spid][p] = list(itertools.izip_longest(res['mle__%s' % p], []))
             else: result[spid][p] = zip(res['mle__%s' % p], res['mle__%s_error' % p])
         result[spid]['__nll'] = res['mle__nll']
+        if chi2: result[spid]['__chi2'] = res['mle__pchi2']
+        if ks: result[spid]['__ks'] = res['mle__ks_ts']
     return result
 
 # The result is a dictionary (spid) -> (cl) -> (list of results)
@@ -49,6 +55,25 @@ def pl_interval(model, input, n, cls = [cl_1sigma, cl_2sigma], signal_process_gr
         for i, cl in enumerate(cls):
             result[spid][cl] = zip(res[colnames[i]], res[colnames[len(cls) + i]])
     return result
+
+
+## Performs toys with different values for beta_signal given in beta_signal_values
+#
+# returns a plotdata instance you can pass to plot. The x values are the beta_signal_values; the y values are the
+# coverage probabilities for the confidence level given in cl. The yerrors are the uncertainty due to the limited number of toys
+# performed at each point.
+def pl_interval_coveragetest(model, spid, beta_signal_values = [0.1*i for i in range(21)], n = 1000, cl = cl_1sigma, nuisance_prior_toys = None, nuisance_constraint = None, options = None):
+    if options is None: options = Options()
+    signal_process_groups = {spid: model.signal_process_groups[spid]}
+    pd = plotdata(as_function = True)
+    pd.yerrors = []
+    for v in beta_signal_values:
+        intervals = pl_interval(model, input = 'toys:%g' % v, n = n, cls = [cl], signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint, nuisance_prior_toys = nuisance_prior_toys)[spid][cl]
+        pd.x.append(v)
+        p_cov, p_cov_error = get_p(count(lambda x: x[0] <= v and x[1]>=v, intervals), len(intervals))
+        pd.y.append(p_cov)
+        pd.yerrors.append(p_cov_error)
+    return pd
 
 
 # returns a dictionary (spid) -> (list of Histograms)
@@ -77,14 +102,11 @@ def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constr
     if options is None: options = Options()
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
-        #np_b = len(model.get_parameters(''))
-        #np_sb = len(model.get_parameters(signal_processes))
-        #np_diff = np_sb - np_b
         r = Run(model, signal_processes = signal_processes, signal_prior = signal_prior, input = input, n=n,
              producers = [DeltaNllHypotest(model, signal_processes, nuisance_constraint)], nuisance_prior_toys = nuisance_prior_toys)
         r.run_theta(options)
         data = r.get_products(['dnll__nll_diff'])
-        result[spid] = [p_to_Z(scipy.stats.chi2.sf(2 * x, 1)) for x in data['dnll__nll_diff']]
+        result[spid] = [p_to_Z(scipy.stats.chi2.sf(2 * x, 1) / 2) for x in data['dnll__nll_diff']]
     return result
 
 
