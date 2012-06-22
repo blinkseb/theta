@@ -33,6 +33,7 @@ class plotdata:
     def __init__(self, color = '#000000', legend = None, as_function = False, lw = 2):
         self.x = []
         self.y = []
+        self.xmax = None # required only for one-binned histograms ...
         self.legend = legend
         self.yerrors = None
         self.xerrors = None
@@ -54,6 +55,7 @@ class plotdata:
     # make a histogram of the given values
     def histogram(self, values, xmin, xmax, nbins, errors = False):
         xmin, xmax = float(xmin), float(xmax)
+        self.xmax = xmax
         self.x = [xmin + (xmax - xmin) / nbins * i for i in range(nbins)]
         self.y = [0.0] * nbins
         if errors: self.yerrors = [0.0] * nbins
@@ -77,6 +79,7 @@ class plotdata:
         binwidth = (h[1] - h[0]) / len(h[2])
         self.x = [h[0] + i * binwidth for i in range(len(h[2]))]
         self.y = h[2][:]
+        self.xmax = h[1]
     
     # replace x, y and bands by a smoothed version, obtained by cubic interpolation
     # evaluated n times more points than original
@@ -207,7 +210,7 @@ extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None, legend_ar
         if not histo.as_function:
             # histo.x is assumed to contain the lower bin edges in this case ...
             if len(histo.x) >= 2:  x_binwidth = histo.x[1] - histo.x[0]
-            else: x_binwidth = 1.0
+            else: x_binwidth = histo.xmax - histo.x[0] if histo.xmax is not None else 1.0
             # if histo.yerrors is set, draw with errorbars, shifted by 1/2 binwidth ...
             if histo.yerrors is not None:
                new_x = [x + 0.5 * x_binwidth for x in histo.x]
