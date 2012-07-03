@@ -47,6 +47,7 @@ void metropolisHastings(const Function & nllikelihood, resulttype &res, Random &
     for(size_t i=0; i<npar; i++){
         if(sqrt_cov(i,i)==0) --npar_reduced;
     }
+    theta_assert(npar_reduced > 0);
     double factor = 2.38 / sqrt(npar_reduced);
 
     //keep the lower triangle   L    of the sqrt_cov to multiply that with deltaX:
@@ -55,6 +56,7 @@ void metropolisHastings(const Function & nllikelihood, resulttype &res, Random &
     for (size_t i = 0; i < npar; i++) {
         for (size_t j = 0; j <= i; j++) {
             lm[z] = sqrt_cov(i,j) * factor;
+            theta_assert(std::isfinite(lm[z]));
             z++;
         }
     }

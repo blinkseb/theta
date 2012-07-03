@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import ROOT, re, fnmatch, math, copy
 import os, os.path
-#from theta_interface import *
-
 import array
 import utils
 
@@ -67,7 +65,7 @@ def evaluate_prediction(model, par_values, include_signal = True, observables = 
             if p in model.signal_processes and not include_signal: continue
             coeff = model.get_coeff(obs, p).get_value(par_values)
             if p in model.signal_processes: coeff *= par_values['beta_signal']
-            result[obs][p] = model.get_histogram_function(obs, p).evaluate2(par_values).scale(coeff)
+            result[obs][p] = model.get_histogram_function(obs, p).evaluate(par_values).scale(coeff)
     return result
 
 
@@ -89,7 +87,21 @@ def evaluate_prediction(model, par_values, include_signal = True, observables = 
 #
 # notes:
 # * the coefficients should be chosen such that their mean / most probable value is 1.0 as this is assumed e.g. in model_summary
-class Model:
+
+
+class Model(utils.Copyable):
+    """
+    The statistical model specifies the predicted event yields *λ_ci* for all channels *c* and bins *i*, as a function of the model
+    parameters. This class also contains information about the observed data. See :ref:`model_intro` for details. 
+    The Model can be seen as multiple mappings: each pair (channel, process) is assigned one coefficient, the :ref:`Function`
+    and one :class:`HistogramFunction` object. In addition, `model.distribution` is a :class:`Distribution` instance contains information
+    about the prior of the nuisance parameters.
+    
+    Usually, a Model instance is not constructed directly but rather aia the methods :func:`build_model_from_rootfile`
+    or :func:`higgs_datacard.build_model`. In general, the model should be manipulated through the methods of the Model class.
+    However, it can become necessary to manipulate the instance vairables directly.
+    """
+    
     def __init__(self):
         # observables is a dictionary str name ->  (float xmin, float xmax, int nbins)
         self.observables = {}
@@ -118,13 +130,19 @@ class Model:
         assert obs in self.observables
         self.observables[obs] = (xmin, xmax, nbins)
     
-    # combines the current with the other_model by including the observables and processes from the other_model.
-    # Note that:
-    # * other_model must not include an observable of the current model
-    # * other_model should define the same signal_processes (this is enforced if strict=true)
-    # * other_model.distribution can include the same nuisance parameters (=same name).
-    #   For shared nuisance parameters, the prior for self.distribution and other.distribution must be identical.
+    
     def combine(self, other_model, strict=True):
+        """
+        Combines the current with the Model ``other_model`` by adding all channels (and processes) from ``other_model``.
+        
+        Note that:
+        
+        * ``other_model`` must not include an observable of the current model
+        * ``other_model`` should define the same signal_processes (this is enforced if ``strict=True``)
+        * ``other_model.distribution`` can include the same nuisance parameters (=same name).
+    
+        For shared nuisance parameters, the prior for self.distribution and other.distribution must be identical.
+        """
         assert len(set(self.observables.keys()).intersection(set(other_model.observables.keys())))==0, "models to be combined share observables, but they must not!"
         if strict:
             assert self.signal_processes == other_model.signal_processes, "signal processes not equal: left-right=%s; right-left=%s;" \
@@ -141,15 +159,23 @@ class Model:
             else: self.additional_nll_term = self.additional_nll_term + other_model.additional_nll_term
 
     def rename_parameter(self, current_name, new_name):
+        """
+        Rename a nuisance parameter in the model. On general, this affects coefficiencts, histogram functions, and the prior parameter distribution
+        in ``self.distrbution``.
+        """
         self.distribution.rename_parameter(current_name, new_name)
         for o in self.observable_to_pred:
             for p in self.observable_to_pred[o]:
                 self.observable_to_pred[o][p]['histogram'].rename_parameter(current_name, new_name)
                 self.observable_to_pred[o][p]['coefficient-function'].rename_parameter(current_name, new_name)
     
-    # modify the model to only contain a subset of the current observables.
-    # The parameter observables must be convertible to a set of strings
     def restrict_to_observables(self, observables):
+        """
+        Modify ``self`` to be a model of a subset of the current channels (=obervables).
+        
+        The parameter ``observables`` should be a list or set of the observable names you want to keep. It must be a subset
+        of the current set of observables.
+        """
         observables = set(observables)
         model_observables = set(self.observables.keys())
         assert observables.issubset(model_observables), "observables must be a subset of model.observables!"
@@ -159,9 +185,17 @@ class Model:
             del self.observable_to_pred[obs]
             if obs in self.data_histos: del self.data_histos[obs]
         # in theory, we could also update self.processes / self.signal_processes and
-        # self.distribution (if the model now has fewer dependencies), but this is not necessary.
+        # self.distribution (if the model now has fewer dependencies), but this is not necessary,
+        # as the creation of the .cfg file will only ask for the parameters the current model depends on anyway.
        
     def set_data_histogram(self, obsname, histo, reset_binning = False):
+        """
+        Set the data histogram to the :class:`Histogram` histo for the observable given in ``obsname``. If
+        ``reset_binning`` is ``True``, the binning for the observable ``obsname`` will be set to the binning of the
+        given ``histo``.
+        """
+        #TODO: the whole reset_binning should be replaced by a more transparent method of handling
+        # the binning (?)
         xmin, xmax, nbins = histo[0], histo[1], len(histo[2])
         if obsname not in self.observables:
             self.observables[obsname] = xmin, xmax, nbins
@@ -173,19 +207,36 @@ class Model:
         self.data_histos[obsname] = histo
 
     def get_data_histogram(self, obsname):
+        """
+        Get the data histogram for the observable ``obsname`` previously set by :meth:Model.set_data_histogram.
+        Returns ``None`` if no data histogram was set for this observable (=channel).
+        """
         if obsname in self.data_histos: return self.data_histos[obsname]
         else: return None
+        
+        
+    def has_data(self):
+        """
+        Retuns ``True`` if and only if a data histogram has been speficied for all observables (=channels).
+        """
+        for o in self.observables:
+            if o not in self.data_histos: return False
+        return True
     
     def get_data_rvobsvalues(self):
         return self.data_rvobsvalues
 
     def get_observables(self):
+        """
+        Get the set of observables (=channels).
+        """
         return set(self.observables.keys())
-    
-    def has_data(self):
-        for o in self.observables:
-            if o not in self.data_histos: return False
-        return True
+        
+    def get_range_nbins(self, obsname):
+        """
+        return triple ``(xmin, xmax, nbins)`` for the given observable
+        """
+        return self.observables[obsname]
     
     #important: always call set_histogram_function first, then get_coeff!
     def set_histogram_function(self, obsname, procname, histo):
@@ -210,13 +261,18 @@ class Model:
         if procname not in self.observable_to_pred[obsname]: return None
         return self.observable_to_pred[obsname][procname]['histogram']
     
-    # make sure all histogram bins of histogram h contain at least
-    # epsilon * (average bin content of histogram h)
-    #
-    # The special case epsion = None will leave the prediction at the value of 0.0
-    # but will make sure that the uncertainty in each bin is at least the one corresponding 1 MC event.
-    # The average weight for the MC sample is estimated from the uncertainties given in the histogram.
+    
     def fill_histogram_zerobins(self, epsilon = 0.001):
+        """
+        Fill all histogram bins with at least epsilon * (average bin content of histogram h).
+        This can be used to prevent a prediction of exactly 0 in a bin which will lead to
+        a zero likelihood / infinite negative log-likelihood.
+    
+        The special case ``epsilon = None`` will leave the prediction at the value of 0.0
+        but will make sure that the uncertainty in each bin is at least the one corresponding 1 MC event.
+        The average weight for the MC sample is estimated from the uncertainties given in the histogram.
+        This makes only sense if enabling the Barlow-Beeston treatment of MC statistical uncertainties.
+        """
         for o in self.observable_to_pred:
             for p in self.observable_to_pred[o]:
                 hf = self.observable_to_pred[o][p]['histogram']
@@ -241,8 +297,11 @@ class Model:
                         nbins = len(h[2])
                         h[2][:] = array.array('d', [max(epsilon * s / nbins, y) for y in h[2]])
 
-    # obsname and procname can be '*' to match all observables / processes.
     def scale_predictions(self, factor, procname = '*', obsname = '*'):
+        """
+        Scale the templates of the given observable ``obsname`` and process ``procname`` by ``factor``. This will
+        only scale the prediction, not the data.
+        """
         found_match = False
         for o in self.observable_to_pred:
             if obsname != '*' and o!=obsname: continue
@@ -253,6 +312,9 @@ class Model:
         if not found_match: raise RuntimeError, 'did not find obname, procname = %s, %s' % (obsname, procname)
 
     def rebin(self, obsname, rebin_factor):
+        """
+        Rebin the observable ``obsname`` by the given rebinning factor.
+        """
         xmin, xmax, nbins_old = self.observables[obsname]
         assert nbins_old % rebin_factor == 0
         self.observables[obsname] = (xmin, xmax, nbins_old / rebin_factor)
@@ -262,15 +324,18 @@ class Model:
         if obsname in self.data_histos:
             rebin_hlist(self.data_histos[obsname][2], rebin_factor)
     
-    ## \brief define which processes should be considered as signal processes
-    #
-    # Any process not defined explicitly as signal is considered to be background.
-    # Assumes that each signal process is independent, and sets the signal_process_groups accordingly.
-    # For more control in situations where the signal has multiple histograms to be used simultaneously,
-    # use the set_signal_process_groups.
-    #
-    # procs is a list / set of glob patterns (or a single pattern).
     def set_signal_processes(self, procs):
+        """
+        Define which processes should be considered as signal processes
+    
+        Any process not defined explicitly as signal is considered to be background.
+        
+        This method assumes that you want to treat each signal process in turn.
+        For more control in situations where the signal has multiple histograms to be used simultaneously,
+        use :meth:`Model.set_signal_process_groups`.
+    
+        ``procs`` is a list / set of glob patterns (or a single pattern).
+        """
         if type(procs)==str: procs = [procs]
         self.signal_processes = set()
         for pattern in procs:
@@ -283,10 +348,13 @@ class Model:
         self.signal_process_groups = {}
         for p in self.signal_processes: self.signal_process_groups[p] = [p]
         
-    ## \brief Define the signal process groups
-    #
-    # groups is a dictionary (id) --> (list of processes)
+    
     def set_signal_process_groups(self, groups):
+        """
+        Define the signal process groups
+   
+        ``groups`` is a dictionary (id) --> (list of processes), see :ref:`what_is_signal`.
+        """
         for spid in groups:
             for p in groups[p]: assert type(p)==str and p in self.processes, "unknown process '%s'" % p
         self.signal_processes = set()
@@ -294,16 +362,19 @@ class Model:
             self.signal_processes.update(groups[spid])
         self.signal_process_groups = copy.deepcopy(groups)
 
-    ## \brief Add a new, rate-only uncertainty to the model
-    #
-    # Adds a new parameter with name \c u_name tio the distribution (unless it already exists) with
-    # a Gauss prior around 0.0 with width 1.0 and adds a factor exp(u_name * rel_uncertainty) for the 
-    # processes and observables specified by procname and obsname. If u_name has a Gaussian prior with
-    # width 1.0 and mean 0.0 this is effectively a log-normal uncertainty.
-    #
-    # note that rel_uncertainty_plus and rel_uncertainty_minus usually have the same sign(!), unless the change in acceptance
-    # goes in the same direction for both directions of the underlying uncertainty parameters.
+    
     def add_asymmetric_lognormal_uncertainty(self, u_name, rel_uncertainty_minus, rel_uncertainty_plus, procname, obsname='*'):
+        """
+        Add a rate-only uncertainty for the given combination of (process, observable)
+    
+        Adds a new parameter with name ``u_name`` to the ``distribution`` (unless it already exists) with
+        a Gaussian prior around 0.0 with width 1.0 and adds a factor exp(u_name * rel_uncertainty) for the 
+        (process, observable) combination specified by ``procname`` and ``obsname``. In effect, this is a log-normal uncertainty
+        for the coefficient of the template.
+        
+        Note that ``rel_uncertainty_plus`` and ``rel_uncertainty_minus`` usually have the same sign, unless the change in acceptance
+        goes in the same direction for both directions of the underlying uncertainty parameters.
+        """
         found_match = False
         par_name = u_name
         if par_name not in self.distribution.get_parameters():
@@ -317,15 +388,24 @@ class Model:
         if not found_match: raise RuntimeError, 'did not find obname, procname = %s, %s' % (obsname, procname)
     
 
-    # shortcut for add_asymmetric_lognormal_uncertainty for the symmetric case.
     def add_lognormal_uncertainty(self, u_name, rel_uncertainty, procname, obsname='*'):
+        """
+        shortcut for add_asymmetric_lognormal_uncertainty for the symmetric case.
+        """
         self.add_asymmetric_lognormal_uncertainty(u_name, rel_uncertainty, rel_uncertainty, procname, obsname)
 
         
-    # get the set of parameters the model predictions depends on, given the signal_processes.
-    # This does not cover additional_nll_terms; it is useful to pass the result to
-    # Distribution.get_cfg.
+    
     def get_parameters(self, signal_processes, include_additional_nll = False):
+        """
+        Get the set of parameters the model predictions depends on. In general, this depends on
+        which processes are considered as signal, therefore this has to be specified in the
+        ``signal_processes`` parameter.
+        
+        Parameters:
+        
+        * ``signal_processes`` - a list/set of process names to consider signal
+        """
         result = set()
         for sp in signal_processes:
             assert sp in self.signal_processes
@@ -402,16 +482,34 @@ class Model:
 # a function multiplying 1d functions.
 # TODO: Replace by FunctionBase ...
 class Function:
+    """
+    Instances of this class are used as coefficients for templates in a model. It is limited to simple expressions
+    of a constant factor ``c``, multiplied by exponential factors (which are in effect the log-normal rate uncertainties, if the
+    corresponding nuisance parameter is Gaussian), and directly using parameters as factors:
+    
+    ..math::
+    
+       c\\times \\prod_p exp(\\lambda * p) \\times \\prod_p p
+       
+    where ``p`` are parameters.
+    """
+    
+    
     def __init__(self):
         self.value = 1.0
         self.factors = {} # map par_name -> theta cfg dictionary
     
-    # supported types are: 'exp', 'id', 'constant'
-    # pars:
-    # * for typ=='exp': 'parameter', either 'lmbda' or 'lambda_plus' and 'lambda_minus'
-    # * for typ=='id': 'parameter'
-    # * for typ=='constant': value
+
     def add_factor(self, typ, **pars):
+        """
+        supported types are: 'exp', 'id', 'constant'
+        
+       ``pars`` depends on the value of ``typ``:
+       
+        * for typ=='exp': 'parameter', either 'lmbda' or 'lambda_plus' and 'lambda_minus', for the exponential term
+        * for typ=='id': 'parameter', the parameter name to use for the direct term
+        * for typ=='constant': 'value', the floating point value to multiple the constant term to
+        """
         assert typ in ('exp', 'id', 'constant')
         if typ=='constant':
             self.value *= pars['value']
@@ -524,17 +622,15 @@ def add(l, l2, coeff = 1.0):
 
 
 
-# a histogram class which stores the x range and 1D data.
-# note that for backward-compatibility, this emulates a three-tuple
-# (xmin, xmax, values) where xmin, xmax are floats and values is
-# list-like (=int-indexed) container of floats
-#
-# It extends this by
-# * adding uncertainties
-# * providing some convenience functions like rebinning, scaling
-#
-# Note that those functions return a new Histogram instance.
+
 class Histogram:
+    """
+    This class stores the x range and 1D data, and optionallt the (MC stat.) uncertainties. Its main
+    use is in :class:`HistogramFunction` and as data histograms in :class:`Model`.
+    
+    Histograms are immutable: methods such as `scale` return the new Histogram instead of modifying
+    the present instance.
+    """
     def __init__(self, xmin, xmax, values, uncertainties = None, name = None):
         self.xmin = xmin
         self.xmax = xmax
@@ -543,13 +639,28 @@ class Histogram:
         if uncertainties is not None: assert len(values) == len(uncertainties)
         self.uncertainties = uncertainties
         
-    def get_uncertainties(self): return self.uncertainties
+    def get_uncertainties(self):
+        """
+        Return the array of uncertainties, or ``None``, if no uncertainties were defined.
+        """
+        return self.uncertainties
     
-    def get_values(self): return self.values
+    def get_values(self):
+        """
+        Return the array of values.
+        """
+        return self.values
     
-    def get_value_sum(self): return sum(self.values)
+    def get_value_sum(self):
+        """
+        Calculate the sum of values.
+        """
+        return sum(self.values)
     
     def get_value_sum_uncertainty(self):
+        """
+        Get the uncertainty on the sum of values. Returns ``None`` if no uncertainties were defined.
+        """
         if self.uncertainties is None: return None
         return math.sqrt(sum([x**2 for x in self.uncertainties]))
         
@@ -627,6 +738,15 @@ class Histogram:
 
 # for morphing histos:
 class HistogramFunction:
+    """
+    A parameter-dependent Histogram. This is used in the :class:`Model` as building block.
+    
+    The parameter dependence currently modeled is a template morphing which has one "nominal" histogram
+    and 2*n_syst "alternate" histograms where n_syst is the number of systematic uncertainties / the number of nuisance parameters
+    included in the description of this histogram.
+    
+    It corresponds to the ``cubiclinear_histomorph`` plugin in theta; see details about the kind of morphing there.
+    """
     def __init__(self, typ = 'cubiclinear'):
         assert typ in ('cubiclinear',)
         self.typ = typ
@@ -642,8 +762,10 @@ class HistogramFunction:
     def get_minus_histo(self, par): return self.syst_histos[par][1]
     def get_factor(self, par): return self.factors[par]
         
-
     def rename_parameter(self, current_name, new_name):
+        """
+        Rename a parameter. ``current_name`` does not need to exist in the list of parameters this HistogramFunciton depends on.
+        """
         if current_name not in self.parameters: return
         assert current_name != new_name
         self.parameters.remove(current_name)
@@ -652,35 +774,13 @@ class HistogramFunction:
         del self.factors[current_name]
         self.syst_histos[new_name] = self.syst_histos[current_name]
         del self.syst_histos[current_name]
-    
-    # return a histogram triplet (xmin, xmax, data)
+        
     def evaluate(self, par_values):
-        if self.typ == 'cubiclinear':
-            result = copy.deepcopy(self.nominal_histo)
-            for p in self.parameters:
-                delta = par_values[p] * self.factors[p]
-                if abs(delta) > 1:
-                    if delta > 0: h = add(self.syst_histos[p][0][2],self.nominal_histo[2], -1.0)
-                    else: h = add(self.syst_histos[p][1][2],self.nominal_histo[2], -1.0)
-                    add_inplace(result[2], h, abs(delta))
-                else:
-                    hsum = add(self.syst_histos[p][0][2], self.syst_histos[p][1][2])
-                    add_inplace(hsum, self.nominal_histo[2], -2.0)
-                    hdiff = add(self.syst_histos[p][0][2], self.syst_histos[p][1][2], -1.0)
-                    diff = [0.5 * delta * x for x in hdiff]
-                    add_inplace(diff, hsum, delta**2 - 0.5 * abs(delta)**3)
-                    add_inplace(result[2], diff)
-                 
-            for i in range(len(result[2])):
-                result[2][i] = max(0.0, result[2][i])
-            if self.normalize_to_nominal:
-                factor = sum(self.nominal_histo[2]) / sum(result[2])
-                for i in range(len(result[2])): result[2][i] *= factor
-            return result
-        raise RuntimeError, "unknown typ '%s'" % self.typ
-    
-    # return a Histogram instance
-    def evaluate2(self, par_values):
+        """
+        Return the Histogram evaluated at the given parameter values.
+        
+        ``par_values`` is a dictionary where the key is the parameter name (a string) and the value is the value of this parameter (a float).
+        """
         if self.typ == 'cubiclinear':
             result = self.nominal_histo.copy()
             for p in self.parameters:
@@ -702,9 +802,14 @@ class HistogramFunction:
             return result
         raise RuntimeError, "unknown typ '%s'" % self.typ
     
-    
-    # nominal_histo is a triple (xmin, xmax, data)
     def set_nominal_histo(self, nominal_histo, reset_binning = False):
+        """
+        Set the nominal Histogram
+        
+        ``nominal_histo`` is the :class:`Histogram` instance to use as the new nominal histogram.
+        If ``reset_binning`` is ``True``, the internal binning is reset to the binning of ``nominal_histo``.
+        Otherwise, ``nominal_histo`` must have a binning which is consistent with the binning sued so far.
+        """
         if reset_binning:
             self.histrb = None
             assert len(self.syst_histos) == 0
@@ -714,6 +819,9 @@ class HistogramFunction:
         self.nominal_histo = nominal_histo
     
     def set_syst_histos(self, par_name, plus_histo, minus_histo, factor = 1.0):
+        """
+        Set the shifted Histograms for 
+        """
         self.parameters.add(par_name)
         self.factors[par_name] = factor
         histrb_plus = plus_histo[0], plus_histo[1], len(plus_histo[2])
@@ -853,64 +961,60 @@ def get_fixed_dist_at_values(par_values):
     return result
 
 
-## \brief Build a multi-channel model based on template morphing from histograms in a root file
-#
-# This root file is expected to contain all the templates of the model adhering to a certain naming scheme:
-# <observable>__<process>     for the "nominal" templates (=not affect by any uncertainty) and
-# <observable>__<process>__<uncertainty>__(plus,minus)  for the "shifted" templates to be used for template morphing.
-#
-# ("observable" in theta is a synonym for what other call "channel": a statistically independent selection).
-#
-# <observable>, <process> and <uncertainty> are names you can choose at will as long as it does not contain '__'. You are encouraged
-# to choose sensible names as these names are used in the output a lot.
-#
-# For example, if you want to make a combined statistical evaluation of a muon+jets and an electron+jets ttbar cross section measurement,
-# you can name the observables "mu" and "ele"; the processes might be "ttbar", "w", "nonw", the uncertainties "jes", "q2". Provided
-# all uncertainties affect all template shapes, you would supply 6 nominal and 24 "uncertainty" templates:
-# The 6 nominal would be: mu__ttbar, mu__w, mu__nonw, ele__ttbar, ele__w, ele__nonw
-# Some of the 24 "uncertainty" histograms would be: mu__ttbar__jes__plus, mu__ttbar__jes__minus, ..., ele__nonw__q2__minus
-#
-# theta-auto.py expects that all templates of one observable have the same range and binning. All templates should be normalized
-# to the same luminosity (although normalization can be changed from the analysis python script later, this is generally not recommended, unless
-# scaling everything to a different lumi).
-#
-# It is possible to omit some of the systematic templates completely. In this case, it is assumed
-# that the presence of that uncertainty has no influence on this process in this observable.
-#
-# Data has the special process name "DATA" (all capitals!), so for each observable, there should be exactly one "<observable>_DATA"
-# histogram, if you have data at all. If you do not have data, just omit this; the methods will be limited to calculating the expected
-# result.
-#
-# To identify which process should be considered as signal, use as process name
-# "signal". If you have multiple, uncorrelated signal scenarios (such as a new type of particle
-# with different masses / widths), call it "signal<something>" where <something> is some name you can choose.
-# Note that for multiple signals, use a number if possible. This number will be used in summary plots if investigating multiple signals.
-# 
-# For example, if you want to search for Higgs with masses 100, 110, 120, ..., you can call the processes "signal100",
-# "signal110".
-# Note that this naming convention for signal can be overriden by analysis.py via Model.set_signal_processes.
-#
-# The model built is based on the given templates where the systematic uncertainties are fully correlated across different
-# observables and processes, i.e., the same parameter is used to interpolate between the nominal and shifted templates
-# if the name of the uncertainty is the same. Two different systematic uncertainties (=with different names) are assumed to be uncorrelated.
-# Each parameter has a Gaussian prior with width 1.0 and mean 0.0 and has the same name as the uncertainty. You can use
-# the functions in Distribution (e.g., via model.distribution) to override this prior. This is useful if the "plus" and "minus" templates
-# are not the +-1sigma deviations, but, say, the +-2sigma in which case you can use a prior with width 0.5.
-#
-# * histogram_filter is a function which -- given a histogram name as in the root file --
-#   returns either True (=keep histogram) or False (do not keep histogram). the default is to keep all histograms.
-# * root_hname_to_convention maps histogram names (as in the root file) to histogram names as expected by the
-#    naming convention as described above. The default is to not modify the names.
-# * transform_histo should transform the tuple (name, xmin, xmax, data) to a new tuple (name, xmin, xmax, data). name is not allowed to change.
-#   name is the "internal" name  (=according to convention, after root_hname_to_convention).
-#   This can be used e.g. to rebin histograms, set the range differently, etc.
-# * include_mc_uncertainties is a boolean. If set to true, the bin-by-bin uncertainties will be included (and treated with the "Barlow-Beeston light" method).
-#
-# filenames can be either a string or a list of strings
-#
-# note: if using include_mc_uncertainties = True, transform_histo will only be called for the actual histogram values, not for the "uncertainty" histogram.
-# Therefore, rebinning via transform_histo will not work if using include_mc_uncertainties.
 def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s, transform_histo = lambda h: h, include_mc_uncertainties = False):
+    """
+    Build a multi-channel model based on template morphing from histograms in a root file
+    
+    This root file is expected to contain all the templates of the model adhering to a certain naming scheme:
+      ``<observable>__<process>``     for the "nominal" templates (=not affect by any uncertainty) and
+      ``<observable>__<process>__<uncertainty>__(plus,minus)``  for the "shifted" templates to be used for template morphing.
+
+    
+    ``<observable>``, ``<process>``, and ``<uncertainty>`` are names you can choose at will as long as it does not contain '__'. You are encouraged
+    to choose sensible names as these names are used in the output a lot.
+
+    For example, if you want to make a combined statistical evaluation of a muon+jets and an electron+jets ttbar cross section measurement,
+    you can name the observables "mu" and "ele"; the processes might be "ttbar", "w", "nonw", the uncertainties "jes", "q2". Provided
+    all uncertainties affect all template shapes, you would supply 6 nominal and 24 "uncertainty" templates:
+    The 6 nominal would be: mu__ttbar, mu__w, mu__nonw, ele__ttbar, ele__w, ele__nonw
+    Some of the 24 "uncertainty" histograms would be: mu__ttbar__jes__plus, mu__ttbar__jes__minus, ..., ele__nonw__q2__minus
+    
+    All templates of one observable must have the same range and binning. All templates should be normalized
+    to the same luminosity (although normalization can be changed from the analysis python script later, this is generally not recommended, unless
+    scaling everything to a different lumi).
+
+    It is possible to omit some of the systematic templates completely. In this case, it is assumed
+    that the presence of that uncertainty has no influence on this process in this observable.
+
+    Observed data has the special process name "DATA" (all capitals!), so for each observable, there should be exactly one ``<observable>_DATA``
+    histogram, if you have data at all. If you do not have data, just omit this; the methods will be limited to calculating the expected
+    result.
+
+    To identify which process should be considered as signal, call :meth:`Model.set_signal_processes` after constructing the Model.
+        
+
+    The model built is based on the given templates where the systematic uncertainties are fully correlated across different
+    observables and processes, i.e., the same parameter is used to interpolate between the nominal and shifted templates
+    if the name of the uncertainty is the same. Two different systematic uncertainties (=with different names) are assumed to be uncorrelated.
+    Each parameter has a Gaussian prior with width 1.0 and mean 0.0 and has the same name as the uncertainty. You can use
+    the functions in Distribution (e.g., via model.distribution) to override this prior. This is useful if the "plus" and "minus" templates
+    are not the +-1sigma deviations, but, say, the +-2sigma in which case you can use a prior with width 0.5.
+
+    Parameters:
+    
+    * ``filenames`` is either a single string or a list of strings speficiying the root file names to read the histograms from.
+    * ``histogram_filter`` is a function which -- given a histogram name as in the root file --
+      returns either ``True`` to keep histogram or ``False`` to ignore the histogram. The default is to keep all histograms.
+      This is useful if you want to consider only a subset of channels or uncertainties.
+    * ``root_hname_to_convention`` is a function which get the "original" histogram name (as in the root file) to histogram names as expected by the
+       naming convention as described above. The default is to not modify the names.
+    * ``transform_histo`` is a function which takes one parameter, the :class:`Histogram` instance as read from the root file (but the name already transformed
+       using ``root_hname_to_convention``). This method should return a :class:`Histogram` instance which should be used. This is useful e.g. for re-binning or scaling
+       Histograms "on the fly", without having to re-create the root input file. Note that the name of the returned Histogram must be the same as the input Histogram(!)
+    * ``include_mc_uncertainties`` is a boolean which specifies whether or not to use the Histogram uncertainties as Monte-Carlo statistical uncertainties and include
+      their treatment in the statistical methods using the "barlow-Beeston light" method (see also :ref:`model_intro`).
+      
+    """
     if type(filenames)==str: filenames = [filenames]
     result = Model()
     histos = {}

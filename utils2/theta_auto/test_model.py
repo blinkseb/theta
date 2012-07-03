@@ -24,6 +24,32 @@ def simple_counting(s, n_obs, b=0.0, b_uncertainty=0.0, s2 = None):
         model.set_histogram_function('obs', 'b', hf_b)
         if b_uncertainty > 0: model.add_lognormal_uncertainty('bunc', 1.0 * b_uncertainty / b, 'b')
     return model
+    
+    
+# signals are the signal yields, backgrounds are the background yields
+# b_uncertainty1, b_uncertainty2 and b_uncertainty3 are either None or an array
+# of *relative* background uncertainties in the channels.
+def multichannel_counting(signals, n_obs, backgrounds, b_uncertainty1 = None, b_uncertainty2 = None, b_uncertainty3 = None):
+    n = len(signals)
+    assert n==len(n_obs) and n==len(backgrounds)
+    model = Model()
+    for i in range(n):
+        obsname = 'obs%d' % i
+        model.set_data_histogram(obsname, Histogram(0.0, 1.0, [float(n_obs[i])]))
+        hf_s = HistogramFunction()
+        hf_s.set_nominal_histo(Histogram(0.0, 1.0, [float(signals[i])]))
+        model.set_histogram_function(obsname, 's', hf_s)
+        
+        hf_b = HistogramFunction()
+        hf_b.set_nominal_histo(Histogram(0.0, 1.0, [float(backgrounds[i])]))
+        model.set_histogram_function(obsname, 'b', hf_b)
+        for pname, b_uncertainty in zip(('bunc1', 'bunc2', 'bunc3'), (b_uncertainty1, b_uncertainty2, b_uncertainty3)):
+            if b_uncertainty is None: continue
+            assert len(b_uncertainty) == n
+            unc = float(b_uncertainty[i])
+            if unc != 0.0: model.add_lognormal_uncertainty(pname, float(b_uncertainty[i]), 'b', obsname)
+    model.set_signal_processes('s*')
+    return model
 
 
 # returns a model in one bin with the given background. b_plus and b_minus are the background yields at +1sigma and -1sigma

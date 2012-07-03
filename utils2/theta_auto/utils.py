@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import config, sqlite3, os.path, glob, re, array, math
+import config, sqlite3, os.path, glob, re, array, math, copy
 import scipy.stats
 import Model
 from plotutil import *
@@ -30,6 +30,11 @@ def get_x_to_sp(spgids, **options):
 
 
 def make_tuple(*args): return tuple(args)
+
+
+class Copyable:
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 # count how often predicate evaluates to true on iterable

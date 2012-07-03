@@ -25,26 +25,68 @@ def frequentize_model(model):
         result.distribution.set_distribution_parameters(p, width = inf)
         result.data_rvobsvalues[rvobs] = prior_nuisance['mean'] # usually 0.0
     return result
-
-
-## Make toys to calculate the likelihood ratio test statistic
-#
-# This is a low-level intreface for caclulating p-values. For higher-level interfaces, see the pvalue_bkgtoys_runs, pvalue, and discovery methods below.
-#
-# If run_theta is True (default), returns a dictionary (spid) -> (list of negative log-likelihood ratio values).
-# Otherwise, dictionary (spid) -> (Run instance) is returned which can be used to e.g. create all configfiles for parallel execution, etc.
-#
-# note that 'options' is ignored for run_theta = False
-#
-# seed is the random seed for toy data generation, in case of input = 'toys:...'. The default of None will use a procedure which is unlikely to produce collissions but
-#  the result will not be exactly reproduced if eceuting again.
-def deltanll(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None, run_theta = True, seed = None):
+    
+    
+    
+def make_data(model, input, n, signal_process_groups = None, nuisance_prior_toys = None, options = None, seed = None):
+    """
+    Make toys data and save it to a file. This is useful to run different statistical models on the same data.
+    
+    Returns a dictionary with the signal process group id as key and the
+    path to the .db file in which the toy data has been saved as value. This path
+    can be used as ``input`` argument to many methods.
+    """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
+        r = Run(model, signal_processes, signal_prior = 'flat', input = input, n = n,
+             producers = [PDWriter()], nuisance_prior_toys = nuisance_prior_toys, seed = seed)
+        r.run_theta(options)
+        result[spid] = r.get_db_fname()
+    return result
+
+
+
+def deltanll(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None, run_theta = True, seed = None, lhclike_beta_signal = None):
+    """
+    Calculate the delta-log-likelihood test statistic suitable for signal search for ``input``. The test statistic is
+    
+    .. math::
+    
+      q_0 = \\log \\frac{L_{s+b}}{L_b}
+      
+    where both nominator and denominator are maximized: for L_s+b, all parameters are free, including the signal strength parameter ``beta_signal``. For L_b,
+    ``beta_signal`` is set to 0.0. In both cases, the likelihood contains terms according to ``nuisance_contraint``.
+    
+    For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys``, ``signal_prior`` and ``options`` refer to :ref:`common_parameters`.
+    
+    Parameters:
+    
+    * seed - this is the random seed to use for toy data generation. It is only relevant for ``input="toys..."``. The default value of ``None`` will use a seed which is
+      different in each :program:`theta` run. While this is usually a good idea, it makes the result not exactly reproducible.
+    * run_theta - if ``True``, runs :program:`theta` locally. Otherwise, Run objects are returned which can be used e.g. to access the cfg file. Note that in case of
+      ``run_theta=False``, the ``options`` parameter has no effect whatsoever.
+    * ``lhclike_beta_signal`` - if not ``None``, it should be a floating point value for the LHC-like test statistic evalaution; it is the value of beta_signal tested; the
+      beta_signal parameter is fixed to this value in the likelihood ratio calculation. If ``None``, the restrictions commonly used for a signal search are used:
+      beta_signal=0 for the background-only  (null hypoythesis) case and a flat prior for beta_signal > 0.0 for the signal+background (alternative hypothesis) case.
+    
+      
+    The return value is a nested python dictionary. The first-level key is the signal process group id (see :ref:`what_is_signal`). The value depends on ``run_theta``:
+    
+    * in case ``run_theta`` is ``True``, the value is a list of delta-log-likelihood values, one per toy
+    * if ``run_theta`` is ``False``, the value is an instance of the ``Run`` class
+    """
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    result = {}
+    for spid, signal_processes in signal_process_groups.iteritems():
+        if lhclike_beta_signal is not None:
+            pdnll = DeltaNllHypotest(model, signal_processes, nuisance_constraint, restrict_poi = 'beta_signal', restrict_poi_value = lhclike_beta_signal, signal_prior_sb = 'flat', signal_prior_b = 'flat')
+        else:
+            pdnll = DeltaNllHypotest(model, signal_processes, nuisance_constraint)
         r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
-             producers = [DeltaNllHypotest(model, signal_processes, nuisance_constraint)], nuisance_prior_toys = nuisance_prior_toys, seed = seed)
+             producers = [pdnll], nuisance_prior_toys = nuisance_prior_toys, seed = seed)
         if not run_theta:
             result[spid] = r
         else:
@@ -54,26 +96,36 @@ def deltanll(model, input, n, signal_process_groups = None, nuisance_constraint 
     return result
 
 
-## \brief make 'background-only' toys for p-value determination
-#
-# Uses a likelihood ratio test statistic with beta_signal=0.0 as null hypothesis
-#
-# returns a dictionary (spid) -> (list of n_runs "Run" objects). Each Run object contains the config for the
-# creation of n toys. The RUn objects can be used to:
-# * get the config files, as preparation for running in parallel on a cluster
-# * run locally, in sequence
-# * run locally, in parallel
-# * etc.
-#
-# Note that increasing n_runs later is easily possible and will not affect the config files / results already created. On the other hand, changing
-# n is not advisable as it will lead to different configurations and nothing can be re-used.
-#
-# Important: the seed is always set explicitly to i_run + seed_min (with i_run = 0..n_run-1)
-# You have to be careful if calling this method more than once to use a different seed_min so that no overlapping seeds are used. In general,
-# it is advisable to call this method only once per cited p-value, with n_runs set high enough. See the "discovery" method for an example
-# of how to do that correctly.
-# that correctly
+
 def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10000, nuisance_constraint = None, nuisance_prior_toys = None, seed_min = 1):
+    """
+    Prepare Run instances for 'background-only' toys for p-value determination with ``pvalue``.
+    
+    For the parameters ``model``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys`` refer to :ref:`common_parameters`.
+    
+    Parameters:
+    
+    * ``n_runs`` is the number of ``Run`` instances to return
+    * ``n`` is the number of toys per ``Run`` instance; so the total number of toys in the returned configuration will be ``n_runs * n``
+    * ``seed_min`` is the minimum random seed to use. It is incremented by 1 for each returned ``Run``, so for ``seed_min = 1``, the random seeds used will be ``1..n_runs``.
+    
+    Returns a dictionary with the signal process group id as key. The value is a list of ``Run`` instances. Refer to the documentation of ``Run`` for more information;
+    the most important method you probably want to use is Run.get_configfile(options) which creates the .cfg file for theta and returns the path to the created .cfg file, and
+    you can use the config file names to run :program:`theta` distributed, see :ref:`distributed_running`.
+    But you can also use Run.run_theta(options) to execute :program:`theta` locally.
+   
+.. note::
+
+   If calling the method again with the same parameters and increased ``n_runs``, the created config files will be identical for the first previously created
+   ones. This allows to increase the number of background-only toys without loosing the first ones. Note that this is *not* true for changing ``n``.
+    
+.. important::
+    
+    the seed is always set explicitly to i_run + seed_min (with i_run = 0..n_run-1)
+    You have to be careful if calling this method more than once to use a different seed_min so that no overlapping seeds are used. In general,
+    it is advisable to call this method only once per cited p-value, with n_runs set high enough. You can look at the implementation of their
+    ``discovery`` method for an example of how to do that correctly.
+    """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     result = {}
     for i_run in range(n_runs):
@@ -85,19 +137,25 @@ def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10
     return result
 
 
-## \brief determine the p-value for the dataset in 'input'
-#
-# Set 'input' to 'data' (and n=1) to get the "observed" p-value.
-# For the 'expected' p-values (tossing all nuisance parameters according to their prior) set 'input' to 'toys:1.0' and n to at least 1000 or so.
-#
-# It will call pvalue_bkgtoys_runs and run it locally, if necessary. Note that you can prevent running the background-only toys locally
-# by calling pvalue_bkgtoys_runs with the exact same parameters, run the resulting theta configs whereever you like and copy
-# the result back to the cache before calling this method.
-#
-# returns a dictionary (spid) -> (list p-values)
-# each element in the list of p-values is a two-tuple (p0, p_error) with binomial error as calculated in utils.get_p
-# Note that the list can have a length of less than n in case the minimization failed in some toys.
 def pvalue(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, options = None, bkgtoys_n_runs = 10, bkgtoys_n =  10000, bkgtoys_seed_min = 1):
+    """
+    Determine the p-value(s) for the dataset in 'input'
+    
+    For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys`` and ``options`` refer to :ref:`common_parameters`.
+    Specifically, to get the "observed" p-value, use ``input="data"`` and ``n=1``.
+    To get an ensemble of "expected" p-value for a signal strength ``beta_signal`` of, say, 1.5, use ``input=toys:1.5`` and e.g. ``n=1000``.
+    
+    The remaining parameters ``bkgtoys_n_runs``, ``bkgtoys_n``, ``bkgtoys_seed_min`` are passed to ``pvalue_bkgtoys_runs``.
+    Note that :program:`theta` will be executed locally as required. In order to re-use the results from using ``pvalue_bkgtoys_runs``, you have to:
+    
+    1. call ``pvalue_bkgtoys_runs``, get the config files, run :program:`theta` on all of them and copy the .cfg and the .db files to the "cache" directory (which is a subdirectory of the analysis workdir), see :ref:`distributed_running` for details.
+    2. call ``pvalue``, using the same ``bkgtoys_*`` parameters as in step 1., as only this ensures that the same .cfg files are created and the result from the cache created in step 1. will be used
+    
+    The return value is a dictionary where the key is the signal process group id. The value is a list of length ``n`` (or less, in case of failues) of
+    two-tuples ``(p0, p_error)``.
+    
+    You can use See :func:`theta_auto.p_to_Z` to convert p-values to Z-values.
+    """
     if options is None: options = Options()
     input_deltanlls = deltanll(model, input, n, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint,
             nuisance_prior_toys = nuisance_prior_toys, options = options)
@@ -119,21 +177,31 @@ def pvalue(model, input, n, signal_process_groups = None, nuisance_constraint = 
     return result
 
 
-## \brief Determine p-value / "N sigma" from tail distribution of background-only test statistic
-#
-# The number of toys is be increased adaptively: at most maxit iterations are done, each with n backgrond-only toys.
-# The procedure is stopped as soon as the accuracy on the Z value is better than Z_error_max.
-#
-# nuisance_prior_toys_bkg is the Distribution instance used as nuisance prior for the background-only toys.
-# nuisance_contraint is the constraint terms applied for calculating the likelihood ratio test statistic.
-#
-# Returns a four-tuple (median expected significance, lower 1sigma expected, upper 1sigma expected, observed significance)
-# each entry in the tuple is itself a two-tuple (Z, Z_error) where the Z_error is the uncertainty on Z from the limited number of background-only toys.
-# If use_data was set to False, only the expected Z-values are computed and Z and Z_error are set to None in the return value.
-#
-# Options overwritten: data_source seed, minimizer strategy to 'fast' for toys
+
 def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 100, n = 10000, input_expected = 'toys:1.0',
    nuisance_constraint = None, nuisance_prior_toys_bkg = None, options = None, verbose = True):
+    """
+    Determine p-value / "N sigma" from tail distribution of background-only test statistic.
+
+    The number of toys is be increased adaptively: at most ``maxit`` iterations are done, each with ``n`` backgrond-only toys.
+    The procedure is stopped as soon as the (absolute) accuracy on all reported Z values is better than ``Z_error_max``.
+    
+    For ``nuisance_constraint`` and ``options``, refer to :ref:`common_parameters`. 
+    
+    Parameters:
+    
+    * ``spid`` - the signal process group id
+    * ``use_data`` - if ``True``, also calculate the Z value for data
+    * ``Z_error_max``, ``maxit`` define the stopping ctriteria, see above.
+    * ``n`` number of background-only toys per iterations (there are ``maxit`` iterations maximum)
+    * ``input_expected`` - a ``input``-like string which deinfes what is reported as "expected" Z-value
+    * ``nuisance_prior_toys_bkg`` is like ``nuisance_prior_toys`` (see :ref:`common_parameters`), but only applied to the "background-only" toys.
+    
+    Returns a four-tuple (median expected significance, lower 1sigma expected, upper 1sigma expected, observed)
+    each entry in the tuple is itself a two-tuple ``(Z, Z_error)`` where the Z_error is the uncertainty on ``Z`` from the limited number of background-only toys.
+    
+    In case ``use_data = False``, only the expected Z-values are computed and ``Z`` and ``Z_error`` for the observed Z-value in the return value are both set to ``None``.
+    """
     if spid is None: spid = model.signal_process_groups.keys()[0]
     signal_process_groups = {spid : model.signal_process_groups[spid]}
     if options is None: options = Options()
@@ -152,6 +220,7 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
     observed_significance = None
     options.set('minimizer', 'strategy', 'fast')
     for seed in range(1, maxit + 1):
+        # only create only one run, so seed is never re-used.
         run = pvalue_bkgtoys_runs(model, signal_process_groups = signal_process_groups, n_runs = 1, n = n, nuisance_constraint = nuisance_constraint,
             nuisance_prior_toys = nuisance_prior_toys_bkg, seed_min = seed)[spid][0]
         run.run_theta(options)

@@ -87,7 +87,12 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
                 const double n = data_o.get(i);
                 const double mu = pred_o.get_value(i);
                 if(mu > 0){
-                    pchi2 += n * utils::log(n / mu) + mu - n;
+                    if(n > 0){
+                        pchi2 += n * utils::log(n / mu) + mu - n;
+                    }
+                    else{
+                        pchi2 += mu;
+                    }
                 }
                 else if(n > 0){
                     pchi2 = numeric_limits<double>::infinity();

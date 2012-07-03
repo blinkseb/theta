@@ -96,7 +96,7 @@ class ModuleBase:
 
 class DataSource(ModuleBase):
     # input_string is either 'toys-asimov:XXX', 'toys:XXX', (where 'XXX' is a floating point value, the value of beta_signal), 'data',
-    # or 'replay-toys:XXX' where XXX is the filename.
+    # or 'replay-toys:XXX' where XXX is the filename. It is also valid to directly specify the filename of the .db file.
     #
     # override_distribution is a Distribution which can override the default choice in the 'toys' case. If None, the default is to
     # * use model.distribution in case of input_string = 'toys:XXX'
@@ -104,6 +104,8 @@ class DataSource(ModuleBase):
     def __init__(self, input_string, model, signal_processes, override_distribution = None, name = 'source', seed = None):
         ModuleBase.__init__(self)
         flt_regex = r'([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)'
+        if input_string.endswith('.db') and not input_string.startswith('replay-toys'):
+            input_string = 'replay-toys:' + input_string
         self.name = name
         self.seed = seed
         self._id = input_string
@@ -169,6 +171,57 @@ class DataSource(ModuleBase):
                 result['rvobs-values'] = dict(self.data_rvobsvalues)
             return result
 
+
+# a data source which adds many root_ntuple_sources. This is suitable for drawing toy datasets which are random subsets of
+# events of a TTree which in turn is mainly useful for correlation studies ...
+#
+# Usage::
+#
+#  source = RootNtupleSource(model)
+#  # Usually, the branch name is assumed to be the same as the observable name. If this is not the case, you have to explicitly state that:
+#  source.define_observable_branchname(obsname = 'nnout', branchname = 'discriminator')
+#  # add some files. Usually, there is one file per 'process'. You can specify optional total_nevents and weight_branchname to use
+#  source.add_file('ttbar.root', mean_nevents = 107.2, relweight_branchname = 'weight2')
+#
+# The default for mean_nevents is the sum of 
+#
+class RootNtupleSource(ModuleBase):
+    def __init__(self, model, name = 'source'):
+        ModuleBase.__init__(self)
+        self.required_plugins = frozenset(['root.so', 'core-plugins.so'])
+        self.name = name
+        # each entry in files is a dictionary with the keys 'filename', 'mean_nevents', etc.
+        self.files = []
+        # the 'observables' configuration for the root_ntuple_source:
+        self.observables_cfg = {}
+        for obs in model.get_observables():
+            xmin, xmax, nbins = model.get_range_nbins(obs)
+            self.observables_cfg[obs] = {'branchname': obs, 'nbins': nbins, 'range': (xmin, xmax)}
+        
+        
+    def define_observable_branchname(self, obsname, branchname):
+        if obsname not in self.observables_cfg: raise RuntimeError, "unknown observable '%s'" % obsname
+        self.observables_cfg[obsname]['branchname'] = branchname
+    
+    # using None will use the defaults from the root_ntuple_source plugin.
+    def add_file(self, filename, mean_nevents = None, relweight_branchname = None, treename = None, seed = None):
+        d = {'filename': filename}
+        if mean_nevents is not None: d['mean_nevents'] = float(mean_nevents)
+        if relweight_branchname is not None: d['relweight_branchname'] = str(relweight_branchname)
+        if treename is not None: d['treename'] = str(treename)
+        if seed is not None: d['seed'] = int(seed)
+        
+        
+    def get_cfg(self, options):
+        result = {'name': self.name, 'type': 'add_sources'}
+        result['sources'] = []
+        for i, f in enumerate(self.files):
+            s_cfg = {'name': '%s%d' % (self.name, i), 'type': 'root_ntuple_source', 'observables': self.observables_cfg}
+            s_cfg['filename'] = f['filename']
+            for key in ('treename', 'mean_nevents', 'relweight_branchname'):
+                if key in f: s_cfg[key] = f[key]
+            if 'seed' in f: s_cfg['rnd_gen'] = {'seed': f['seed']}
+            result.sources.append(s_cfg)
 
 # base class for producers, providing consistent approach to override_parameter_distribution
 # and additional_nll_term
@@ -263,10 +316,11 @@ class PliProducer(ProducerBase):
         
         
 class DeltaNllHypotest(ProducerBase):
-    def __init__(self, model, signal_processes, override_distribution = None, name = 'dnll', restrict_poi = None, signal_prior_sb = 'flat', signal_prior_b = 'fix:0.0'):
+    def __init__(self, model, signal_processes, override_distribution = None, name = 'dnll', restrict_poi = None, restrict_poi_value = None, signal_prior_sb = 'flat', signal_prior_b = 'fix:0.0'):
         ProducerBase.__init__(self, model, signal_processes, override_distribution = None, name = name, signal_prior = None)
         self.minimizer = Minimizer(need_error = False)
         self.restrict_poi = restrict_poi
+        self.restrict_poi_value = restrict_poi_value
         self.add_submodule(self.minimizer)
         if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
         else: dist = model.distribution
@@ -287,6 +341,7 @@ class DeltaNllHypotest(ProducerBase):
         result.update(self.get_cfg_base(options))
         if 'override-parameter-distribution' in result: del result['override-parameter-distribution']
         if self.restrict_poi is not None: result['restrict_poi'] = self.restrict_poi
+        if self.restrict_poi_value is not None: result['default_poi_value'] = self.restrict_poi_value
         return result
        
 class NllScanProducer(ProducerBase):
@@ -390,11 +445,12 @@ def _signal_prior_dict(spec):
         signal_prior_dict = spec
     return signal_prior_dict
 
-        
-# get_cfg returns a toplevel configuration
-#
-# corresponds to the "run" class in theta:
 class Run(ModuleBase):
+    """
+    Class which manages the configuration and execution of a single :program:`theta` execution.
+    
+    It corresponds to the "run" class in theta.
+    """
     
     # signal_prior can be a string or a dictionary.
     # input is a string (toys:XXX, toy-asimov:XXX, ...), see DataSource for documentation
@@ -412,7 +468,12 @@ class Run(ModuleBase):
         for p in producers: self.add_submodule(p)
         self.seed = seed
         if input is None: self.data_source = None
-        else: self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
+        else:
+            if type(input) == str:
+                self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
+            else:
+                assert type(input) in (RootNtupleSource, DataSource), "unexpected type for 'input' argument: %s" % type(input)
+                self.data_source = input
         self.input_id = self.data_source.get_id()
         self.signal_prior_cfg = _signal_prior_dict(signal_prior)
         
@@ -478,11 +539,14 @@ class Run(ModuleBase):
             result['observables'][obs] = {'range': [xmin, xmax], 'nbins': nbins}
         return result
     
-    # check in the cache directory whether result is already available there
-    # returns True if it is, false otherwise.
-    # Note that get_result_available will return True if the result is in the cache
-    # only after calling check_cache
+    
     def check_cache(self, options):
+        """
+        check in the cache directory whether result is already available there
+        returns True if it is, false otherwise.
+        Note that get_result_available will return True if the result is in the cache
+        only after calling check_cache
+        """
         workdir = options.get_workdir()
         cache_dir = os.path.join(workdir, 'cache')
         cfgfile_full = self.get_configfile(options)
@@ -494,9 +558,12 @@ class Run(ModuleBase):
             return True
         return False
     
-    # Returns the name of the config file created, including the full path.
-    # creates the theta configuration file, if not done already.
+    
     def get_configfile(self, options):
+        """
+        Returns the name of the config file created, including the full path.
+        It will create the theta configuration file, if not done already.
+        """
         if self.theta_cfg_fname is not None: return self.theta_cfg_fname
         cfg_dict = self._get_cfg(options)
         cfg_string = _settingvalue_to_cfg(cfg_dict, value_is_toplevel_dict = True)
@@ -547,8 +614,29 @@ class Run(ModuleBase):
             self.error = None
             raise RuntimeError, error
             
-    # runs theta
     def run_theta(self, options, in_background_thread = False):
+        """
+        Execute the :program:`theta` program on the current .cfg file.
+        
+        Parameters:
+        
+        * `options` - an instance of :class:`Options` which is passed to the submodules to control some details of the configuration
+        * `in_background_thread` - if `True`, the :program:`theta` this methods returns immediately. Otherwise, theta is executed in a background thread.
+        
+        Executing multiple instances of the theta program in parallel is usually done like this::
+           
+           run = [] # the list of Run instances
+           ...
+           for r in runs: r.run_theta(options, in_background_thread = True)
+           for r in runs: r.wait_for_result_available()
+        
+        The first for-loop spawns the threads which execute theta, so theta is executed in parallel. The second loop waits for all theta executions
+        to terminate (either normally or abnormally).
+        
+        In case :program:`theta` exists with a failure, a RuntimeException will be thrown. This is done by
+        this method in case `in_background_thread = False`. In case of `in_background_thread = True`, the exception
+        will be raised in :meth:`Run.wait_for_result_availble`.
+        """
         check_cache = options.getboolean('global', 'check_cache')
         if check_cache: self.check_cache(options)
         cfgfile = self.get_configfile(options)
@@ -568,29 +656,38 @@ class Run(ModuleBase):
             self._cleanup_exec()
 
     
-    # check if a result is availbale, either after check_cache, or
-    # after run_theta in a background thread.
-    #
-    # can throw an exception in case theta in the background thread exited with an exception
+    
     def get_result_available(self):
+        """
+        return whether the result is available, either after check_cache, or after run_theta in a background thread.
+        
+        Will call :meth:`Run.wait_for_result_available` in case theta was executed in a in the background thread; this
+        can lead ot an exception, see :meth:`Run.wait_for_result_available`.
+        """
         if self.thread is not None:
             if not self.thread.is_alive():
                 # do the cleanup
                 self.wait_for_result_available()
         return self.result_available
     
-    # only useful after calling run_theta(in_background_thread = True)
-    #
-    # can throw an exception in case the thread exited with an exception
+    
     def wait_for_result_available(self):
+        """
+        This method is only useful after calling run_theta(in_background_thread = True)
+        
+        can throw an exception in case the thread exited with an exception
+        """
         if self.result_available: return
         if self.thread is None: return
         self.thread.join()
         self.thread = None
         self._cleanup_exec()
     
-    # once the result is available, this is the path to the database filename
+    
     def get_db_fname(self):
+        """
+        once the result is available, this is the path to the database filename
+        """
         return self.theta_db_fname
     
     # get the content of a table in the output database of theta.
@@ -607,14 +704,19 @@ class Run(ModuleBase):
         return result
         
     
-    # get the result (in the products table) of this invocation of theta as dictionary
-    #  column_name --> list of values
-    # which columns are returned can be controlled by the columns argument wich is either a list of column names
-    # or as special case the string '*'. The default is '*' in which case all columns are returned.
-    #
-    # if fail_if_empty is True and no rows are found, some information from the log table is printed and a RuntimeError is raised.
-    # This can happen e.g. in case there was one attempt to fit on data which failed due to a minimizer which failed.
+    
     def get_products(self, columns = '*', fail_if_empty = True):
+        """
+        get the result (in the products table) of this invocation of theta as dictionary::
+        
+           column_name --> list of values
+           
+        Which columns are returned can be controlled by the `columns` argument which is either a list of column names
+        or as special case the string '*'. The default is '*' which will return all columns.
+    
+        If `fail_if_empty` is `True` and no rows are found, some information from the log table is printed and a `RuntimeError` is raised.
+        This can happen e.g. in case there was one attempt to fit on data which failed due to a minimizer which failed.
+        """
         res = self.get_results('products', columns)
         if fail_if_empty and len(res[res.keys()[0]])==0:
             self.print_logtable_errors()
@@ -641,3 +743,14 @@ def histogram_from_dbblob(blob_data):
     a.fromstring(blob_data)
     return Histogram(xmin = a[0], xmax = a[1], values = a[3:-1])
 
+"""
+# a float result from a theta .db file. It saves internally not only the float value but also the runid and eventid associated to it.
+class fresult(object):
+    __slots__ = ['value', 'runid', 'eventid']
+    def __init__(self, value, runid, eventid):
+        self.value = value
+        self.runid = runid
+        self.eventid = eventid
+        
+    def __float__(self): return self.value
+"""

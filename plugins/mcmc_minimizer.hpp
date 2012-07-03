@@ -63,6 +63,7 @@ private:
     unsigned int iterations;
     unsigned int burn_in;
     double stepsize_factor;
+    int bootstrap_mcmcpars;
 };
 
 #endif

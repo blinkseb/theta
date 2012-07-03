@@ -111,8 +111,8 @@ deltanll_intervals::deltanll_intervals(const theta::Configuration & cfg): Produc
     }
     deltanll_levels.resize(clevels.size());
     for(size_t i=0; i<clevels.size(); ++i){
-        if(clevels[i] < 0.0) throw invalid_argument("deltanll_intervals: clevel < 0 not allowed.");
-        if(clevels[i] >= 1.0) throw invalid_argument("deltanll_intervals: clevel >= 1.0 not allowed.");
+        if(clevels[i] < 0.0) throw invalid_argument("clevel < 0 not allowed.");
+        if(clevels[i] >= 1.0) throw invalid_argument("clevel >= 1.0 not allowed.");
         deltanll_levels[i] = utils::phi_inverse((1+clevels[i])/2);
         deltanll_levels[i] *= deltanll_levels[i]*0.5;
     }

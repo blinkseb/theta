@@ -40,9 +40,6 @@ namespace theta {
         /// Declare destructor virtual to allow polymorphic access to derived classes
         virtual ~Result(){}
         
-        /// Reset everything to collect data from a new chain
-        //void reset();
-        
         /** \brief fill a new chain point with the given parameter values, nll value and weight
          *
          * This method is called by the metropolisHastings routine.

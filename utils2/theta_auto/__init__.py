@@ -11,3 +11,4 @@ from likelihood import *
 from frequentist import *
 from cls_limits import *
 from bayesian import *
+import test_model

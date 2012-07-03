@@ -13,10 +13,12 @@ using namespace std;
 class MCMCMinResult: public Result{
     public:
         //ipar_ is the parameter of interest
-        MCMCMinResult(size_t npar, const ParIds & pids_): Result(npar), pids(pids_), min_nll(numeric_limits<double>::infinity()){
+        MCMCMinResult(size_t npar, const ParIds & pids_): Result(npar), n(0), n_different(0), pids(pids_), min_nll(numeric_limits<double>::infinity()){
         }
                 
         virtual void fill2(const double * x, double nll, size_t n_){
+            ++n_different;
+            n += n_;
             if(nll < min_nll){
                 min_nll = nll;
                 values_at_min.set(ParValues(x, pids));
@@ -31,7 +33,12 @@ class MCMCMinResult: public Result{
             return min_nll;
         }
         
+        double acceptance_rate() const{
+            return 1.0 * n_different / n;
+        }
+        
     private:
+        size_t n, n_different;
         ParIds pids;
         double min_nll;
         ParValues values_at_min;
@@ -43,12 +50,24 @@ MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues 
     const ParIds & pids = f.get_parameters();
     size_t n = pids.size();
     Matrix sqrt_cov(n,n);
-    ParIds::const_iterator it=pids.begin();
     vector<double> v_start(n);
+    ParIds::const_iterator it=pids.begin();
     for(size_t i=0; i<n; ++it, ++i){
-        sqrt_cov(i,i) = step.get(*it) * stepsize_factor;
         v_start[i] = start.get(*it);
     }
+    it=pids.begin();
+    for(size_t i=0; i<n; ++it, ++i){
+        sqrt_cov(i,i) = step.get(*it) * stepsize_factor;
+        theta_assert(std::isfinite(sqrt_cov(i,i)));
+    }
+    for (int i = 0; i < bootstrap_mcmcpars; i++) {
+        Result res(n);
+        metropolisHastings(f, res, *rnd_gen, v_start, sqrt_cov, iterations, burn_in);
+        v_start = res.getMeans();
+        Matrix cov = res.getCov();
+        get_cholesky(cov, sqrt_cov);
+    }
+    
     MCMCMinResult result(n, pids);
     metropolisHastings(f, result, *rnd_gen, v_start, sqrt_cov, iterations, burn_in);
     //now step 2: call the after_minimizer:
@@ -74,7 +93,7 @@ MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues 
 }
 
 mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer(cfg, cfg.setting["name"]), name(cfg.setting["name"]),
-  stepsize_factor(1.0){
+  stepsize_factor(1.0), bootstrap_mcmcpars(0){
     Setting s = cfg.setting;
     iterations = s["iterations"];
     if(s.exists("burn-in")){
@@ -88,6 +107,9 @@ mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer
     }
     if(s.exists("stepsize_factor")){
         stepsize_factor = s["stepsize_factor"];
+    }
+    if(s.exists("bootstrap_mcmcpars")){
+        bootstrap_mcmcpars = s["bootstrap_mcmcpars"];
     }
 }
 
