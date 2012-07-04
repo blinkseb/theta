@@ -20,7 +20,7 @@
  * For an example, see
  * <ol>
  *  <li>\c root/create_testtree.cxx which creates rootfile with the necessary structure containing the observable values for both analyses</li>
- *  <li>\c examples/roottreesource.cfg which contain a model configurationof a cimple counting experiment with sigbnal only for the observables o1 and o2 which
+ *  <li>\c examples/roottreesource.cfg which contain a model configuration of a simple counting experiment with sigbnal only for the observables o1 and o2 which
  *    uses the tree by create_testtree in step 1.</li>
  * </ol>
  * Have a look at the fitted signal content after executing the example config in step 2 (type "products->Draw(mle__s1:mle__s2)" in the root prompt):

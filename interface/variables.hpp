@@ -178,7 +178,7 @@ namespace theta {
          * using the same name for an observable and a parameter is allowed.
          *
          * \c type is the parameter type. The meaning is user-defined; the value of "type"
-         * is just saved here and returned by getType.
+         * is just saved here and returned by get_type.
          *
          * If the name is already used for another parameter / observable, an InvalidArgumentException is thrown.
          * In case of nbins==0 or xmax < xmin, an InvalidArgumentException will be thrown.
@@ -210,8 +210,6 @@ namespace theta {
         /** \brief Return the ParId / ObsId with the given name
          *
          * If the name is not known, a std::invalid_argument is thrown.
-         *
-         * If you merely want to test whether a name already exists, use parNameExists and obsNameExists
          */
         ParId get_par_id(const std::string & name) const;
         ObsId get_obs_id(const std::string & name) const;
@@ -351,6 +349,22 @@ namespace theta {
                 fail_get(pid);
             }
             return result;
+        }
+        
+        /** \brief Retrieve the current value of a parameter, returning a default if the parameter was not set.
+         *
+         *  \c pid is the parameter for which the value should be returned.
+         *
+         *  Returns the current value for the parameter \c pid, or the \c default_value if no value for \c pid is available.
+         */
+        double get(const ParId & pid, double default_value) const{
+            const size_t id = pid.id;
+            if(id < values.size() && !std::isnan(values[id])){
+                return values[id];
+            }
+            else{
+                return default_value;
+            }
         }
 
         /// fast replacement for get which does not perform boundary checking

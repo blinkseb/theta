@@ -142,6 +142,7 @@ def write_cfg2(main, model, signal_processes, method, input, id = None, **option
     rvobservables = model.rvobs_distribution.get_parameters()
     theta_cfg = "parameters = " + settingvalue_to_cfg(all_parameters, 0, ['parameters']) + ";\n"
     if len(rvobservables) > 0:
+        config = ""
         config += "rvobservables = " + settingvalue_to_cfg(rvobservables, 0, ['rvobservables']) + ";\n"
     obs = {}
     for o in model.observables:
@@ -492,7 +493,7 @@ def chi2_test(model, signal_process_group, input = 'toys:1.0', n = 5000, signal_
     name = write_cfg(model, signal_process_group, 'chi2_test', input, additional_settings = toplevel_settings)
     cfg_names_to_run.append(name)
     if 'run_theta' not in options or options['run_theta']:
-        run_theta(cfg_names_to_run)
+        run_theta(cfg_names_to_run, **options)
     else: return None
     cachedir = os.path.join(config.workdir, 'cache')
 
@@ -501,12 +502,14 @@ def chi2_test(model, signal_process_group, input = 'toys:1.0', n = 5000, signal_
     data = sql(sqlfile, 'select mle__pchi2 from products')
     if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
     chi2_values_bkg = [row[0] for row in data]
+    #print chi2_values_bkg
     
     name_data = cfg_names_to_run[1]
     sqlfile = os.path.join(cachedir, '%s.db' % name_data)
     data = sql(sqlfile, 'select mle__pchi2 from products')
     if len(data) == 0: raise RuntimeError, "no data in result file '%s'" % sqlfile
     chi2_value_data = data[0][0]
+    #print chi2_value_data
     p = len([x for x in chi2_values_bkg if x >= chi2_value_data]) * 1.0 / len(chi2_values_bkg)
     return p
 

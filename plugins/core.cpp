@@ -445,7 +445,7 @@ const std::pair<double, double> & product_distribution::support(const ParId & p)
 }
 
 model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), RandomConsumer(cfg, get_name()), save_nll(false), dice_poisson(true),
-  dice_template_uncertainties(true){
+  dice_template_uncertainties(true), dice_rvobs(true){
     model = PluginManager<Model>::build(Configuration(cfg, cfg.setting["model"]));
     par_ids = model->get_parameters();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
@@ -454,6 +454,9 @@ model_source::model_source(const theta::Configuration & cfg): DataSource(cfg), R
     }
     if(cfg.setting.exists("dice_poisson")){
         dice_poisson = cfg.setting["dice_poisson"];
+    }
+    if(cfg.setting.exists("dice_rvobs")){
+        dice_rvobs = cfg.setting["dice_rvobs"];
     }
     if(cfg.setting.exists("dice_template_uncertainties")){
         dice_template_uncertainties = cfg.setting["dice_template_uncertainties"];
@@ -530,7 +533,12 @@ void model_source::fill(Data & dat){
     //4. sample real-valued observables:
     const Distribution * rvobs_dist = model->get_rvobservable_distribution();
     if(rvobs_dist){
-        rvobs_dist->sample(values, rnd);
+        if(dice_rvobs){
+            rvobs_dist->sample(values, rnd);
+        }
+        else{
+            rvobs_dist->mode(values);
+        }
         dat.set_rvobs_values(ParValues(values, model->get_rvobservables()));
     }
     
@@ -540,8 +548,6 @@ void model_source::fill(Data & dat){
        values.set(parameters_for_nll);
        products_sink->set_product(c_nll, (*nll)(values));
     }
-    
-
 }
 
 

@@ -344,6 +344,7 @@ private:
  *   model = "@some-model-path";
  *   dice_poisson = false; // optional; default is true
  *   dice_template_uncertainties = false; // optional; default is true
+ *   dice_rvobs = false; // optional; default is true
  *   override-parameter-distribution = "@some-dist"; // optional
  *   parameters-for-nll = { p1 = 0.0; p2 = 1.0; p3 = "diced_value"; }; //optional; assuming p1, p2, p3 are parameters
  *   rnd_gen = { seed = 123; }; // optional
@@ -359,6 +360,8 @@ private:
  *
  * \c dice_template_uncertainties controls whether there will be a random smearing of the templates within their uncertainties prior to sampling pseudo data;
  *    see below for details.
+ *
+ * \c dice_rvobs controls whether or not to dice the real-valued observables.
  *
  * \c override-parameter-distribution is an optional setting overriding the distribution from which parameter values are drawn, see below. It
  *     has to provide exactly the same parameters as the model.
@@ -415,6 +418,7 @@ private:
     
     bool dice_poisson;
     bool dice_template_uncertainties;
+    bool dice_rvobs;
 
 };
 

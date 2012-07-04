@@ -16,6 +16,11 @@ void pseudodata_writer::produce(const Data & data, const Model & model) {
             products_sink->set_product(data_columns[i], h);
         }
     }
+    const ParValues & rvobs_values = data.get_rvobs_values();
+    for(size_t i=0; i<rvobservables.size(); ++i){
+        double val = rvobs_values.get(rvobservables[i], numeric_limits<double>::quiet_NaN());
+        products_sink->set_product(rvobs_columns[i], val);
+    }
 }
 
 pseudodata_writer::pseudodata_writer(const theta::Configuration & cfg): Producer(cfg){
@@ -37,8 +42,15 @@ pseudodata_writer::pseudodata_writer(const theta::Configuration & cfg): Producer
     write_data = cfg.setting["write-data"];
     for(size_t i=0; i<observables.size(); ++i){
         n_events_columns.push_back(products_sink->declare_product(*this, "n_events_" + vm->get_name(observables[i]), theta::typeDouble));
-        if(write_data)
+        if(write_data){
             data_columns.push_back(products_sink->declare_product(*this, "data_" + vm->get_name(observables[i]), theta::typeHisto));
+        }
+    }
+    ParIds pars = vm->get_all_parameters();
+    for(ParIds::const_iterator it=pars.begin(); it!=pars.end(); ++it){
+        if(vm->get_type(*it) != "rvobs") continue;
+        rvobservables.push_back(*it);
+        rvobs_columns.push_back(products_sink->declare_product(*this, vm->get_name(*it), theta::typeDouble));
     }
 }
 

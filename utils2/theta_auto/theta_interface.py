@@ -160,6 +160,7 @@ class DataSource(ModuleBase):
             if self.asimov:
                 result['dice_poisson'] = False
                 result['dice_template_uncertainties'] = False
+                result['dice_rvobs'] = False
             return result
         elif self.mode == 'replay-toys':
             result.update({'type': 'replay_toys', 'input_database': {'type': 'sqlite_database_in', 'filename': self.fname}})

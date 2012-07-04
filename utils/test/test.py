@@ -47,6 +47,14 @@ class TestMle(unittest.TestCase):
         # the interval should be about +- 10%:
         self.assertAlmostEqual(res['s'][one_sigma][0][0], 0.90, places = 2)
         self.assertAlmostEqual(res['s'][one_sigma][0][1], 1.10, places = 2)
+        
+        
+    def test_chi2(self):
+        res = chi2_test(self.model_nobkg, ['s'], signal_prior = 'fix:1.0')
+        self.assertAlmostEqual(res, 1.0, places = 2)
+        res = chi2_test(self.model_bunc, ['s'], signal_prior = 'fix:1.0')
+        # incompatibility is around 1sigma, but don't be too strict here, just check that it's not obviously wrong:
+        self.assertTrue(res < 0.8 and res > 0.5)
 
     def test_pl_termonly(self):
         model_termonly = Model()
