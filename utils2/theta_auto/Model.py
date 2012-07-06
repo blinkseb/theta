@@ -49,6 +49,50 @@ class rootfile:
         return rootfile.all_templates[(self.filename, include_uncertainties)][hname].copy()
 
 
+
+# flatten a nested dictionary with string indices into a flat dictionary. The new key names
+# are given by <key1>__<key2>...
+#
+# note that the nesting is only flattened if the key is a str and the value is a dict.
+def _flatten_nested_dict(d, result, current_key = ''):
+    for k in d:
+        if type(k)==str and type(d[k]) == dict:
+            if current_key == '':   new_current_key = k
+            else: new_current_key = current_key + '__' + k
+            _flatten_nested_dict(d[k], result, new_current_key)
+        else:
+            if current_key == '':   new_current_key = k
+            else: new_current_key = current_key + '__' + k
+            result[new_current_key] = d[k]
+
+def write_histograms_to_rootfile(histograms, rootfilename):
+    """
+    Parameters:
+    
+    * ``histograms`` - a dictionary with strings as key name and :class:`Histogram`s as value; nested dictionaries are allowed
+    * ``rootfilename`` - the filename of the root file to create. Will be overwritten if it already exists!
+    
+    Note that the name of the TH1Ds in the output root file is constructed via the key names in the dictionary: the
+    key name is given by concatenating all key names required to retrive the histogram in the ``histograms`` parameter,
+    separated by "__". For example if histograms['channel1']['proc1'] is a Histogram, its name in the root output file
+    will be ``channel1__proc1``.
+    """
+    outfile = ROOT.TFile(rootfilename, "recreate")
+    flattened = {}
+    _flatten_nested_dict(histograms, flattened)
+    for name in flattened:
+        h = flattened[name]
+        if not isinstance(h, Histogram): raise RuntimeError, "a non-Histogram value encountered in histograms parameter (%s); this is not allowed." % str(h)
+        root_h = ROOT.TH1D(name, name, h.get_nbins(), h.get_xmin(), h.get_xmax())
+        h_values = h.get_values()
+        for i in range(h.get_nbins()):
+            root_h.SetBinContent(i+1, h_values[i])
+        root_h.Write()
+    outfile.Close()
+    
+
+
+
 # par_values is a dictionary (parameter name) --> (floating point value)
 #
 # If "beta_signal" is in par_values, it will be included as factor for all signal processes. Otherwise,
@@ -322,7 +366,7 @@ class Model(utils.Copyable):
         for p in pred:
             pred[p]['histogram'].rebin(rebin_factor)
         if obsname in self.data_histos:
-            rebin_hlist(self.data_histos[obsname][2], rebin_factor)
+            self.data_histos[obsname] = self.data_histos[obsname].rebin(rebin_factor, self.data_histos[obsname].get_name())
     
     def set_signal_processes(self, procs):
         """
@@ -596,34 +640,8 @@ def close_to(x1, x2):
     # otherwise: relative difference small:
     return abs(x1-x2) / max(abs(x1), abs(x2)) < 1e-10
 
-# returns a new h_triple. xmin, xmax might be slightly different from the requested values;
-# the returned values are guaranteed to coincide with the bin borders
-def set_hrange(h_triple, new_xmin, new_xmax):
-    xmin, xmax, data = h_triple
-    binsize = (xmax - xmin) / len(data)
-    imin = int(new_xmin - xmin / binsize)
-    imax = int(new_xmax - xmin / binsize)
-    actual_new_xmin = xmin + imin * binsize
-    actual_new_xmax = xmin + imax * binsize
-    assert close_to(actual_new_xmin, new_xmin)
-    assert close_to(actual_new_xmax, new_xmax)
-    return (actual_new_xmin, actual_new_xmax, data[imin:imax])
 
-
-# l+= coeff * l2 where l, l2 are lists of floats
-def add_inplace(l, l2, coeff = 1.0):
-    assert len(l) == len(l2)
-    for i in range(len(l)): l[i] += coeff * l2[i]
-
-# returns l + coeff * l2, without modifying l, l2
-def add(l, l2, coeff = 1.0):
-    assert len(l) == len(l2)
-    return [l[i] + coeff * l2[i] for i in range(len(l))]
-
-
-
-
-class Histogram:
+class Histogram(object):
     """
     This class stores the x range and 1D data, and optionallt the (MC stat.) uncertainties. Its main
     use is in :class:`HistogramFunction` and as data histograms in :class:`Model`.
@@ -795,7 +813,7 @@ class HistogramFunction:
                     hdiff = self.syst_histos[p][0].strip_uncertainties().add(-1.0, self.syst_histos[p][1])
                     diff = hdiff.scale(0.5 * delta)
                     diff = diff.add(delta**2 - 0.5 * abs(delta)**3, hsum)
-                    result = result.add(diff)
+                    result = result.add(1.0, diff)
             for i in range(len(result[2])):
                 result[2][i] = max(0.0, result[2][i])
             if self.normalize_to_nominal: result = result.scale(self.nominal_histo.get_value_sum() / result.get_value_sum())
