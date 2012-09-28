@@ -61,6 +61,7 @@ class truth_ts_values;
  *   ts_column = "lr__nll_diff";
  *   cl = 0.90; // optional; default is 0.95
  *   expected_bands = 500; //optional; default is 1000
+ *   beta_signal_expected = 1.0; // optional; default is 0.0
  *
  *   reltol_limit = 0.001; // optional; default is 0.05
  *   tol_cls = 0.015; //optional; default; is 0.02
@@ -81,7 +82,8 @@ class truth_ts_values;
  *
  * \c data_source and \c expected_bands control for which data / test statistic the limits are calculated.
  * \c data_source is a DataSource specification used as the <em>observed</em> data; provide the actual data here (do <em>not</em> use a random
- * data source here, this is not meaningful). \c expected_bands specifies the number of background-only toys to dice to determine the expected limits.
+ * data source here, this is not meaningful). \c expected_bands specifies the number of background-only toys --- which set the value
+ * of \c beta_signal to \c beta_signal_expected -- to dice to determine the expected limits.
  *
  * The calculation of CLs limits in general requires making a large number of toys at different truth values, to scan for the 
  * desired CLs value 1 - cl. How many toys are drawn and where is done automatically and is driven by \c reltol_limit:
@@ -191,6 +193,7 @@ private:
     double clb_cutoff;
     double cl;
     double truth_max; // maximum truth value ever tried in toys. If larger values seem necessary, the toy is declared as outlier. TODO: should get rid of underlying numerical issue instead ...
+    double beta_signal_expected;
 
     std::auto_ptr<theta::DatabaseInput> input_database;
     std::string input_truth_colname, input_poi_colname, input_ts_colname;

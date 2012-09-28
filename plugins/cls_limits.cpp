@@ -665,7 +665,8 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
         mode = M_ADAPTIVE;
     }
     double ts_value = truth_to_ts[truth];
-    for(int kk=0; kk<100; ++kk){
+    const int max_kk = idata == 0 ? 250 : 100;
+    for(int kk=0; kk<max_kk; ++kk){
         if(stop_execution) return;
         truth_ts_values::cls_info res = tts->get_cls(ts_value, truth);
         double cls_uncertainty = sqrt(pow(res.cls_uncertainty_n0, 2) + pow(res.cls_uncertainty_n, 2));
@@ -729,7 +730,7 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
 
 cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>()), truth_parameter(vm->get_par_id(cfg.setting["truth_parameter"])),
   runid(1), n_toys(0), n_toy_errors(0), n_toys_total(-1), pid_limit(vm->create_par_id("__limit")), pid_lambda(vm->create_par_id("__lambda")), 
-  expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95){
+  expected_bands(1000), limit_hint(NAN, NAN), reltol_limit(0.05), tol_cls(0.02), clb_cutoff(0.01), cl(0.95), beta_signal_expected(0.0){
     Setting s = cfg.setting;
 
     if(s.exists("debuglog")){
@@ -744,6 +745,10 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
     if(s_mode == "set_limits") mode = m_set_limits;
     else if(s_mode == "generate_grid") mode = m_generate_grid;
     else throw ConfigurationException("unknown mode '" + s_mode +"'");
+    
+    if(s.exists("beta_signal_expected")){
+        beta_signal_expected = s["beta_signal_expected"];
+    }
 
     truth_max = std::numeric_limits<double>::infinity();
     
@@ -1170,7 +1175,7 @@ void cls_limits::run_set_limits(){
             }
             else{
                 // make a background-only toy:
-                source->set_truth_value(0.0);
+                source->set_truth_value(beta_signal_expected);
                 source->fill(current_data);
             }
             map<double, double> truth_to_ts;
