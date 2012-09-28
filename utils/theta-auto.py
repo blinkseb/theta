@@ -201,15 +201,19 @@ def main():
     ROOT.gROOT.SetBatch(True)
     scriptname = 'analysis.py'
     tmpdir, profile = False, False
-    for arg in sys.argv[1:]:
+    wd = None
+    for iarg, arg in enumerate(sys.argv[1:]):
         if '.py' in arg: scriptname = arg
         if arg=='--tmpdir': tmpdir = True
         if arg=='--profile': profile = True
+        if arg=='--workdir': wd = sys.argv[iarg+2]
     if tmpdir:
         config.workdir = tempfile.mkdtemp()
     else:
         config.workdir = os.path.join(os.getcwd(), scriptname[:-3])
-        config.workdir = os.path.realpath(config.workdir)    
+        config.workdir = os.path.realpath(config.workdir)
+        if wd is not None:
+            config.workdir = os.path.realpath(wd)
     setup_workdir()
     config.theta_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
     config.report = html_report(os.path.join(config.workdir, 'index.html'))

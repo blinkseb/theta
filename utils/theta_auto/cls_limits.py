@@ -463,7 +463,7 @@ def get_cls_limits_from_dbfile(dbfile):
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
 def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = 'flat', nuisance_prior = '', signal_prior_bkg = None,
-   signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, write_debuglog = True, bootstrap_nuisancevalues = False, **options):
+   signal_processes = None, reuse_toys = {}, truth_max = None, debug_cls = False, write_debuglog = True, bootstrap_nuisancevalues = False, beta_signal_expected = 0.0, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     assert len(signal_processes) > 0
     if signal_prior_bkg is None:
@@ -478,6 +478,7 @@ def cls_limits(model, what = 'all',  cl = 0.95, ts = 'lhclike', signal_prior = '
     if truth_max is not None: main['truth_max'] = float(truth_max)
     if 'reltol_limit' in options: main['reltol_limit'] = float(options['reltol_limit'])
     if bootstrap_nuisancevalues: main['nuisancevalues-for-toys'] = 'datafit'
+    if beta_signal_expected != 0.0: main['beta_signal_expected'] = beta_signal_expected
     if what in ('expected', 'all'):
         main['expected_bands'] = 2000
     elif what != 'observed': raise RuntimeError, "unknown option what='%s'" % what
