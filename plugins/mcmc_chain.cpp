@@ -13,9 +13,9 @@ using namespace theta;
 using namespace std;
 
 //the result class for the metropolisHastings routine.
-class MCMCChainResult{
+class MCMCResultTextfile{
     public:
-        MCMCChainResult(const vector<string> & parameter_names_, const string & filename): parameter_names(parameter_names_){
+        MCMCResultTextfile(const vector<string> & parameter_names_, const string & filename): parameter_names(parameter_names_){
             outfile.open(filename.c_str(), ios_base::out | ios_base::trunc);
             if(!outfile.good()){
                 throw invalid_argument("mcmc_chain_txt: could not open file '" + filename + "' for writing.");
@@ -40,7 +40,7 @@ class MCMCChainResult{
             outfile << endl;
         }
         
-        ~MCMCChainResult(){
+        ~MCMCResultTextfile(){
             outfile.close();
         }
         
@@ -49,7 +49,37 @@ class MCMCChainResult{
         ofstream outfile;
 };
 
-void mcmc_chain_txt::produce(const Data & data, const Model & model) {
+
+class MCMCResultDatabase{
+    public:
+        MCMCResultDatabase(const vector<string> & parameter_names, Table & table_): npar(parameter_names.size()), table(table_){
+            c_weight = table.add_column("weight", typeInt);
+            for(size_t i=0; i<parameter_names.size(); ++i){
+                c_parameters.push_back(table.add_column(parameter_names[i], typeDouble));
+            }
+        }
+        
+        size_t getnpar() const{
+            return npar;
+        }
+        
+        void fill(const double * x, double, size_t n_){
+            Row r;
+            r.set_column(c_weight, (int)n_);
+            for(size_t i=0; i<c_parameters.size(); ++i){
+                r.set_column(c_parameters[i], x[i]);
+            }
+            table.add_row(r);
+        }
+        
+    private:
+        size_t npar;
+        Column c_weight;
+        vector<Column> c_parameters;
+        Table & table;
+};
+
+void mcmc_chain::produce(const Data & data, const Model & model) {
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     
     if(!init || (re_init > 0 && itoy % re_init == 0)){
@@ -70,13 +100,22 @@ void mcmc_chain_txt::produce(const Data & data, const Model & model) {
     }
     ++itoy;
     
-    stringstream ss;
-    ss << outfile_prefix << "_" << itoy << ".txt";
-    MCMCChainResult result(parameter_names, ss.str());
-    metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
+    if(database.get()){
+        stringstream ss;
+        ss << "chain_" << itoy;
+        std::auto_ptr<Table> table = database->create_table(ss.str());
+        MCMCResultDatabase result(parameter_names, *table);
+        metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
+    }
+    else{
+        stringstream ss;
+        ss << outfile_prefix << "_" << itoy << ".txt";
+        MCMCResultTextfile result(parameter_names, ss.str());
+        metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
+    }
 }
 
-string mcmc_chain_txt::construct_name(){
+string mcmc_chain::construct_name(){
     static int i = 0;
     stringstream ss;
     ss << "mcmc_chain_txt" << i;
@@ -85,10 +124,18 @@ string mcmc_chain_txt::construct_name(){
 }
 
 
-mcmc_chain_txt::mcmc_chain_txt(const theta::Configuration & cfg): Producer(cfg, construct_name()), RandomConsumer(cfg, get_name()),
+mcmc_chain::mcmc_chain(const theta::Configuration & cfg): Producer(cfg, construct_name()), RandomConsumer(cfg, get_name()),
    init(false), itoy(0), vm(cfg.pm->get<VarIdManager>()){
     Setting s = cfg.setting;
-    outfile_prefix = static_cast<string>(s["outfile_prefix"]);
+    if(s.exists("outfile_prefix")){
+        if(s.exists("output_database")){
+            throw ConfigurationException("You have to specify excatly one of the settings 'outfile_prefix', 'output_database', but found both");
+        }
+        outfile_prefix = static_cast<string>(s["outfile_prefix"]);
+    }
+    else{
+        database = PluginManager<theta::Database>::build(Configuration(cfg, s["output_database"]));
+    }
     iterations = s["iterations"];
     if(s.exists("burn-in")){
         burn_in = s["burn-in"];
@@ -101,4 +148,4 @@ mcmc_chain_txt::mcmc_chain_txt(const theta::Configuration & cfg): Producer(cfg, 
     }
 }
 
-REGISTER_PLUGIN(mcmc_chain_txt)
+REGISTER_PLUGIN(mcmc_chain)

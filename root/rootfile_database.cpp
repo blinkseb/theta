@@ -62,15 +62,17 @@ rootfile_database::rootfile_database(const Configuration & cfg): file(0){
 rootfile_database::~rootfile_database() {
     if(file){
        //write those root histos:
-       TDirectory * dir = file->mkdir("products_histograms");
-       for(size_t i=0; i<hist_infos.size(); ++i){
-           size_t nbins;
-           TH1D * root_histo = new TH1D(hist_infos[i].name.c_str(), hist_infos[i].name.c_str(), nbins = hist_infos[i].h.get_nbins(),
-                                        hist_infos[i].h.get_xmin(), hist_infos[i].h.get_xmax());
-           for(size_t ibin=0; ibin<nbins; ++ibin){
-               root_histo->SetBinContent(ibin+1, hist_infos[i].h.get(i));
-           }
-           root_histo->SetDirectory(dir);
+       if(hist_infos.size()){
+            TDirectory * dir = file->mkdir("products_histograms");
+            for(size_t i=0; i<hist_infos.size(); ++i){
+                size_t nbins;
+                TH1D * root_histo = new TH1D(hist_infos[i].name.c_str(), hist_infos[i].name.c_str(), nbins = hist_infos[i].h.get_nbins(),
+                                                hist_infos[i].h.get_xmin(), hist_infos[i].h.get_xmax());
+                for(size_t ibin=0; ibin<nbins; ++ibin){
+                    root_histo->SetBinContent(ibin+1, hist_infos[i].h.get(ibin));
+                }
+                root_histo->SetDirectory(dir);
+            }
        }
        file->Write();
        file->Close();
