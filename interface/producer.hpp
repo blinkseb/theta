@@ -49,8 +49,8 @@ public:
     const std::string & get_name() const;
     
 protected:
-    /// To be used by derived classes, to fill name and products_sink
-    explicit ProductsSource(const Configuration & cfg);
+    /// To be used by derived classes, to fill name and products_sink; if non-empty, name_ overrides the name given in the configuration (!)
+    explicit ProductsSource(const Configuration & cfg, const std::string & name_ = "");
     ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink);
     
     std::string name;
@@ -97,8 +97,10 @@ protected:
     /** \brief Construct from a Configuration instance
      *
      * Parses the settings "add-nllikelihood-functions".
+     *
+     * I name_ is non-empty, it overrides the name given in the configuration setting.
      */
-    Producer(const Configuration & cfg);
+    explicit Producer(const Configuration & cfg, const std::string & name_="");
     
     /** \brief Get the likelihood for the provided Data and Model, including the setting of \c override-parameter-distribution, if applicable
      * 

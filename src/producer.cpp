@@ -49,15 +49,21 @@ const std::string & ProductsSource::get_name() const{
 
 ProductsSource::ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink): name(name_), products_sink(sink){}
 
-ProductsSource::ProductsSource(const Configuration & cfg): name(cfg.setting["name"]){
+ProductsSource::ProductsSource(const Configuration & cfg, const std::string & name_){
     products_sink = cfg.pm->get<ProductsSink>();
+    if(name_!=""){
+        name = name_;
+    }
+    else{
+        name = static_cast<std::string>(cfg.setting["name"]);
+    }
     if(not nameOk(name)){
        throw ConfigurationException("name '" + name + "' is not a valid product name");
    }
 }
 
 
-Producer::Producer(const Configuration & cfg): ProductsSource(cfg){
+Producer::Producer(const Configuration & cfg, const std::string & name_): ProductsSource(cfg, name_){
     if(cfg.setting.exists("override-parameter-distribution")){
         override_parameter_distribution = PluginManager<Distribution>::build(Configuration(cfg, cfg.setting["override-parameter-distribution"]));
     }
