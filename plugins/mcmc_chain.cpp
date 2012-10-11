@@ -1,4 +1,4 @@
-#include "plugins/mcmc_chain_txt.hpp"
+#include "plugins/mcmc_chain.hpp"
 #include "plugins/mcmc.hpp"
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
