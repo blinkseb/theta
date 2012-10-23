@@ -5,18 +5,16 @@ using namespace theta;
 using namespace std;
 
 histo_source::histo_source(const Configuration & cfg): DataSource(cfg){
-    size_t n = cfg.setting.size();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
-    for(size_t i=0; i<n; ++i){
-        Setting s = cfg.setting[i];
-        if(not s.exists("type")) continue;
-        string obs_name = s.get_name();
-        ObsId obs_id = vm->get_obs_id(obs_name);
-        std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, s));
+    ObsIds oids = vm->get_all_observables();
+    for(ObsIds::const_iterator oit=oids.begin(); oit!=oids.end(); ++oit){
+        string obs_name = vm->get_name(*oit);
+        if(not cfg.setting.exists(obs_name)) continue;
+        std::auto_ptr<HistogramFunction> hf = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting[obs_name]));
         if(hf->get_parameters().size() > 0){
             throw ConfigurationException("histo_source: given histogram depends on parameters, which is not allowed");
         }
-        hf->apply_functor(copy_to<Histogram1D>(data[obs_id]), ParValues());
+        hf->apply_functor(copy_to<Histogram1D>(data[*oit]), ParValues());
     }
     if(cfg.setting.exists("rvobs-values")){
         ParValues rvobs_values;

@@ -69,6 +69,12 @@ std::auto_ptr<product_type> PluginManager<product_type>::build(const Configurati
                    << "' (type='" << type << "'): " << ex.message;
                throw ConfigurationException(ss.str());
            }
+           catch (std::logic_error & ex) {
+               std::stringstream ss;
+               ss << "Error while constructing plugin according to configuration path '" << ctx.setting.get_path()
+                   << "' (type='" << type << "') logic error: " << ex.what();
+               throw ConfigurationException(ss.str());
+           }
        }
     }
     if(result.get()==0){
