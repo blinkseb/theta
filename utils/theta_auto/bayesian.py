@@ -187,14 +187,17 @@ def bayesian_limits(model, what = 'all', **options):
     plot_expected, plot_observed = None, None
     if what in ('expected', 'all'):
         expected_limits = bayesian_quantiles(model, input = 'toys:0', n = n, **options)
-        plot_expected = limit_band_plot(expected_limits, True)
+        if expected_limits is not None:
+            plot_expected = limit_band_plot(expected_limits, True)
     if what in ('observed', 'all'):
         assert model.has_data()
         n = options.get('n_data', 10)
         observed_limits = bayesian_quantiles(model, input = 'data', n = n, **options)
-        plot_observed = limit_band_plot(observed_limits, False)
+        if observed_limits is not None:
+            plot_observed = limit_band_plot(observed_limits, False)
     # catch the case where the routines return None (e.g., if run_theta = False)
-    report_limit_band_plot(plot_expected, plot_observed, 'Bayesian', 'bayesian')
+    if expected_limits is not None and observed_limits is not None:
+        report_limit_band_plot(plot_expected, plot_observed, 'Bayesian', 'bayesian')
     return (plot_expected, plot_observed)
 
 
