@@ -77,7 +77,7 @@ namespace theta{
         ///@{
         /** \brief Convert the current setting to the given type
          *
-         * If the setting has not the correct type, a SettingTypeException will be thrown.
+         * If the setting has not the correct type, a ConfugurationException is thrown.
          */
         operator bool() const;
         operator std::string() const;
@@ -163,11 +163,13 @@ namespace theta{
         const SettingImplementation * impl_root;
         boost::shared_ptr<SettingImplementation> sp_impl_root;
         
+        // save the orginal name in case of links:
+        std::string original_name;
         
         boost::shared_ptr<SettingUsageRecorder> rec;
         
         static Setting resolve_link(const SettingImplementation * setting, const SettingImplementation * root, const boost::shared_ptr<SettingUsageRecorder> & rec);
-        Setting(const SettingImplementation * impl_this, const SettingImplementation * impl_root, const boost::shared_ptr<SettingUsageRecorder> & rec);
+        Setting(const SettingImplementation * impl_this, const SettingImplementation * impl_root, const boost::shared_ptr<SettingUsageRecorder> & rec, const std::string & original_name_);
     };    
     
     /// The methods are the same as in Setting.
@@ -198,13 +200,13 @@ namespace theta{
          */
         virtual bool exists(const std::string & path) const = 0;
         
-        /** return the name of the current setting.
+        /** return the name of the current setting (the key)
          * 
-         * empty string for the top-level setting
+         * empty string for the top-level setting or for lists/arrays
          */        
         virtual std::string get_name() const = 0;
         
-        /** return the path, i.e., dot-separated names in the current hierarchy
+        /** return the path, i.e., dot-separated names in the current hierarchy of keys
          */
         virtual std::string get_path() const = 0;
         

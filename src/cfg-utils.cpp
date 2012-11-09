@@ -7,8 +7,8 @@ using namespace std;
 using namespace theta;
 
 namespace{
-    std::string format_notfound(const Setting & s, const string & name){
-        return "did not find the setting at path '" + s.get_path() + "." + name + "'";
+    std::string format_error(const Setting & s, const string & name, const Exception & ex){
+        return "While accessing setting at path '" + s.get_path() + "." + name + "': " + ex.message;
     }
     
     std::string format_wrongtype(const Setting & s,  const Setting::Type & expected_type){
@@ -49,7 +49,9 @@ std::string Setting::type_to_string(const Type & type){
     throw logic_error("type_to_string internal error");
 }
 
-Setting::Setting(const SettingImplementation * impl_this_, const SettingImplementation * impl_root_, const boost::shared_ptr<SettingUsageRecorder> & rec_): impl_this(impl_this_), impl_root(impl_root_), rec(rec_){}
+Setting::Setting(const SettingImplementation * impl_this_, const SettingImplementation * impl_root_, const boost::shared_ptr<SettingUsageRecorder> & rec_, const string & original_name_):
+   impl_this(impl_this_), impl_root(impl_root_), original_name(original_name_), rec(rec_){}
+   
 Setting::Setting(std::auto_ptr<SettingImplementation> & impl_root_, const boost::shared_ptr<SettingUsageRecorder> & rec_): sp_impl_root(impl_root_), rec(rec_){
     impl_this = impl_root = sp_impl_root.get();
 }
@@ -137,6 +139,7 @@ size_t Setting::size() const{
 }
 
 Setting Setting::resolve_link(const SettingImplementation * setting, const SettingImplementation * root, const boost::shared_ptr<SettingUsageRecorder> & rec){
+    string original_name = setting->get_name();
     try{
         std::string next_path;
         //hard-code maximum redirection level of 10:
@@ -151,10 +154,10 @@ Setting Setting::resolve_link(const SettingImplementation * setting, const Setti
                     next_path.erase(0, dotpos+1);
                 }while(next_path.size());
             }
-            if(s->get_type() != Setting::TypeString) return Setting(s, root, rec);
+            if(s->get_type() != Setting::TypeString) return Setting(s, root, rec, original_name);
             std::string link = *s;
             if(link.size()==0 || link[0]!='@'){
-                return Setting(s, root, rec);
+                return Setting(s, root, rec, original_name);
             }
             link.erase(0, 1);
             next_path = link;
@@ -179,10 +182,10 @@ Setting Setting::operator[](int i) const{
         rec->markAsUsed(get_path());
         return Setting::resolve_link(&((*impl_this)[i]), impl_root, rec);
     }
-    catch(...){
+    catch(const Exception & ex){
         stringstream ss;
         ss << "[" << i << "]";
-        throw ConfigurationException(format_notfound(*this, ss.str()));
+        throw ConfigurationException(format_error(*this, ss.str(), ex));
     }
 }
 
@@ -191,8 +194,8 @@ Setting Setting::operator[](const std::string & name) const{
         rec->markAsUsed(get_path());
         return Setting::resolve_link(&((*impl_this)[name]), impl_root, rec);
     }
-    catch(...){
-        throw ConfigurationException(format_notfound(*this, name));
+    catch(const Exception & ex){
+        throw ConfigurationException(format_error(*this, name, ex));
     }
 }
 
@@ -201,6 +204,7 @@ bool Setting::exists(const std::string & path) const{
 }
 
 std::string Setting::get_name() const{
+    if(original_name != "") return original_name;
     return impl_this->get_name();
 }
 
@@ -282,7 +286,8 @@ bool LibconfigSetting::exists(const std::string & path) const{
 }
 
 std::string LibconfigSetting::get_name() const{
-    return setting->getName();
+    const char * res = setting->getName();
+    return res == 0 ? "": res;
 }
 
 std::string LibconfigSetting::get_path() const{
