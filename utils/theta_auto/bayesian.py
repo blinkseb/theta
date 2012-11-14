@@ -196,7 +196,7 @@ def bayesian_limits(model, what = 'all', **options):
         if observed_limits is not None:
             plot_observed = limit_band_plot(observed_limits, False)
     # catch the case where the routines return None (e.g., if run_theta = False)
-    if expected_limits is not None and observed_limits is not None:
+    if plot_expected is not None and plot_observed is not None:
         report_limit_band_plot(plot_expected, plot_observed, 'Bayesian', 'bayesian')
     return (plot_expected, plot_observed)
 

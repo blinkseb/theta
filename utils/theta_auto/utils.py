@@ -197,7 +197,9 @@ def data_source_dict(model, input_spec, **options):
         seed = 1
         if 'toydata_seed' in options: seed = int(options['toydata_seed'])
         result = {'type': 'model_source', 'name': 'source', 'model': '@model', 'rnd_gen': {'seed': seed}}
-        if input_spec.startswith('toys-asimov:'): result['dice_poisson'] = False
+        if input_spec.startswith('toys-asimov:'):
+            result['dice_poisson'] = False
+            result['dice_template_uncertainties'] = False
         return (result, theta_interface.delta_distribution(beta_signal = beta_signal_value))
     else: raise RuntimeError, 'data_source dict: not implemented for input = "%s"' % input_spec
 
