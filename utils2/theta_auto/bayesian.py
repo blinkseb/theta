@@ -65,18 +65,39 @@ def bayesian_limits(model, what = 'all', **options):
     report_limit_band_plot(plot_expected, plot_observed, 'Bayesian', 'bayesian')
     return (plot_expected, plot_observed)
 
-"""
+
+
 ## \brief Calculate the marginal posterior of the given parameters
 #
-#
 # histogram_specs is a dictionary of (parameter name) -> tuple(int nbins, float xmin, float max) and determines for which
-# parameters the poterior is computed on which range and binning. Note that the computational complexity is roughly
+# parameters the posterior is computed on which range and binning. Note that the computational complexity is roughly
 # proportional to nbins * mcmc_iterations. Therefore, use large values only if you have to / for the final result. It is suggested
 # to use 30 bins as a start and mcmc_iterations = 10000.
 #
-# returns a dictionary (signal process group id) --> (parameter name) -> (list of plotutil.plotdata)
-#
-# Writes the posterior plots to the report (TODO: more info ...)
+# returns a dictionary (spid) --> (parameter name) -> (list of Histogram)
+def bayesian_posteriors(model, input, n, histogram_specs, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None, smooth = True, iterations = 10000):
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    result = {}
+    parameters = sorted(histogram_specs.keys())
+    colnames = ['post__posterior_%s' % p for p in parameters]
+    for spid, signal_processes in signal_process_groups.iteritems():
+        r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
+             producers = [PosteriorProducer(model, signal_processes, nuisance_constraint, signal_prior = signal_prior, histogram_specs = histogram_specs, smooth = smooth,
+                         iterations = iterations)],
+             nuisance_prior_toys = nuisance_prior_toys)
+        r.run_theta(options)
+        res = r.get_products(colnames)
+        result[spid] = {}
+        for i, p in enumerate(parameters): result[spid][p] = map(histogram_from_dbblob, res[colnames[i]])
+    return result
+
+
+
+
+
+"""
+
 def posteriors(model, histogram_specs, input = 'data', n = 3, signal_prior = 'flat', nuisance_prior = '', signal_processes = None, mcmc_iterations = 10000, **options):
     if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
     signal_prior = signal_prior_dict(signal_prior)

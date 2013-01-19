@@ -10,23 +10,35 @@ class rootfile:
     tfiles = {}
     all_templates = {}
     
-    def __init__(self, filename):
+    def __init__(self, filename, cache_all_templates = True):
         assert os.path.isfile(filename), "File %s not found (cwd: %s)" % (filename, os.getcwd())
         self.filename = filename
+        self.cache = cache_all_templates
         if self.filename not in rootfile.tfiles: rootfile.tfiles[self.filename] = ROOT.TFile(filename, "read")
         self.tfile = rootfile.tfiles[self.filename]
         
     @staticmethod
-    def th1_to_histo(th1, include_uncertainties):
+    def th1_to_histo(th1, include_uncertainties, include_uoflow = False):
         xmin, xmax, nbins = th1.GetXaxis().GetXmin(), th1.GetXaxis().GetXmax(), th1.GetNbinsX()
-        #data = [th1.GetBinContent(i) for i in range(1, nbins+1)]
-        values = array.array('d', [th1.GetBinContent(i) for i in range(1, nbins+1)])
-        uncertainties = array.array('d', [th1.GetBinError(i) for i in range(1, nbins+1)]) if include_uncertainties else None
-        return Histogram(xmin, xmax, values, uncertainties, th1.GetName())
+        if include_uoflow:
+            binwidth = (xmax - xmin) / nbins
+            xmin -= binwidth
+            xmax += binwidth
+            nbins += 2
+            values = array.array('d', [th1.GetBinContent(i) for i in range(nbins)])
+            uncertainties = array.array('d', [th1.GetBinError(i) for i in range(nbins)]) if include_uncertainties else None
+            x_low  = [xmin] + [th1.GetBinLowEdge(i) for i in range(1, nbins)]
+        else:
+            values = array.array('d', [th1.GetBinContent(i) for i in range(1, nbins+1)])
+            uncertainties = array.array('d', [th1.GetBinError(i) for i in range(1, nbins+1)]) if include_uncertainties else None
+            x_low  = [th1.GetBinLowEdge(i) for i in range(1, nbins+1)]
+        h = Histogram(xmin, xmax, values, uncertainties, th1.GetName())
+        h.set_x_low(x_low)
+        return h
   
-    # get all templates as dictionary (histogram name) --> (float xmin, float xmax, list float data)
+    # get all templates as dictionary (histogram name) --> Histogram instance
     # only checks type of histogram, not naming convention
-    def get_all_templates(self, include_uncertainties, warn = True):
+    def get_all_templates(self, include_uncertainties, warn = True, include_uoflow = False):
         if (self.filename, include_uncertainties) in rootfile.all_templates: return rootfile.all_templates[self.filename, include_uncertainties]
         result = {}
         l = self.tfile.GetListOfKeys()
@@ -37,16 +49,23 @@ class rootfile:
                 print "WARNING: ignoring key %s in input file %s because it is of ROOT class %s, not TH1F / TH1D" % (key.GetName(), self.filename, clas)
                 continue
             th1 = key.ReadObj()
-            result[str(key.GetName())] = rootfile.th1_to_histo(th1, include_uncertainties)
+            result[str(key.GetName())] = rootfile.th1_to_histo(th1, include_uncertainties, include_uoflow = include_uoflow)
         rootfile.all_templates[self.filename, include_uncertainties] = result
         return result
         
     def get_histogram(self, hname, include_uncertainties, fail_with_exception = False):
-        if (self.filename, include_uncertainties) not in rootfile.all_templates: self.get_all_templates(include_uncertainties, False)
-        if hname not in rootfile.all_templates[(self.filename, include_uncertainties)]:
-            if fail_with_exception: raise RuntimeError, "histogram '%s' in root file '%s' not found!"
-            else: return None
-        return rootfile.all_templates[(self.filename, include_uncertainties)][hname].copy()
+        if self.cache:
+            if (self.filename, include_uncertainties) not in rootfile.all_templates: self.get_all_templates(include_uncertainties, False)
+            if hname not in rootfile.all_templates[(self.filename, include_uncertainties)]:
+                if fail_with_exception: raise RuntimeError, "histogram '%s' in root file '%s' not found!" % (hname, self.tfile.GetName())
+                else: return None
+            return rootfile.all_templates[(self.filename, include_uncertainties)][hname].copy()
+        else:
+            h = self.tfile.Get(hname)
+            if not h.Class().InheritsFrom("TH1"):
+                if fail_with_exception: raise RuntimeError, "histogram '%s' in root file '%s' not found!" % (hname, self.tfile.GetName())
+                else: return None
+            return rootfile.th1_to_histo(h, include_uncertainties)
 
 
 
@@ -96,7 +115,7 @@ def write_histograms_to_rootfile(histograms, rootfilename):
 # par_values is a dictionary (parameter name) --> (floating point value)
 #
 # If "beta_signal" is in par_values, it will be included as factor for all signal processes. Otherwise,
-# it is not mutliplied, effectively assuming beta_signal = 1.0.
+# it is not multiplied, effectively assuming beta_signal = 1.0.
 #
 # returns a dictionary
 # (observable name) --> (process name) --> (histogram)
@@ -654,6 +673,8 @@ class Histogram(object):
         self.xmax = xmax
         self.values = values
         self.name = name
+        # in case of non-equidistant binning:
+        self.x_low = None
         if uncertainties is not None: assert len(values) == len(uncertainties)
         self.uncertainties = uncertainties
         
@@ -686,6 +707,16 @@ class Histogram(object):
     def get_xmax(self): return self.xmax
     def get_nbins(self): return len(self.values)
     
+    def get_x_low(self, ibin):
+        if self.x_low is not None: return self.x_low[ibin]
+        else: return self.xmin + (self.xmax - self.xmin) / len(self.values) * ibin
+        
+    def set_x_low(self, x_low):
+        assert len(x_low) == len(self.values)
+        assert max(x_low) < self.xmax
+        self.xmin = min(x_low)
+        self.x_low = x_low
+    
     def get_cfg(self, include_error = True):
         result = {'type': 'direct_data_histo', 'range': [self.xmin, self.xmax], 'nbins': len(self.values), 'data': self.values}
         if self.uncertainties is not None and include_error: result['uncertainties'] = self.uncertainties
@@ -695,13 +726,21 @@ class Histogram(object):
     
     def copy(self):
         uncs = None if self.uncertainties is None else self.uncertainties[:]
-        return Histogram(self.xmin, self.xmax, self.values[:], uncs, self.name)
+        h = Histogram(self.xmin, self.xmax, self.values[:], uncs, self.name)
+        if self.x_low is not None:
+            h.set_x_low(self.x_low[:])
+        return h
     
-    def strip_uncertainties(self): return Histogram(self.xmin, self.xmax, self.values, None, self.name)
+    def strip_uncertainties(self):
+        h = Histogram(self.xmin, self.xmax, self.values, None, self.name)
+        if self.x_low is not None: h.set_x_low(self.x_low)
+        return h
     
     def scale(self, factor, new_name = None):
         uncs = None if self.uncertainties is None else array.array('d', [v * abs(factor) for v in self.uncertainties])
-        return Histogram(self.xmin, self.xmax, array.array('d', [v * factor for v in self.values]), uncs, new_name)
+        h = Histogram(self.xmin, self.xmax, array.array('d', [v * factor for v in self.values]), uncs, new_name)
+        if self.x_low is not None: h.set_x_low(self.x_low)
+        return h
         
     # calculate self + coeff * other_h and return the result as new Histogram (does not modify self).
     def add(self, coeff, other_h):
@@ -715,6 +754,7 @@ class Histogram(object):
         else:
             if other_h.uncertainties is None: result.uncertainties = self.uncertainties[:]
             else: result.uncertainties = array.array('d', [math.sqrt(u**2 + v**2 * coeff**2) for u,v in zip(self.uncertainties, other_h.uncertainties)])
+        if self.x_low is not None: result.set_x_low(self.x_low)
         return result
         
 
@@ -806,14 +846,14 @@ class HistogramFunction:
                 if abs(delta) > 1:
                     if delta > 0: h = self.nominal_histo.add(-1.0, self.syst_histos[p][0].strip_uncertainties())
                     else: h = self.nominal_histo.add(-1.0, self.syst_histos[p][1].strip_uncertainties())
-                    result = result.add(abs(delta), h)
+                    result = result.add(-abs(delta), h)
                 else:
                     hsum = self.syst_histos[p][0].strip_uncertainties().add(1.0, self.syst_histos[p][1].strip_uncertainties())
                     hsum = hsum.add(-2.0, self.nominal_histo)
                     hdiff = self.syst_histos[p][0].strip_uncertainties().add(-1.0, self.syst_histos[p][1])
                     diff = hdiff.scale(0.5 * delta)
                     diff = diff.add(delta**2 - 0.5 * abs(delta)**3, hsum)
-                    result = result.add(1.0, diff)
+                    result = result.add(1.0, diff.strip_uncertainties())
             for i in range(len(result[2])):
                 result[2][i] = max(0.0, result[2][i])
             if self.normalize_to_nominal: result = result.scale(self.nominal_histo.get_value_sum() / result.get_value_sum())
@@ -882,7 +922,7 @@ class Distribution:
     def set_distribution(self, par_name, typ, mean, width, range):
         assert typ in ('gauss', 'gamma')
         assert range[0] <= range[1]
-        if type(mean) != str: # otherwise, the mean is a parameter ...
+        if mean is not None and type(mean) != str: # otherwise, the mean is a parameter ...
             mean = float(mean)
             assert range[0] <= mean and mean <= range[1] and width >= 0.0
         else: assert typ == 'gauss', "using a parameter as mean is only supported for gauss"
@@ -949,7 +989,9 @@ class Distribution:
             if d['width'] == 0.0:
                 delta_dist[p] = d['mean']
             elif d['width'] == float("inf"):
-                flat_dist[p] = {'range': d['range'], 'fix-sample-value': d['mean']}
+                flat_dist[p] = {'range': d['range']}
+                if d['mean'] is not None:
+                    flat_dist[p]['fix-sample-value'] = d['mean']
             else:
                 theta_type = {'gauss': 'gauss1d', 'gamma': 'gamma_distribution'}[d['typ']]
                 result['distributions'].append({'type': theta_type, 'parameter': p, 'mean': d['mean'], 'width': d['width'], 'range': d['range']})

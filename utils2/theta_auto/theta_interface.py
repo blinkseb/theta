@@ -58,6 +58,8 @@ mcmc_iterations = 1000
 bootstrap_mcmcpars = 0
 # strategy can be 'fast' or 'robust'
 strategy = fast
+# tolerance <= 0 means to use root default.
+minuit_tolerance = -1 
        
 [cls_limits]
 clb_cutoff = 0.01
@@ -289,6 +291,22 @@ class QuantilesProducer(ProducerBase):
         result = {'type': 'mcmc_quantiles', 'parameter': self.parameter, 'quantiles': self.quantiles, 'iterations': self.iterations}
         result.update(self.get_cfg_base(options))
         return result
+        
+        
+        
+class PosteriorProducer(ProducerBase):
+    def __init__(self, model, signal_processes, override_distribution, histogram_specs, signal_prior = 'flat', name = 'post', iterations = 10000, smooth = True):
+        ProducerBase.__init__(self, model, signal_processes, override_distribution, name, signal_prior)
+        self.histogram_specs = histogram_specs
+        self.iterations = iterations
+        self.smooth = smooth
+        
+    def get_cfg(self, options):
+        result = {'type': 'mcmc_posterior_histo', 'iterations': self.iterations, 'smooth': self.smooth, 'parameters': self.histogram_specs.keys()}
+        for (p, (nbins, xmin, xmax)) in self.histogram_specs.iteritems():
+            result['histo_%s' % p] = {'range': [xmin, xmax], 'nbins': nbins}
+        result.update(self.get_cfg_base(options))
+        return result
 
 
 class PDWriter(ProducerBase):
@@ -372,7 +390,12 @@ class Minimizer(ModuleBase):
         always_mcmc = options.getboolean('minimizer', 'always_mcmc')
         mcmc_iterations = options.getint('minimizer', 'mcmc_iterations')
         strategy = options.get('minimizer', 'strategy')
-        assert strategy in ('fast', 'robust')
+        tolerance = float(options.get('minimizer', 'minuit_tolerance'))
+        assert strategy in ('fast', 'robust', 'minuit_vanilla')
+        if strategy == 'minuit_vanilla':
+            result = {'type': 'root_minuit'}
+            if tolerance > 0: result['tolerance'] = tolerance
+            return result
         minimizers = []
         #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex, more mcmc+simplex
         if not always_mcmc: minimizers.append({'type': 'root_minuit'})

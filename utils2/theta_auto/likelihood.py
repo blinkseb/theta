@@ -4,7 +4,7 @@ from utils import *
 from theta_interface import *
 import itertools
 
-def mle(model, input, n, with_error = True, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', ks = False, chi2 = False, eventid_info = False, options = None):
+def mle(model, input, n, with_error = True, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', ks = False, chi2 = False, all_columns = False, options = None, seed = None):
     """
     Find the maximum likelihood estimate for all model parameters.
     
@@ -36,7 +36,7 @@ def mle(model, input, n, with_error = True, signal_process_groups = None, nuisan
     for spid, signal_processes in signal_process_groups.iteritems():
         r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
              producers = [MleProducer(model, signal_processes, nuisance_constraint, signal_prior, need_error = with_error, ks = ks, chi2 = chi2)],
-             nuisance_prior_toys = nuisance_prior_toys)
+             nuisance_prior_toys = nuisance_prior_toys, seed = seed)
         r.run_theta(options)
         res = r.get_products()
         parameters = [m.group(1) for m in map(lambda colname: re.match('mle__(.+)_error', colname), res.keys()) if m is not None]
@@ -47,9 +47,10 @@ def mle(model, input, n, with_error = True, signal_process_groups = None, nuisan
         result[spid]['__nll'] = res['mle__nll']
         if chi2: result[spid]['__chi2'] = res['mle__pchi2']
         if ks: result[spid]['__ks'] = res['mle__ks_ts']
-        if eventid_info:
-            result[spid]['__runid'] = res['runid']
-            result[spid]['__eventid'] = res['eventid']
+        if all_columns:
+            for key in res:
+                if not key.startswith('mle__'):
+                    result[spid]['__' + key] = res[key]
     return result
 
 
@@ -165,7 +166,8 @@ def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constr
     For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys``,
     and ``options`` refer to :ref:`common_parameters`.
     
-    The return value respects the convention described in :ref:`return_values`. Specifically, this method returns a nested python dictionary with one key:
+    The return value respects the convention described in :ref:`return_values`. Specifically, this method returns a nested python dictionary with two levels;
+    the keys are:
     
     * ``spid`` - the signal process group id, i.e., a key of ``model.signal_process_groups`` (see :ref:`what_is_signal` for details)
     * "Z", "__runid", or "__eventid". The latter two are only available in case ``eventid_info = True``
