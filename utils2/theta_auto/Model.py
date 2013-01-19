@@ -910,11 +910,41 @@ class HistogramFunction:
 
     def get_parameters(self): return self.parameters
     
+
+class GaussDistribution:
+    def __init__(self, parameters, mu, covariance, ranges = None):
+        n = len(parameters)
+        assert n== len(mu) and n==len(covariance)
+        self.parameters = list(parameters)
+        self.mean = mu
+        self.covariance = covariance
+        if ranges is None:
+            self.ranges = [("-inf", "inf") for i in range(len(mu))]
+        else: self.ranges = ranges
+        
+    def get_parameters(self):
+        return self.parameters[:]
+        
+    def get_cfg(self, rpars):
+        p_to_i = {}
+        for par in rpars: p_to_i[par] = self.parameters.index(par)
+        mu = [self.mean[p_to_i[par]] for par in rpars]
+        cov = [[self.covariance[p_to_i[row_par]][p_to_i[col_par]] for col_par in rpars] for row_par in rpars]
+        ranges = [self.ranges[p_to_i[p]] for p in rpars]
+        return {'type': 'gauss', 'parameters': rpars, 'mean': mu, 'covariance': cov, 'ranges' : ranges}
+    
+    def __str__(self):
+        return 'GaussDistribution(' + str(self.parameters) + ", " + str(self.mean) + ", " + str(self.covariance) + ")"
+        
+    def rename_parameter(self, old_name, new_name):
+        if old_name not in self.parameters: return
+        self.parameters[self.parameters.index(old_name)] = new_name 
     
 # product of 1d distributions
 class Distribution:
     def __init__(self):
-        self.distributions = {} # map par_name -> dictionary with parameters 'mean', 'width', 'range', 'typ'
+        # map par_name -> dictionary with parameters 'mean', 'width', 'range', 'typ'.
+        self.distributions = {} 
     
     # supported types: 'gauss', 'gamma'
     # note that width can be infinity or 0.0 to get flat and delta distributions, resp. In this case, the

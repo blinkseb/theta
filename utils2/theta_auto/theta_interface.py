@@ -58,8 +58,7 @@ mcmc_iterations = 1000
 bootstrap_mcmcpars = 0
 # strategy can be 'fast' or 'robust'
 strategy = fast
-# tolerance <= 0 means to use root default.
-minuit_tolerance = -1 
+minuit_tolerance_factor = 1
        
 [cls_limits]
 clb_cutoff = 0.01
@@ -262,17 +261,19 @@ class ProducerBase(ModuleBase):
 class MleProducer(ProducerBase):
     # parameters_write is the list of parameters to write the mle for in the db. The default (None) means
     # to use all parameters.
-    def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'mle', need_error = True, parameters_write = None, ks = False, chi2 = False):
+    def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'mle', need_error = True, with_covariance = False, parameters_write = None, ks = False, chi2 = False):
         ProducerBase.__init__(self, model, signal_processes, override_distribution, name, signal_prior)
-        self.minimizer = Minimizer(need_error)
+        self.minimizer = Minimizer(need_error or with_covariance)
         self.add_submodule(self.minimizer)
         self.ks = ks
         self.chi2 = chi2
+        self.with_covariance = with_covariance
         if parameters_write is None: self.parameters_write = sorted(list(model.get_parameters(signal_processes, True)))
         else: self.parameters_write = sorted(list(parameters_write))
         
     def get_cfg(self, options):
         result = {'type': 'mle', 'minimizer': self.minimizer.get_cfg(options), 'parameters': list(self.parameters_write)}
+        if self.with_covariance: result['write_covariance'] = True
         if self.ks: result['write_ks_ts'] = True
         if self.chi2: result['write_pchi2'] = True
         result.update(self.get_cfg_base(options))
@@ -390,27 +391,36 @@ class Minimizer(ModuleBase):
         always_mcmc = options.getboolean('minimizer', 'always_mcmc')
         mcmc_iterations = options.getint('minimizer', 'mcmc_iterations')
         strategy = options.get('minimizer', 'strategy')
-        tolerance = float(options.get('minimizer', 'minuit_tolerance'))
+        tolerance_factor = float(options.get('minimizer', 'minuit_tolerance_factor'))
         assert strategy in ('fast', 'robust', 'minuit_vanilla')
         if strategy == 'minuit_vanilla':
             result = {'type': 'root_minuit'}
-            if tolerance > 0: result['tolerance'] = tolerance
-            return result
-        minimizers = []
-        #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex, more mcmc+simplex
-        if not always_mcmc: minimizers.append({'type': 'root_minuit'})
-        minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit'}})
-        if not always_mcmc: minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
-        minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
-        if strategy == 'robust':
-            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 50 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
-            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': 500 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
-        bootstrap_mcmcpars = options.getint('minimizer', 'bootstrap_mcmcpars')
-        if bootstrap_mcmcpars > 0:
-            for m in minimizers:
-                if m['type'] == 'mcmc_minimizer': m['bootstrap_mcmcpars'] = bootstrap_mcmcpars
-        result = {'type': 'minimizer_chain', 'minimizers': minimizers}
-        if self.need_error: result['last_minimizer'] = {'type': 'root_minuit'}
+        else:
+            minimizers = []
+            #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex, more mcmc+simplex
+            if not always_mcmc: minimizers.append({'type': 'root_minuit'})
+            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit'}})
+            if not always_mcmc: minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
+            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+            if strategy == 'robust':
+                minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min2', 'iterations': 50 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+                minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min3', 'iterations': 500 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+            bootstrap_mcmcpars = options.getint('minimizer', 'bootstrap_mcmcpars')
+            if bootstrap_mcmcpars > 0:
+                for m in minimizers:
+                    if m['type'] == 'mcmc_minimizer': m['bootstrap_mcmcpars'] = bootstrap_mcmcpars
+            result = {'type': 'minimizer_chain', 'minimizers': minimizers}
+            if self.need_error: result['last_minimizer'] = {'type': 'root_minuit'}
+            
+        def apply_tolfactor(d):
+            if type(d) in (list, tuple):
+                for v in d: apply_tolfactor(v)
+                return
+            if type(d)==dict:
+                if 'type' in d and d['type'] == 'root_minuit': d['tolerance_factor'] = tolerance_factor
+                for key, value in d.iteritems():
+                    apply_tolfactor(value)
+        if tolerance_factor != 1: apply_tolfactor(result)
         return result
 
 
@@ -766,6 +776,11 @@ def histogram_from_dbblob(blob_data):
     a = array.array('d')
     a.fromstring(blob_data)
     return Histogram(xmin = a[0], xmax = a[1], values = a[3:-1])
+    
+def matrix_from_dbblob(blob_data):
+    n = int(math.sqrt(len(blob_data) / 8 - 4) + 0.4)
+    assert (n*n + 4) * 8 == len(blob_data)
+    return numpy.ndarray(shape = (n, n), buffer = blob_data[3*8:-8])
 
 """
 # a float result from a theta .db file. It saves internally not only the float value but also the runid and eventid associated to it.

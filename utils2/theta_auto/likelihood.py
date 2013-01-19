@@ -4,7 +4,7 @@ from utils import *
 from theta_interface import *
 import itertools
 
-def mle(model, input, n, with_error = True, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', ks = False, chi2 = False, all_columns = False, options = None, seed = None):
+def mle(model, input, n, with_error = True, with_covariance = False, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', ks = False, chi2 = False, eventid_info = False, options = None):
     """
     Find the maximum likelihood estimate for all model parameters.
     
@@ -12,14 +12,15 @@ def mle(model, input, n, with_error = True, signal_process_groups = None, nuisan
     
     Parameters:
     
-    * ``with_error`` if ``True``, return the uncertainty for each parameter, as determined by migrad. If you do not need the uncertainty, you can set this to ``False`` which can increase speed and robustness of the minimizer.
+    * ``with_error`` if ``True``, return the uncertainty for each parameter, as determined by migrad. If you do not need the uncertainty, you can set this to ``False`` which can
+      increase speed and robustness of the minimizer.
+    * ``with_covariance`` if ``True``, return the uncertainty for each parameter, as determined by migrad. If you do not need the uncertainty, you can set this to ``False`` which can
+      increase speed and robustness of the minimizer.
     * ``ks`` - calculate the Kolmogorov-Smirnov test statistic for each toy *after* the fit has run. Note that the ks test statistic will use the maximum value of all ks values
       over all channels which sometimes is not what you want. To access the ks test values, use ``key = "__ks"`` (see below).
     * ``chi2`` - calculate the chi-square test statistic for each toy *after* the fit has run; the chi-square value is generalized for Poisson statistics and is twice the logarithm
       of the Poisson likelihood ratio in each bin, using the model prediction and the observed data in the numerator and denominator for this ratio. This chi-square value is summed
       over all bin in all channels. To access the chi-square test values, use ``key = "__chi2"`` (see below).
-      
-      
     
     The return value respects the convention described in :ref:`return_values`. Specifically, this method returns a nested python dictionary with the following keys, in this order:
     
@@ -35,7 +36,7 @@ def mle(model, input, n, with_error = True, signal_process_groups = None, nuisan
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
         r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
-             producers = [MleProducer(model, signal_processes, nuisance_constraint, signal_prior, need_error = with_error, ks = ks, chi2 = chi2)],
+             producers = [MleProducer(model, signal_processes, nuisance_constraint, signal_prior, need_error = with_error, with_covariance = with_covariance, ks = ks, chi2 = chi2)],
              nuisance_prior_toys = nuisance_prior_toys, seed = seed)
         r.run_theta(options)
         res = r.get_products()
@@ -45,6 +46,7 @@ def mle(model, input, n, with_error = True, signal_process_groups = None, nuisan
             if not with_error: result[spid][p] = list(itertools.izip_longest(res['mle__%s' % p], []))
             else: result[spid][p] = zip(res['mle__%s' % p], res['mle__%s_error' % p])
         result[spid]['__nll'] = res['mle__nll']
+        if with_covariance: result[spid]['__cov'] = res['mle__covariance']
         if chi2: result[spid]['__chi2'] = res['mle__pchi2']
         if ks: result[spid]['__ks'] = res['mle__ks_ts']
         if all_columns:

@@ -49,7 +49,7 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     // when calling SetFixedVariable(...).
     //Using a "new" one every time seems very wastefull, but it seems to work ...
     std::auto_ptr<ROOT::Minuit2::Minuit2Minimizer> min(new ROOT::Minuit2::Minuit2Minimizer(type));
-    min->SetPrintLevel(printlevel);
+    //min->SetPrintLevel(0);
     if(max_function_calls > 0) min->SetMaxFunctionCalls(max_function_calls);
     if(max_iterations > 0) min->SetMaxIterations(max_iterations);
     MinimizationResult result;
@@ -100,7 +100,7 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     min->SetFunction(minuit_f);
 
     //3. setup tolerance
-    min->SetTolerance(tolerance);
+    min->SetTolerance(tolerance_factor * min->Tolerance());
     //3.a. error definition. Unfortunately, SetErrorDef in ROOT is not documented, so I had to guess.
     // 0.5 seems to work somehow.
     min->SetErrorDef(0.5);
@@ -173,12 +173,9 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     return result;
 }
 
-root_minuit::root_minuit(const Configuration & cfg): tolerance(1e-6), printlevel(0),
+root_minuit::root_minuit(const Configuration & cfg): tolerance_factor(1),
         max_iterations(0), max_function_calls(0), n_retries(2) {
        gErrorIgnoreLevel = kFatal + 1;
-       if(cfg.setting.exists("printlevel")){
-           printlevel = cfg.setting["printlevel"];
-       }
        if(cfg.setting.exists("max_iterations")){
           max_iterations = cfg.setting["max_iterations"];
        }
@@ -203,8 +200,11 @@ root_minuit::root_minuit(const Configuration & cfg): tolerance(1e-6), printlevel
            s << "invalid method '" << method << "' (allowed are only 'migrad' and 'simplex')";
            throw ConfigurationException(s.str());
        }       
-       if(cfg.setting.exists("tolerance")){
-           tolerance = cfg.setting["tolerance"];
+       if(cfg.setting.exists("tolerance_factor")){
+           tolerance_factor = cfg.setting["tolerance_factor"];
+           if(tolerance_factor <= 0){
+               throw ConfigurationException("tolerance_factor is <= 0.0; this is not allowed");
+           }
        }
    }
 
