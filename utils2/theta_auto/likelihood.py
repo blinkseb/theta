@@ -4,7 +4,8 @@ from utils import *
 from theta_interface import *
 import itertools
 
-def mle(model, input, n, with_error = True, with_covariance = False, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', ks = False, chi2 = False, eventid_info = False, options = None):
+def mle(model, input, n, with_error = True, with_covariance = False, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None,
+ signal_prior = 'flat', ks = False, chi2 = False, all_columns = False, options = None):
     """
     Find the maximum likelihood estimate for all model parameters.
     
@@ -37,7 +38,7 @@ def mle(model, input, n, with_error = True, with_covariance = False, signal_proc
     for spid, signal_processes in signal_process_groups.iteritems():
         r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
              producers = [MleProducer(model, signal_processes, nuisance_constraint, signal_prior, need_error = with_error, with_covariance = with_covariance, ks = ks, chi2 = chi2)],
-             nuisance_prior_toys = nuisance_prior_toys, seed = seed)
+             nuisance_prior_toys = nuisance_prior_toys)
         r.run_theta(options)
         res = r.get_products()
         parameters = [m.group(1) for m in map(lambda colname: re.match('mle__(.+)_error', colname), res.keys()) if m is not None]

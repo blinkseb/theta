@@ -89,7 +89,7 @@ class ModuleBase:
             plugins.update(m.get_required_plugins(options))
         return plugins
         
-    # decalre module to be a submodule of the current module. This is used to track plugin
+    # declare module to be a submodule of the current module. This is used to track plugin
     # dependencies.
     def add_submodule(self, module):
         self.submodules.append(module)
@@ -385,16 +385,33 @@ class Minimizer(ModuleBase):
     def __init__(self, need_error):
         ModuleBase.__init__(self)
         self.need_error = need_error
-        self.required_plugins = frozenset(['core-plugins.so', 'root.so'])
+        
+    def get_required_plugins(self, options):
+        plugins = set(['core-plugins.so'])
+        strategy = options.get('minimizer', 'strategy')
+        if strategy == 'simplex_vanilla':  plugins.add('simplex.so')
+        elif strategy == 'lbfgs_vanilla': plugins.add('liblbfgs.so')
+        else: plugins.add('root.so')
+        return plugins
+        
     
     def get_cfg(self, options):
         always_mcmc = options.getboolean('minimizer', 'always_mcmc')
         mcmc_iterations = options.getint('minimizer', 'mcmc_iterations')
         strategy = options.get('minimizer', 'strategy')
-        tolerance_factor = float(options.get('minimizer', 'minuit_tolerance_factor'))
-        assert strategy in ('fast', 'robust', 'minuit_vanilla')
+        tolerance_factor = options.getfloat('minimizer', 'minuit_tolerance_factor')
+        assert strategy in ('fast', 'robust', 'minuit_vanilla', 'simplex_vanilla', 'lbfgs_vanilla')
         if strategy == 'minuit_vanilla':
             result = {'type': 'root_minuit'}
+        elif strategy == 'simplex_vanilla':
+            result = {'type': 'simplex_minimizer'}
+            #result['max_iter'] = '100000'
+            #result = {'type': "minimizer_chain", 'minimizers': [{'type': "mcmc_minimizer", 'iterations': 1000, 'bootstrap_mcmcpars': 2, 'name': "mcmc_min0"}],
+            #    'last_minimizer': result}
+            return result
+        elif strategy == 'lbfgs_vanilla':
+            result = {'type': 'lbfgs_minimizer'}
+            return result
         else:
             minimizers = []
             #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex, more mcmc+simplex
@@ -781,15 +798,3 @@ def matrix_from_dbblob(blob_data):
     n = int(math.sqrt(len(blob_data) / 8 - 4) + 0.4)
     assert (n*n + 4) * 8 == len(blob_data)
     return numpy.ndarray(shape = (n, n), buffer = blob_data[3*8:-8])
-
-"""
-# a float result from a theta .db file. It saves internally not only the float value but also the runid and eventid associated to it.
-class fresult(object):
-    __slots__ = ['value', 'runid', 'eventid']
-    def __init__(self, value, runid, eventid):
-        self.value = value
-        self.runid = runid
-        self.eventid = eventid
-        
-    def __float__(self): return self.value
-"""
