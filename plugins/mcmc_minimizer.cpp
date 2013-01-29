@@ -62,13 +62,20 @@ MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues 
     }
     for (int i = 0; i < bootstrap_mcmcpars; i++) {
         Result res(n);
-        metropolisHastings(f, res, *rnd_gen, v_start, sqrt_cov, iterations, burn_in);
+        metropolisHastings(f, res, *rnd_gen, v_start, sqrt_cov, iterations, burn_in, true);
+        if(res.getCount() < iterations / 2) {
+            throw MinimizationException("during mcmcpars bootstrapping: more than 50% of the chain is infinite!");
+        }
         v_start = res.getMeans();
         Matrix cov = res.getCov();
         get_cholesky(cov, sqrt_cov);
     }
     
     MCMCMinResult result(n, pids);
+    double first_nll = f(&v_start[0]);
+    if(!std::isfinite(first_nll)){
+        throw MinimizationException("first nll value was not finite");
+    }
     metropolisHastings(f, result, *rnd_gen, v_start, sqrt_cov, iterations, burn_in);
     //now step 2: call the after_minimizer:
     const ParValues & start2 = result.values_at_minimum();

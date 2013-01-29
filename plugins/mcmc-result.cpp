@@ -7,10 +7,11 @@
 using namespace theta;
 
 Result::Result(size_t n) :
-    npar(n), count(0), count_different_points(0), means(n), count_covariance(n, n) {
+    npar(n), count(0), count_different_points(0), means(n, 0.0), count_covariance(n, n) {
 }
 
 void Result::fill(const double * p, double nll, size_t weight){
+    if(!std::isfinite(nll)) return;
     //factor for the covariance ...
     double factor = count * 1.0 / (count + 1);
     for(size_t i=1; i<weight; ++i){

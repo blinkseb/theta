@@ -39,7 +39,7 @@ namespace theta {
  */
 template<class resulttype>
 void metropolisHastings(const Function & nllikelihood, resulttype &res, Random & rand,
-        const std::vector<double> & startvalues, const Matrix & sqrt_cov, size_t iterations, size_t burn_in) {    
+        const std::vector<double> & startvalues, const Matrix & sqrt_cov, size_t iterations, size_t burn_in, bool ignore_inf_nll = false) {    
     const size_t npar = startvalues.size();
     if(npar != sqrt_cov.get_n_rows() || npar!=sqrt_cov.get_n_cols() || npar!=nllikelihood.get_parameters().size() || npar!=res.getnpar())
         throw std::invalid_argument("metropolisHastings: dimension/size of arguments mismatch");
@@ -69,7 +69,8 @@ void metropolisHastings(const Function & nllikelihood, resulttype &res, Random &
     //set the starting point:
     std::copy(startvalues.begin(), startvalues.end(), &x[0]);
     double nll = nllikelihood(x.get());
-    theta_assert(std::isfinite(nll)); // if theta fails here, it means that the likelihood function at the start values was inf or NAN.
+    if(!std::isfinite(nll) and not ignore_inf_nll) throw Exception("first nll value was inf");
+    // if this exception is thrown, it means that the likelihood function at the start values was inf or NAN.
     // One common reason for this is that the model produces a zero prediction in some bin where there is >0 data which should
     // be avoided by the model (e.g., by filling in some small number in all bins with content zero).
 

@@ -18,6 +18,12 @@ MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues
             // if this was the last attempt: re-throw, otherwise silently ignore and try the next minimizer ...
             if(i+1==minimizers.size()) throw;
         }
+        catch(std::logic_error & ex){
+            stringstream ss;
+            ss << ex.what();
+            ss << " (in minimizer_chain, minimizer " << i << ")";
+            throw logic_error(ss.str());
+        }
         if(success) break;
     }
     if(last_minimizer.get()){
@@ -28,7 +34,7 @@ MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues
             if(res.errors_plus.contains(*it)){
                 double width = res.errors_plus.get(*it);
                 if(width > 0){
-                step2.set(*it, width);
+                    step2.set(*it, width);
                 }
             }
         }

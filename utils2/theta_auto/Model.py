@@ -8,12 +8,12 @@ import utils
 class rootfile:
     # these are caching dictionaries indexing by filename
     tfiles = {}
-    all_templates = {}
+    #all_templates = {}
     
-    def __init__(self, filename, cache_all_templates = True):
+    def __init__(self, filename):
         assert os.path.isfile(filename), "File %s not found (cwd: %s)" % (filename, os.getcwd())
         self.filename = filename
-        self.cache = cache_all_templates
+        #self.cache = cache_all_templates
         if self.filename not in rootfile.tfiles: rootfile.tfiles[self.filename] = ROOT.TFile(filename, "read")
         self.tfile = rootfile.tfiles[self.filename]
         
@@ -39,7 +39,7 @@ class rootfile:
     # get all templates as dictionary (histogram name) --> Histogram instance
     # only checks type of histogram, not naming convention
     def get_all_templates(self, include_uncertainties, warn = True, include_uoflow = False):
-        if (self.filename, include_uncertainties) in rootfile.all_templates: return rootfile.all_templates[self.filename, include_uncertainties]
+        #if (self.filename, include_uncertainties) in rootfile.all_templates: return rootfile.all_templates[self.filename, include_uncertainties]
         result = {}
         l = self.tfile.GetListOfKeys()
         for key in l:
@@ -50,10 +50,13 @@ class rootfile:
                 continue
             th1 = key.ReadObj()
             result[str(key.GetName())] = rootfile.th1_to_histo(th1, include_uncertainties, include_uoflow = include_uoflow)
-        rootfile.all_templates[self.filename, include_uncertainties] = result
+        #rootfile.all_templates[self.filename, include_uncertainties] = result
         return result
         
+    def get_filename(self): return self.filename
+        
     def get_histogram(self, hname, include_uncertainties, fail_with_exception = False):
+        """
         if self.cache:
             if (self.filename, include_uncertainties) not in rootfile.all_templates: self.get_all_templates(include_uncertainties, False)
             if hname not in rootfile.all_templates[(self.filename, include_uncertainties)]:
@@ -61,11 +64,12 @@ class rootfile:
                 else: return None
             return rootfile.all_templates[(self.filename, include_uncertainties)][hname].copy()
         else:
-            h = self.tfile.Get(hname)
-            if not h.Class().InheritsFrom("TH1"):
-                if fail_with_exception: raise RuntimeError, "histogram '%s' in root file '%s' not found!" % (hname, self.tfile.GetName())
-                else: return None
-            return rootfile.th1_to_histo(h, include_uncertainties)
+        """
+        h = self.tfile.Get(hname)
+        if not h.Class().InheritsFrom("TH1"):
+            if fail_with_exception: raise RuntimeError, "histogram '%s' in root file '%s' not found!" % (hname, self.tfile.GetName())
+            else: return None
+        return rootfile.th1_to_histo(h, include_uncertainties)
 
 
 
@@ -193,6 +197,15 @@ class Model(utils.Copyable):
         assert obs in self.observables
         self.observables[obs] = (xmin, xmax, nbins)
     
+    def rename_observable(self, current_name, new_name):
+        assert current_name in self.observables
+        self.observables[new_name] = self.observables[current_name]
+        del self.observables[current_name]
+        self.observable_to_pred[new_name] = self.observable_to_pred[current_name]
+        del self.observable_to_pred[current_name]
+        if current_name in self.data_histos:
+            self.data_histos[new_name] = self.data_histos[current_name]
+            del self.data_histos[current_name]
     
     def combine(self, other_model, strict=True):
         """
@@ -206,10 +219,18 @@ class Model(utils.Copyable):
     
         For shared nuisance parameters, the prior for self.distribution and other.distribution must be identical.
         """
-        assert len(set(self.observables.keys()).intersection(set(other_model.observables.keys())))==0, "models to be combined share observables, but they must not!"
+        my_obs = set(self.observables.keys())
+        other_obs = set(other_model.observables.keys())
+        if len(my_obs.intersection(other_obs))!=0:
+            print "models to be combined share observables, but they must not!"
+            print "shared observables: ", my_obs.intersection(other_obs)
+            raise RuntimeError, "models share observables"
         if strict:
             assert self.signal_processes == other_model.signal_processes, "signal processes not equal: left-right=%s; right-left=%s;" \
                        % (str(self.signal_processes.difference(other_model.signal_processes)), str(other_model.signal_processes.difference(self.signal_processes)))
+        else:
+            self.signal_processes.update(other_model.signal_processes)
+            self.signal_process_groups.update(other_model.signal_process_groups)
         self.distribution = Distribution.merge(self.distribution, other_model.distribution, False)
         self.rvobs_distribution = Distribution.merge(self.rvobs_distribution, other_model.rvobs_distribution, False)
         self.observables.update(other_model.observables)
@@ -320,6 +341,10 @@ class Model(utils.Copyable):
     def get_processes(self, obsname):
         return self.observable_to_pred[obsname].keys()
         
+        
+    def get_signal_processes(self):
+        return set(self.signal_processes)
+        
     def get_histogram_function(self, obsname, procname):
         if procname not in self.observable_to_pred[obsname]: return None
         return self.observable_to_pred[obsname][procname]['histogram']
@@ -419,7 +444,7 @@ class Model(utils.Copyable):
         ``groups`` is a dictionary (id) --> (list of processes), see :ref:`what_is_signal`.
         """
         for spid in groups:
-            for p in groups[p]: assert type(p)==str and p in self.processes, "unknown process '%s'" % p
+            for p in groups[spid]: assert type(p)==str and p in self.processes, "unknown process '%s'" % p
         self.signal_processes = set()
         for spid in groups:
             self.signal_processes.update(groups[spid])
