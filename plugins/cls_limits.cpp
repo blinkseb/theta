@@ -12,7 +12,7 @@
 #include "interface/model.hpp"
 #include "interface/distribution.hpp"
 #include "interface/random-utils.hpp"
-#include "plugins/asimov_likelihood_widths.hpp"
+#include "interface/asimov-utils.hpp"
 
 #include <fstream>
 #include <iomanip>
@@ -20,9 +20,6 @@
 
 using namespace std;
 using namespace theta;
-
-using boost::shared_ptr;
-
 
 // runid conventions for the products tables:
 // * runid = 0 is used to calculate the ts values for the current dataset; the eventid is set to idata
@@ -174,7 +171,7 @@ private:
     // for the maximum likelihood fit:
     bool start_step_ranges_init;
     theta::ParValues start, step;
-    std::map<theta::ParId, std::pair<double, double> > ranges;
+    theta::Ranges ranges;
 };
 
 // contains the (numerically derived) cls values and uncertainties as function of the truth value for a fixed ts value.
@@ -295,9 +292,6 @@ public:
         double ts_b_width = get_quantile(truth_to_ts_b, truth, 0.84) - get_quantile(truth_to_ts_b, truth, 0.16);
         // this is a 5sigma cutoff ...
         double ts_diff_cutoff = 2.5 * max(ts_b_width + ts_epsilon, ts_sb_width + ts_epsilon);
-        /*theta::cout << "ts medians: " << ts_sb_median << "; " << ts_b_median << endl;
-        theta::cout << "ts diff cutoff: " << ts_diff_cutoff << endl;
-        theta::cout << "ts value: " << ts_value << endl;*/
         return fabs(ts_value - ts_sb_median) > ts_diff_cutoff && fabs(ts_value - ts_b_median) > ts_diff_cutoff;
     }
     
@@ -515,8 +509,9 @@ void data_filler::fill(Data & dat){
             std::auto_ptr<NLLikelihood> nll = model->get_nllikelihood(real_data);
             if(not start_step_ranges_init){
                 const Distribution & d = nll->get_parameter_distribution();
-                fill_mode_support(start, ranges, d);
-                step.set(asimov_likelihood_widths(*model, boost::shared_ptr<theta::Distribution>(), boost::shared_ptr<theta::Function>()));
+                d.mode(start);
+                ranges.set_from(d);
+                step.set(asimov_likelihood_widths(*model, boost::shared_ptr<theta::Distribution>()));
                 step.set(truth_parameter, 0.0);
                 start_step_ranges_init = true;
             }
@@ -538,7 +533,7 @@ void data_filler::fill(Data & dat){
                 }
             }
             mystart.set(truth_parameter, truth_value);
-            ranges[truth_parameter] = make_pair(truth_value, truth_value);
+            ranges.set(truth_parameter, make_pair(truth_value, truth_value));
             try{
                 MinimizationResult minres = minimizer->minimize(*nll, mystart, step, ranges);
                 truth_to_nuisancevalues[truth_value].set(minres.values);
@@ -1121,8 +1116,8 @@ void cls_limits::run_set_limits(){
     debug_out << "tol_cls = " << tol_cls << ".\n";
     // 0. determine signal width
     double signal_width = limit_hint.second - limit_hint.first;
-    if(!isfinite(limit_hint.first) || !isfinite(limit_hint.second)){
-        ParValues widths = asimov_likelihood_widths(*model, shared_ptr<Distribution>(), shared_ptr<Function>());
+    if(!std::isfinite(limit_hint.first) || !std::isfinite(limit_hint.second)){
+        ParValues widths = asimov_likelihood_widths(*model, boost::shared_ptr<Distribution>());
         signal_width = widths.get(truth_parameter);
         debug_out << "signal_width = " << signal_width << "\n";
         if(signal_width <= 0.0){
@@ -1139,7 +1134,7 @@ void cls_limits::run_set_limits(){
     // only by a very small amount).
     // truth0 is a guess for a 'high' truth value, which should be in about the right region of the limit.
     double truth0 = 2 * signal_width;
-    if(isfinite(limit_hint.second)) truth0 = max(truth0, limit_hint.second);
+    if(std::isfinite(limit_hint.second)) truth0 = max(truth0, limit_hint.second);
     run_single_truth(truth0, false, 200);
     run_single_truth(truth0, true, 200);
     const double ts_epsilon = fabs(tts->get_ts_b_quantile(truth0, 0.68) - tts->get_ts_b_quantile(truth0, 0.16)) * 1e-3;
@@ -1223,7 +1218,7 @@ void cls_limits::run_set_limits(){
                 i_high = seed.second;
                 debug_out << "proposed fit interval: " << data.truth_values()[i_low] << "--" << data.truth_values()[i_high] << "\n";
                 // 1.b. make sure that fit range includes latest fit (if it converged ...):
-                if(!isnan(latest_res.limit) && (latest_res.limit < data.truth_values()[i_low] || latest_res.limit > data.truth_values()[i_high])){
+                if(!std::isnan(latest_res.limit) && (latest_res.limit < data.truth_values()[i_low] || latest_res.limit > data.truth_values()[i_high])){
                     debug_out << "WARNING: latest fitted limit (" << latest_res.limit << ") not contained in proposed fit interval, making fit interval larger\n";
                     while(latest_res.limit < data.truth_values()[i_low] && i_low > 0){
                         --i_low;
@@ -1238,7 +1233,7 @@ void cls_limits::run_set_limits(){
                 truth_high = data.truth_values()[i_high];
                 // 2. make the fit
                 latest_res = fitexp(data, 1 - cl, pars, truth_low, truth_high, debug_out);
-                if(isnan(latest_res.limit)){
+                if(std::isnan(latest_res.limit)){
                     debug_out << "exp fit did not work; fill in some random point in fitted interval, with large error\n";
                     // u is a uniform random number between 0 and 1. Details don't play a role here, so just hard code a linear
                     // congruent generator using i+17 as seed:
@@ -1280,7 +1275,7 @@ void cls_limits::run_set_limits(){
                         min_diff = fabs(t - next_truth0);
                     }
                 }
-                if(!isinf(min_diff)){
+                if(!std::isinf(min_diff)){
                     debug_out << "rounded next truth value to existing point " << next_truth << "\n";
                     flush(debug_out);
                 }

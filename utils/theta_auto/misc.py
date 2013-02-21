@@ -18,8 +18,6 @@ class ProducerBase:
             if model.additional_nll_term is not None:
                 parameters.update(model.additional_nll_term.get_parameters())
             result['override-parameter-distribution'] = self.override_parameter_distribution.get_cfg(parameters)
-        if model.additional_nll_term is not None:
-            result['additional-nll-term'] = model.additional_nll_term.get_cfg()
         return result
     
     def __init__(self, parameter_dist, name):
@@ -34,7 +32,7 @@ class MleProducer(ProducerBase):
     # parameters_write is the list of parameters to write the mle for in the db. The default (None) means
     # to use all parameters.
     def get_cfg(self, model, signal_processes, parameters_write = None, **options):
-        model_parameters = model.get_parameters(signal_processes, True)
+        model_parameters = model.get_parameters(signal_processes)
         if parameters_write is None: parameters_write = model_parameters
         result = {'type': 'mle', 'minimizer': minimizer(**options), 'parameters': list(parameters_write)}
         result.update(self.get_cfg_base(model, signal_processes))
@@ -137,7 +135,6 @@ def signal_prior_dist(spec):
 # TODO: does not support rvobservables fully
 def write_cfg2(main, model, signal_processes, method, input, id = None, **options):
     all_parameters = model.get_parameters(signal_processes)
-    if model.additional_nll_term is not None: all_parameters.update(model.additional_nll_term.get_parameters())
     all_parameters = sorted(list(all_parameters))
     rvobservables = model.rvobs_distribution.get_parameters()
     theta_cfg = "parameters = " + settingvalue_to_cfg(all_parameters, 0, ['parameters']) + ";\n"
@@ -189,7 +186,7 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
     result_table = Report.table()
     result_table.add_column('process', 'signal process')
     
-    nuisance_parameters = sorted(list(model.get_parameters('', True)))
+    nuisance_parameters = sorted(list(model.get_parameters('')))
     for p in nuisance_parameters:
         suffix = ''
         if nuisance_constraint.get_distribution(p)['width'] == 0.0: suffix = ' (fixed)'
@@ -203,7 +200,7 @@ def ml_fit2(model, input = 'data', signal_prior = 'flat', nuisance_constraint = 
         method, sp_id, dummy = name.split('-',2)
         result[sp_id] = {}
         result_table.set_column('process', sp_id)
-        parameters = set(model.get_parameters(sp, True))
+        parameters = set(model.get_parameters(sp))
         sqlfile = os.path.join(cachedir, '%s.db' % name)
         cols = ['mle__%s, mle__%s_error' % (p, p) for p in parameters]
         data = sql(sqlfile, 'select %s from products' % ', '.join(cols))
@@ -652,6 +649,7 @@ def pl_intervals(model, input = 'toys:0', n = 100, signal_prior = 'flat', nuisan
             colnames.append('pli__lower%s' % cs)
             colnames.append('pli__upper%s' % cs)
         data = sql(sqlfile, 'select pli__maxl, %s from products' % (', '.join(colnames)))
+        if len(data)==0: raise RuntimeError, "no result (fit not coverged?)"
         first_row = True
         for row in data:
             result[sp_id]['mle'].append(row[0])

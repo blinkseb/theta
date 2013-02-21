@@ -27,7 +27,7 @@ public:
      * \param rows The number of rows.
      * \param cols The number of columns.
      * */
-    Matrix(size_t rows = 0, size_t cols = 0);
+    explicit Matrix(size_t rows = 0, size_t cols = 0);
 
 
     /** \brief resize and clear the matrix.

@@ -17,19 +17,19 @@ llvm_multiply::llvm_multiply(const Configuration & cfg): literal_factor(1.0){
     size_t n = cfg.setting["factors"].size();
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<n; ++i){
-        libconfig::Setting::Type t = cfg.setting["factors"][i].get_type();
-        if(t==libconfig::Setting::TypeFloat){
+        Setting::Type t = cfg.setting["factors"][i].get_type();
+        if(t==Setting::TypeFloat){
             literal_factor *= static_cast<double>(cfg.setting["factors"][i]);
         }
-        else if(t==libconfig::Setting::TypeString){
+        else if(t==Setting::TypeString){
            ParId pid = vm->get_par_id(cfg.setting["factors"][i]);
            v_pids.push_back(pid);
            par_ids.insert(pid);
         }
-        else if(t==libconfig::Setting::TypeGroup){
+        else if(t==Setting::TypeGroup){
             std::auto_ptr<Function> f = PluginManager<Function>::build(Configuration(cfg, cfg.setting["factors"][i]));
             const ParIds & f_p = f->get_parameters();
-            par_ids.insert(f_p.begin(), f_p.end());
+            par_ids.insert_all(f_p);
             functions.push_back(f);
         }
         else{
@@ -58,15 +58,14 @@ llvm::Function * llvm_multiply::llvm_codegen(llvm_module & mod, const std::strin
     IRBuilder<> Builder(context);
     BasicBlock * BB = BasicBlock::Create(context, "entry", F);
     Builder.SetInsertPoint(BB);
-    const Type * double_t = Type::getDoubleTy(context);
-    const Type * i32_t = Type::getInt32Ty(context);
+    Type * double_t = Type::getDoubleTy(context);
+    Type * i32_t = Type::getInt32Ty(context);
     Value * val0 = Builder.CreateFAdd(ConstantFP::get(double_t, literal_factor), ConstantFP::get(double_t, 0.0));
     Value * last_value = val0;
     Value * p_par_values = F->arg_begin();
     for(size_t i=0; i<v_pids.size(); ++i){
         unsigned int pindex = mod.get_index(v_pids[i]);
-        Constant * index = ConstantInt::get(i32_t, pindex);
-        GetElementPtrInst* p_parameter_value = GetElementPtrInst::Create(p_par_values, index, "", BB);
+        Value * p_parameter_value = Builder.CreateGEP(p_par_values, ConstantInt::get(i32_t, pindex));
         Value * parameter_value = Builder.CreateLoad(p_parameter_value);
         last_value = Builder.CreateFMul(last_value, parameter_value);
     }
@@ -74,7 +73,6 @@ llvm::Function * llvm_multiply::llvm_codegen(llvm_module & mod, const std::strin
         stringstream ss_prefix;
         ss_prefix << prefix << "_f" << i;
         llvm::Function * f = create_llvm_function(&functions[i], mod, ss_prefix.str());
-        set_private_inline(f);
         Value * f_factor = Builder.CreateCall(f, p_par_values);
         last_value = Builder.CreateFMul(last_value, f_factor);
     }

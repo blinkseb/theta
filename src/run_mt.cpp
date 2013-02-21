@@ -6,6 +6,7 @@
 #include "interface/plugin.hpp"
 #include "interface/toymaker.hpp"
 #include "interface/atomic.hpp"
+#include "interface/redirect_stdio.hpp"
 
 #include <iomanip>
 #include <iostream>
@@ -90,14 +91,14 @@ void run_mt::run(){
     if(log_report){
         const int* n_messages = logtable->get_n_messages();
         LogTable::e_severity s = logtable->get_loglevel();
-        std::cout << std::endl << std::endl << "Log report:" << std::endl;
-        std::cout << "  errors:   " << std::setw(6) << n_messages[0] << std::endl;
+        theta::out << std::endl << std::endl << "Log report:" << std::endl;
+        theta::out << "  errors:   " << std::setw(6) << n_messages[0] << std::endl;
         if(s > 0)
-            std::cout << "  warnings: " << std::setw(6) << n_messages[1] << std::endl;
+            theta::out << "  warnings: " << std::setw(6) << n_messages[1] << std::endl;
         if(s > 1)
-            std::cout << "  infos:    " << std::setw(6) << n_messages[2] << std::endl;
+            theta::out << "  infos:    " << std::setw(6) << n_messages[2] << std::endl;
         if(s > 2)
-            std::cout << "  debug:    " << std::setw(6) << n_messages[3] << std::endl;
+            theta::out << "  debug:    " << std::setw(6) << n_messages[3] << std::endl;
     }
 }
 

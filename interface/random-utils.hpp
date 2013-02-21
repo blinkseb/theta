@@ -16,7 +16,7 @@ protected:
     *
     * Will save the random seed in the RndInfoTable of the cfg.pm, if this is set.
     */
-   RandomConsumer(const theta::Configuration & cfg, const std::string & name);
+   RandomConsumer(const Configuration & cfg, const std::string & name);
    
    /// random seed used
    int seed;

@@ -4,6 +4,7 @@ import scipy.stats
 import Model
 from plotutil import *
 import Report
+import numpy.linalg
 
 inf = float("inf")
 cl_1sigma = 0.68268949213708585
@@ -30,6 +31,39 @@ def get_x_to_sp(spgids, **options):
 
 
 def make_tuple(*args): return tuple(args)
+
+# given (x,y) points of a function find the x value where the maximum of the data is taken.
+# Uses quadratic interpolation with the three points around the maximum to make the result more accurate.
+# If the interpolated maximum is found outside the x range, the returned x value will at the smallest / largest x value.
+# Only works well for non-noisy data.
+# xs must be monotonically increasing.
+#
+# returns tuple (x,y) of the estimated position of the maximum
+def findmax_xy(xs, ys):
+    assert len(xs) == len(ys)
+    assert len(xs) >= 3
+    maxy = -float("inf")
+    maxi = 0
+    for i in range(len(xs)):
+        if ys[i] > maxy:
+            maxy = ys[i]
+            maxi = i
+    if maxi==0: imin, imax = 0, 3
+    elif maxi==len(xs)-1: imin, imax = len(xs)-3, len(xs)
+    else: imin, imax = maxi-1, maxi+2
+    xleft, x0, xright = xs[imin:imax]
+    yleft, y0, yright = ys[imin:imax]
+    a,b,c = numpy.linalg.solve([[xleft**2, xleft, 1], [x0**2, x0, 1], [xright**2, xright, 1]], [yleft, y0, yright])
+    if a>=0: return xs[maxi], ys[maxi]
+    xmin = -b/(2*a)
+    return xmin, a * xmin**2 + b * xmin + c
+
+# findmax_xy wrapper for Histogram; uses the bin center as x values.
+def findmax_h(h):
+    x_borders = [h.get_x_low(ibin) for ibin in range(h.get_nbins())] + [h.get_xmax()]
+    xs = map(lambda r: 0.5 * (r[0] + r[1]), zip(x_borders[:-1], x_borders[1:]))
+    return findmax_xy(xs, h.get_values())
+
 
 
 class Copyable:

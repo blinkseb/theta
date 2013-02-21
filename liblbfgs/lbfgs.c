@@ -1,3 +1,4 @@
+// copied into theta from: http://www.chokkan.org/software/liblbfgs/
 /*
  *      Limited memory BFGS (L-BFGS).
  *
@@ -59,6 +60,12 @@ method presented in:
 I would like to thank the original author, Jorge Nocedal, who has been
 distributing the effieicnt and explanatory implementation in an open source
 licence.
+*/
+
+/*
+ NOTE: Modifications for theta (apart from adaptions for building):
+  * the parameter 'delta' used in the stopping condition is interpreted as *absolute* difference of function values, not as a relative one
+  * the linesearch was made more robust by recovering from the LBFGSERR_INCREASEGRADIENT condition by flipping the search direction in such a case
 */
 
 #ifdef  HAVE_CONFIG_H
@@ -641,7 +648,6 @@ lbfgs_exit:
 }
 
 
-
 static int line_search_backtracking(
     int n,
     lbfgsfloatval_t *x,
@@ -671,7 +677,9 @@ static int line_search_backtracking(
 
     /* Make sure that s points to a descent direction. */
     if (0 < dginit) {
-        return LBFGSERR_INCREASEGRADIENT;
+        // flip search direction:
+        vecscale(s, -1.0, n);
+        dginit *= -1.0;
     }
 
     /* The initial value of the objective function. */
@@ -843,7 +851,9 @@ static int line_search_morethuente(
 
     /* Make sure that s points to a descent direction. */
     if (0 < dginit) {
-        return LBFGSERR_INCREASEGRADIENT;
+        vecscale(s, -1.0, n);
+        dginit *= -1.0;
+        //return LBFGSERR_INCREASEGRADIENT;
     }
 
     /* Initialize local variables. */

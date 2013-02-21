@@ -19,7 +19,7 @@ namespace theta{
 // h *= hwu
 // where h is a Histogram1D and hwu is a Histogram1DWithUncertainties.
 //
-//The histogram includes optimisations for the case where all uncertainties are 0, so that the overhead
+//The histogram includes optimizations for the case where all uncertainties are 0, so that the overhead
 // in this case compared to Histogram1D should be small.
 class Histogram1DWithUncertainties {
 private:
@@ -35,8 +35,16 @@ private:
     
     void fail_check_compatibility(const Histogram1DWithUncertainties & h) const;
 public:
+    void swap(Histogram1DWithUncertainties & other){
+    	std::swap(xmin, other.xmin);
+    	std::swap(xmax, other.xmax);
+    	values.swap(other.values);
+    	sq_uncertainties.swap(other.sq_uncertainties);
+    	std::swap(nontrivial_unc, other.nontrivial_unc);
+    }
+
     /// create a Histogram with the given range and number of bins
-    Histogram1DWithUncertainties(size_t bins=0, double xmin=0, double xmax=1);
+    explicit Histogram1DWithUncertainties(size_t bins=0, double xmin=0, double xmax=1);
     
     
     /// Construct from Histogram1D, setting all uncertainties to zero
@@ -97,6 +105,15 @@ public:
         return Histogram1D(xmin, xmax, values);
     }
     
+    Histogram1D get_uncertainty2_histogram() const{
+        if(nontrivial_unc){
+            return Histogram1D(xmin, xmax, sq_uncertainties);
+        }
+        else{
+            return Histogram1D(get_nbins(), xmin, xmax);
+        }
+    }
+
     // setting uncertainty to NAN leaves it unchanged.
     void set(size_t i, double value, double uncertainty = NAN){
         values.set(i, value);
@@ -107,14 +124,17 @@ public:
             }
         }
     }
-    
-    void set_all(double val, double unc){
-        values.set_all_values(val);
-        if(unc!=0.0) set_nontrivial_unc();
-        // can call set_all_values in both cases (trivial and non-trivial uncertainties)
-        sq_uncertainties.set_all_values(unc * unc);
+
+    void set_unc2(size_t i, double value, double uncertainty2 = NAN){
+        values.set(i, value);
+        if(!std::isnan(uncertainty2)){
+            if(nontrivial_unc || uncertainty2!=0){
+                set_nontrivial_unc();
+                sq_uncertainties.set(i, uncertainty2);
+            }
+        }
     }
-    
+
     // set values, uncertainties are set to zero.
     void set(const Histogram1D & rhs){
         xmin = rhs.get_xmin();
@@ -123,6 +143,21 @@ public:
         sq_uncertainties = DoubleVector();
         nontrivial_unc = false;
     }
+
+    void set(const Histogram1D & values_, const Histogram1D & uncertainties){
+    	values_.check_compatibility(uncertainties);
+        xmin = values_.get_xmin();
+        xmax = values_.get_xmax();
+        values = values_;
+        sq_uncertainties = uncertainties;
+        for(size_t i=0; i<sq_uncertainties.size(); ++i){
+        	double newval = sq_uncertainties.get(i);
+        	newval *= newval;
+        	sq_uncertainties.set(i, newval);
+        }
+        nontrivial_unc = true;
+    }
+
     //@}
 
     //@{
@@ -137,8 +172,6 @@ public:
             sq_uncertainties *= a * a;
         }
     }
-    
-    void operator*=(const Histogram1DWithUncertainties & other);
     
     void operator+=(const Histogram1DWithUncertainties & other){
         values += other.values;
@@ -155,8 +188,6 @@ public:
             sq_uncertainties.add_with_coeff(c * c, other.sq_uncertainties);
         }
     }
-    
-    void operator*=(const Histogram1D & other);
     
     void operator+=(const Histogram1D & other){
         values += other;

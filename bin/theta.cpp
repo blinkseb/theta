@@ -4,6 +4,8 @@
 #include "interface/variables-utils.hpp"
 #include "interface/variables.hpp"
 #include "interface/main.hpp"
+#include "interface/model.hpp"
+#include "interface/redirect_stdio.hpp"
 
 #include "interface/database.hpp"
 
@@ -43,7 +45,7 @@ public:
         btime::ptime now = btime::microsec_clock::local_time();
         if(now < next_update && done < total) return;
         //move back to beginning of terminal line:
-        cout << "\033[" << chars_written << "D";
+        theta::out << "\033[" << chars_written << "D";
         chars_written = 0;  
         char c[200];
         double error_fraction = 100.0 * n_error / done;
@@ -65,12 +67,12 @@ public:
         else{
             chars_written += snprintf(c, 200, "progress: %6d   errors: %s%6d [%5.1f%%]%s", done, color_start, n_error, error_fraction, color_end);
         }
-        cout << c;
-        cout.flush();
+        theta::out << c;
+        theta::out.flush();
         next_update = now + btime::milliseconds(50);
     }
 
-    MyProgressListener(): stdout_fd(1), done(0), total(0), n_error(0), is_tty(isatty(stdout_fd)),
+    MyProgressListener(): stdout_fd(theta::out_fd), done(0), total(0), n_error(0), is_tty(isatty(stdout_fd)),
       chars_written(0), next_update(btime::microsec_clock::local_time()) {
         if(!is_tty) return;
         //disable terminal echoing; we don't expect any input.
@@ -88,7 +90,7 @@ public:
         settings.c_lflag |= ECHO;
         tcsetattr (stdout_fd, TCSANOW, &settings);
         if(chars_written > 0)
-            cout << endl;
+            theta::out << endl;
     }
     
 private:
@@ -172,7 +174,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
         }
         #ifdef USE_TIMER
         if(print_time){
-            cout << timer->format(4, "Time to read and parse configuration file:        %w sec real, %t sec CPU") << endl;
+            theta::out << timer->format(4, "Time to read and parse configuration file:        %w sec real, %t sec CPU") << endl;
         }
         #endif
         theta_assert(root);
@@ -189,7 +191,7 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
         PluginLoader::execute(cfg_options);
         #ifdef USE_TIMER
         if(print_time){
-            cout << timer->format(4, "Time to load plugin .so files:                    %w sec real, %t sec CPU") << endl;
+            theta::out << timer->format(4, "Time to load plugin .so files:                    %w sec real, %t sec CPU") << endl;
             timer.reset(new boost::timer::cpu_timer());
         }
         #endif
@@ -201,12 +203,12 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
         init_complete = true;
         #ifdef USE_TIMER
         if(print_time){
-            cout << timer->format(4, "Time to construct object tree from configuration: %w sec real, %t sec CPU") << endl;
+            theta::out << timer->format(4, "Time to construct object tree from configuration: %w sec real, %t sec CPU") << endl;
         }
         #endif
     }
     catch (Exception & e) {
-        cerr << "Error: " << e.what() << endl;
+        theta::err << "Error: " << e.what() << endl;
     }
     if(not init_complete){
         main.reset();
@@ -217,11 +219,11 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
         vector<string> unused;
         rec->get_unused(unused, *root);
         if (unused.size() > 0) {
-            cout << "WARNING: following setting paths in the configuration file have not been used: " << endl;
+            theta::out << "WARNING: following setting paths in the configuration file have not been used: " << endl;
             for (size_t i = 0; i < unused.size(); ++i) {
-                cout << "  " << (i+1) << ". " << unused[i] << endl;
+                theta::out << "  " << (i+1) << ". " << unused[i] << endl;
             }
-            cout << "Comment out these settings to get rid of this message." << endl;
+            theta::out << "Comment out these settings to get rid of this message." << endl;
         }
     }
     return main;
@@ -229,6 +231,12 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
 
 
 int main(int argc, char** argv) {
+    redirect_stdio();
+    fill_theta_dir(argv);
+    if(theta_dir==""){
+        theta::err << "WARNING: could not determine theta_dir, leaving empty" << endl;
+    }
+    
     po::options_description desc("Options");
     desc.add_options()("help,h", "show help message")
     ("quiet,q", "quiet mode (suppress progress message)")
@@ -251,18 +259,18 @@ int main(int argc, char** argv) {
         po::store(po::command_line_parser(argc, argv).options(cmdline_options).positional(p).run(), cmdline_vars);
     }
     catch(std::exception & ex){
-        cerr << "Error parsing command line options: " << ex.what() << endl;
+        theta::err << "Error parsing command line options: " << ex.what() << endl;
         return 1;
     }
     po::notify(cmdline_vars);
     
     if(cmdline_vars.count("help")){
-        cout << desc << endl;
+        theta::out << desc << endl;
         return 0;
     }
     
     if(cmdline_vars.count("cfg-file")==0){
-        cerr << "Error: you have to specify a configuration file" << endl;
+        theta::err << "Error: you have to specify a configuration file" << endl;
         return 1;
     }
     
@@ -270,17 +278,11 @@ int main(int argc, char** argv) {
     bool quiet = cmdline_vars.count("quiet");
     bool nowarn = cmdline_vars.count("nowarn");
     bool print_time = cmdline_vars.count("print-time");
-    
-    //determine theta_dir (for config file replacements with $THETA_DIR
-    fill_theta_dir(argv);
-    if(theta_dir==""){
-        cerr << "WARNING: could not determine theta_dir, leaving empty" << endl;
-    }
-    
+
     try {
         for(size_t i=0; i<cfg_filenames.size(); ++i){
             if(!quiet and cfg_filenames.size() > 1){
-                cout << "processing file " << (i+1) << " of " << cfg_filenames.size() << ", " << cfg_filenames[i] << endl;
+                theta::out << "processing file " << (i+1) << " of " << cfg_filenames.size() << ", " << cfg_filenames[i] << endl;
             }
             boost::shared_ptr<Main> main = build_main(cfg_filenames[i], nowarn, print_time);
             if(!main) return 1;
@@ -301,30 +303,33 @@ int main(int argc, char** argv) {
             main->run();
             #ifdef USE_TIMER
             if(print_time){
-                cout << timer->format(4, "Time to run main:                                 %w sec real, %t sec CPU") << endl;
+                theta::out << timer->format(4, "Time to run main:                                 %w sec real, %t sec CPU") << endl;
             }
             #endif
             if(stop_execution) break;
         }
     }
     catch(ExitException & ex){
-       cerr << "Exit requested: " << ex.message << endl;
+       theta::err << "Exit requested: " << ex.message << endl;
        return 1;
     }
     catch (Exception & ex) {
-        cerr << "An error ocurred in Main::run: " << ex.what() << endl;
+        theta::err << "An error occurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     catch(logic_error & ex){
-        cerr << "A logic error ocurred in Main::run: " << ex.what() << endl;
+        theta::err << "A logic error occurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     catch(exception & ex){
-        cerr << "An unspecified exception ocurred in Main::run: " << ex.what() << endl;
+        theta::err << "An unspecified exception occurred in Main::run: " << ex.what() << endl;
         return 1;
     }
     if(theta::stop_execution){
-        cout << "(exiting on SIGINT)" << endl;
+        theta::out << "(exiting on SIGINT)" << endl;
+    }
+    if(!quiet){
+        theta::out << "Total number of likelihood evaluations: " << default_model_nll::get_n_eval() << endl;
     }
     return 0;
 }

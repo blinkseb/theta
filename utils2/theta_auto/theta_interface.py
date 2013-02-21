@@ -69,6 +69,10 @@ use_llvm = False
         
 [main]
 n_threads = 1
+
+[mcmc]
+strategy = asimov_widths
+stepsize_factor = None
 """
         self.readfp(io.BytesIO(self.default_config))
         
@@ -148,13 +152,12 @@ class DataSource(ModuleBase):
             
     def get_id(self): return self._id
     
-    
     def get_cfg(self, options):
         result = {'name': self.name}
         if self.mode == 'toys':
             seed = self.seed
             if seed is None: seed = -1
-            parameters = self.model.get_parameters(self.signal_processes, True)
+            parameters = self.model.get_parameters(self.signal_processes)
             dist = {'type': 'product_distribution', 'distributions': [self.distribution.get_cfg(parameters)]}
             if 'beta_signal' in parameters: dist['distributions'].append({'type': 'delta_distribution', 'beta_signal' : self.beta_signal})
             result.update({'type': 'model_source', 'model': '@model', 'override-parameter-distribution': dist, 'rnd_gen': {'seed': seed}})
@@ -225,37 +228,31 @@ class RootNtupleSource(ModuleBase):
             if 'seed' in f: s_cfg['rnd_gen'] = {'seed': f['seed']}
             result.sources.append(s_cfg)
 
-# base class for producers, providing consistent approach to override_parameter_distribution
-# and additional_nll_term
+# base class for producers, providing consistent approach to override_parameter_distribution and name
 class ProducerBase(ModuleBase):
     def get_cfg_base(self, options):
         result = {'name': self.name}
         if self.override_distribution_cfg is not None:
             result['override-parameter-distribution'] = self.override_distribution_cfg
-        if self.additional_nll_cfg is not None:
-            result['additional-nll-term'] = self.additional_nll_cfg
         return result
     
     
-    # note that signal_prior is only respected is override_distribution
-    # if model is None, override_distribution and signal_prior is ignored.
+    # note that signal_prior is only respected if override_distribution is not None.
+    # if model is None, override_distribution and signal_prior are ignored.
     def __init__(self, model, signal_processes, override_distribution, name, signal_prior):
         ModuleBase.__init__(self)
         assert type(name) == str
-        self.override_distribution_cfg, self.additional_nll_cfg = None, None
+        self.override_distribution_cfg = None
         self.name = name
         if model is not None:
             signal_prior_cfg = _signal_prior_dict(signal_prior)
-            parameters = set(model.get_parameters(signal_processes, True))
+            parameters = set(model.get_parameters(signal_processes))
             if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
             else: dist = model.distribution
             if 'beta_signal' in parameters:
                 self.override_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(parameters), signal_prior_cfg]}
             else:
                 self.override_distribution_cfg = dist.get_cfg(parameters)
-            if model.additional_nll_term is not None:
-                self.additional_nll_cfg = model.additional_nll_term.get_cfg()
-        
     
 
 class MleProducer(ProducerBase):
@@ -268,7 +265,7 @@ class MleProducer(ProducerBase):
         self.ks = ks
         self.chi2 = chi2
         self.with_covariance = with_covariance
-        if parameters_write is None: self.parameters_write = sorted(list(model.get_parameters(signal_processes, True)))
+        if parameters_write is None: self.parameters_write = sorted(list(model.get_parameters(signal_processes)))
         else: self.parameters_write = sorted(list(parameters_write))
         
     def get_cfg(self, options):
@@ -281,16 +278,21 @@ class MleProducer(ProducerBase):
         
         
 class QuantilesProducer(ProducerBase):
-    def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'quant', parameter = 'beta_signal', quantiles = [0.16, 0.5, 0.84],
-    iterations = 10000):
+    def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'quant', parameter = 'beta_signal', quantiles = [0.16, 0.5, 0.84], iterations = 10000, seed = 0):
         ProducerBase.__init__(self, model, signal_processes, override_distribution, name, signal_prior)
         self.parameter = parameter
         self.quantiles = quantiles
         self.iterations = iterations
+        self.seed = seed
         
     def get_cfg(self, options):
-        result = {'type': 'mcmc_quantiles', 'parameter': self.parameter, 'quantiles': self.quantiles, 'iterations': self.iterations}
+        strategy = options.get('mcmc', 'strategy')
+        stepsize_factor = options.get('mcmc', 'stepsize_factor')
+        result = {'type': 'mcmc_quantiles', 'parameter': self.parameter, 'quantiles': self.quantiles}
         result.update(self.get_cfg_base(options))
+        result['mcmc_strategy'] = {'type': strategy, 'name': self.name + "_mcs", 'iterations': self.iterations}
+        if stepsize_factor != 'None':  result['mcmc_strategy']['factor'] = float(stepsize_factor)
+        if self.seed != 0: result['mcmc_strategy']['rnd_gen'] = {'seed': self.seed}
         return result
         
         
@@ -336,16 +338,17 @@ class PliProducer(ProducerBase):
         
         
 class DeltaNllHypotest(ProducerBase):
-    def __init__(self, model, signal_processes, override_distribution = None, name = 'dnll', restrict_poi = None, restrict_poi_value = None, signal_prior_sb = 'flat', signal_prior_b = 'fix:0.0'):
+    def __init__(self, model, signal_processes, override_distribution = None, name = 'dnll', restrict_poi = None, restrict_poi_value = None, signal_prior_sb = 'flat', signal_prior_b = 'fix:0.0', write_pchi2 = False):
         ProducerBase.__init__(self, model, signal_processes, override_distribution = None, name = name, signal_prior = None)
         self.minimizer = Minimizer(need_error = False)
         self.restrict_poi = restrict_poi
+        self.write_pchi2 = write_pchi2
         self.restrict_poi_value = restrict_poi_value
         self.add_submodule(self.minimizer)
         if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
         else: dist = model.distribution
-        sb_parameters = set(model.get_parameters(signal_processes, True))
-        b_parameters = set(model.get_parameters('', True))
+        sb_parameters = set(model.get_parameters(signal_processes))
+        b_parameters = set(model.get_parameters(''))
         means = dist.get_means()
         # the "signal parameters": those which the model depends only for the signal ...
         means_spar = {}
@@ -357,11 +360,36 @@ class DeltaNllHypotest(ProducerBase):
         
         
     def get_cfg(self, options):
-        result = {'type': 'deltanll_hypotest', 'minimizer': self.minimizer.get_cfg(options), 'background-only-distribution': self.b_distribution_cfg, 'signal-plus-background-distribution': self.sb_distribution_cfg}
+        result = {'type': 'deltanll_hypotest', 'minimizer': self.minimizer.get_cfg(options),
+           'background-only-distribution': self.b_distribution_cfg, 'signal-plus-background-distribution': self.sb_distribution_cfg}
+        if self.write_pchi2: result['write_pchi2'] = True
         result.update(self.get_cfg_base(options))
         if 'override-parameter-distribution' in result: del result['override-parameter-distribution']
         if self.restrict_poi is not None: result['restrict_poi'] = self.restrict_poi
         if self.restrict_poi_value is not None: result['default_poi_value'] = self.restrict_poi_value
+        return result
+        
+class MCMCRatioProducer(ProducerBase):
+    def __init__(self, model, signal_processes, override_distribution = None, name = 'mcmcratio', signal_prior_sb = 'fix:1.0', signal_prior_b = 'fix:0.0', iterations = 10000):
+        ProducerBase.__init__(self, model, signal_processes, override_distribution = None, name = name, signal_prior = None)
+        if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
+        else: dist = model.distribution
+        sb_parameters = set(model.get_parameters(signal_processes))
+        b_parameters = set(model.get_parameters(''))
+        means = dist.get_means()
+        # the "signal parameters": those which the model depends only for the signal ...
+        means_spar = {}
+        for p in means:
+            if p in sb_parameters and p not in b_parameters: means_spar[p] = means[p]
+        dist_bkg = Distribution.merge(dist, get_fixed_dist_at_values(means_spar))
+        self.sb_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(sb_parameters), _signal_prior_dict(signal_prior_sb)]}
+        self.b_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist_bkg.get_cfg(sb_parameters), _signal_prior_dict(signal_prior_b)]}
+        self.iterations = iterations        
+        
+    def get_cfg(self, options):
+        result = {'type': 'mcmc_posterior_ratio', 'background-only-distribution': self.b_distribution_cfg, 'signal-plus-background-distribution': self.sb_distribution_cfg, 'iterations': self.iterations}
+        result.update(self.get_cfg_base(options))
+        if 'override-parameter-distribution' in result: del result['override-parameter-distribution']
         return result
        
 class NllScanProducer(ProducerBase):
@@ -579,8 +607,13 @@ class Run(ModuleBase):
             if 'reltol_limit' in self.cls_options: main['reltol_limit'] = float(self.cls_options['reltol_limit'])
             if self.data_source is not None: main['data_source'] = self.data_source.get_cfg(options)
         result.update({'main': main, 'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]},
-                  'model': self.model.get_cfg2(self.signal_processes, self.signal_prior_cfg, options)})
-        result['parameters'] = sorted(list(self.model.get_parameters(self.signal_processes, True)))
+                  'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
+        use_llvm = options.getboolean('model', 'use_llvm')
+        if use_llvm:
+            print "using llvm. This is EXPERIMENTAL. Use at your own risk"
+            result['model']['type'] = 'llvm_model'
+            result['options']['plugin_files'].append('$THETA_DIR/lib/llvm-plugins.so')
+        result['parameters'] = sorted(list(self.model.get_parameters(self.signal_processes)))
         rvobservables = sorted(list(self.model.rvobs_distribution.get_parameters()))
         if len(rvobservables) > 0:
             result['rvobservables'] = rvobservables
@@ -697,7 +730,9 @@ class Run(ModuleBase):
         cache_dir = os.path.join(workdir, 'cache')
         theta = os.path.realpath(os.path.join(config.theta_dir, 'bin', 'theta'))
         info("Running 'theta %s'" % cfgfile)
-        to_execute = lambda : self._exec(theta + " " + cfgfile)
+        cmd = theta + " " + cfgfile
+        if self.debug: cmd += " --print-time"
+        to_execute = lambda : self._exec(cmd)
         if in_background_thread:
             assert self.thread is None
             self.thread = threading.Thread(target = to_execute)

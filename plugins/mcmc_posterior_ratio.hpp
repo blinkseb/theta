@@ -2,10 +2,9 @@
 #define PLUGINS_MCMC_POSTERIOR_RATIO_HPP
 
 #include "interface/decls.hpp"
-#include "interface/database.hpp"
 #include "interface/producer.hpp"
 #include "interface/random-utils.hpp"
-#include "interface/matrix.hpp"
+#include "interface/mcmc.hpp"
 
 #include <string>
 
@@ -73,10 +72,8 @@ private:
     unsigned int burn_in;
     
     //the matrices and startvalues to use for the Markov chains in the two cases:
-    theta::Matrix sqrt_cov_sb;
-    std::vector<double> startvalues_sb;
-    theta::Matrix sqrt_cov_b;
-    std::vector<double> startvalues_b;
+    theta::Matrix sqrt_cov_sb, sqrt_cov_b;
+    theta::MCMCOptions options_sb, options_b;
     
     theta::Column c_nl_posterior_sb, c_nl_posterior_b;
 };

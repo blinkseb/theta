@@ -5,7 +5,7 @@
 #include "interface/database.hpp"
 #include "interface/producer.hpp"
 #include "interface/variables.hpp"
-
+#include "interface/distribution.hpp"
 
 #include <boost/optional.hpp>
 #include <string>
@@ -26,6 +26,7 @@
  *   //optional:
  *   restrict_poi = "beta_signal";
  *   default_poi_value = 1.0;
+ *   write_pchi2 = true; //default is false
  * };
  * 
  * myminuit = {...}; // minimizer definition
@@ -52,6 +53,8 @@
  *
  * \c default_poi_value only applies if \c restrict_poi is set and is optional in this case. It is the default value to use if no
  * other value is set externally. If \c default_poi_value is not given and no value is set externallty, an exception is thrown.
+ * 
+ * If \c write_pchi2 is set to true, the chi2 value after the s+b fit is written to the result table.
  *   
  * Note that the setting "override-parameter-distribution" is not allowed for this producer.
  *
@@ -93,12 +96,13 @@ private:
     
     theta::ParValues s_plus_b_mode, b_only_mode;
     theta::ParValues s_plus_b_width, b_only_width;
-    std::map<theta::ParId, std::pair<double, double> > s_plus_b_support, b_only_support;
+    theta::Ranges s_plus_b_support, b_only_support;
     bool b_only_subset_s_plus_b;
     
     std::auto_ptr<theta::Minimizer> minimizer;
     
-    theta::Column c_nll_b, c_nll_sb, c_nll_diff, c_poi;
+    bool write_pchi2;
+    theta::Column c_nll_b, c_nll_sb, c_nll_diff, c_poi, c_pchi2;
 };
 
 #endif

@@ -330,7 +330,7 @@ class Model:
     # get the set of parameters the model predictions depends on, given the signal_processes.
     # This does not cover additional_nll_terms; it is useful to pass the result to
     # Distribution.get_cfg.
-    def get_parameters(self, signal_processes, include_additional_nll = False):
+    def get_parameters(self, signal_processes):
         result = set()
         for sp in signal_processes:
             assert sp in self.signal_processes
@@ -343,7 +343,7 @@ class Model:
                 for par in histo_pars: result.add(par)
                 for par in coeff_pars: result.add(par)
         if len(signal_processes) > 0: result.add('beta_signal')
-        if include_additional_nll and self.additional_nll_term is not None:
+        if self.additional_nll_term is not None:
             result.update(self.additional_nll_term.get_parameters())
         return result
     
@@ -381,6 +381,7 @@ class Model:
         if len(rvobservables) > 0:
             result['rvobs-distribution'] = self.rvobs_distribution.get_cfg(rvobservables)
         if self.bb_uncertainties: result['bb_uncertainties'] = True
+        if self.additional_nll_term: result['additional_nll_term'] = self.additional_nll_term.get_cfg()
         return result
         
         
@@ -398,6 +399,7 @@ class Model:
                 if proc in signal_processes:
                     result[o][proc]['coefficient-function']['factors'].append('beta_signal')
         if self.bb_uncertainties: result['bb_uncertainties'] = True
+        if self.additional_nll_term: result['additional_nll_term'] = self.additional_nll_term.get_cfg()
         return result
 
 

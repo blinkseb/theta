@@ -9,7 +9,7 @@
  *
  * This is the llvm_enabled version of exp_function. See documentation there.
  */
-class llvm_exp_function: public llvm_enabled<theta::Function>{
+class llvm_exp_function: public llvm_enabled_function{
 private:
     std::vector<theta::ParId> v_pids;
     std::vector<double> lambdas_minus, lambdas_plus;

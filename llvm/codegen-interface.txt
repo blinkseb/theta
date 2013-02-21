@@ -35,11 +35,15 @@ ids. For convenience, llvm_module provides pid_to_index which maps ParIds to ind
 parameter.
 
 
-In the llvm environment, the following functions are pre-declared / pre-defined:
+In the llvm module, the following functions are usable:
 
-double exp_function(double)  - maps to either amd_exp or std::exp
-void add_with_coeff(double coeff, double * data, const double * rhs_data, int n) - computes data[i] += c * rhs_data[i] for i == 0..n-1 data and rhs_data must be 16-byte aligned.
+double exp_function(double):
+    exponential
+    
+void add_with_coeff(double coeff, double * data, const double * rhs_data, int n):
+   computes data[i] += c * rhs_data[i] for i == 0..n-1 data and rhs_data must be 16-byte aligned.
 
-
+in addition to those functions, there are optimized utility functions for multiplying and adding vectors.
+These are the llvm_module:emit_* functions.
 
 

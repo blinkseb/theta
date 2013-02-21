@@ -33,13 +33,13 @@ BOOST_AUTO_TEST_CASE(distribution_lognormal){
     ParValues values;
     values.set(var0, -1.0);
     double result = d->eval_nl(values);
-    BOOST_CHECK(isinf(result) and result>0);
+    BOOST_CHECK(std::isinf(result) and result>0);
     values.set(var0, -10.0);
     result = d->eval_nl(values);
-    BOOST_CHECK(isinf(result) and result>0);
+    BOOST_CHECK(std::isinf(result) and result>0);
     values.set(var0, -0.01);
     result = d->eval_nl(values);
-    BOOST_CHECK(isinf(result) and result>0);
+    BOOST_CHECK(std::isinf(result) and result>0);
     //calculate independently some values and compare. Comparison
     // is meaningful only for ratios, as the results from Distribution are
     // not required to be normalized.

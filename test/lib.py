@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys, os, sqlite3
+import sys, os, sqlite3, math
 
 def fail(s):
     print "FAIL: %s" % s

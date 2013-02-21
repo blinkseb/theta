@@ -25,16 +25,6 @@ bool histos_equal(const Histogram1DWithUncertainties & h1, const Histogram1DWith
     return true;
 }
 
-bool histos_equal(const Histogram1D & h1, const Histogram1D & h2){
-    if(h1.get_nbins()!=h2.get_nbins()) return false;
-    if(h1.get_xmin()!=h2.get_xmin()) return false;
-    if(h1.get_xmax()!=h2.get_xmax()) return false;
-    const size_t n = h1.get_nbins();
-    for(size_t i=0; i<n; i++){
-        if(h1.get(i)!=h2.get(i)) return false;
-    }
-    return true;
-}
 
 }
 
@@ -54,8 +44,23 @@ BOOST_AUTO_TEST_CASE(ctest){
    BOOST_CHECK(m.get_nbins()==nbins);
    BOOST_CHECK(m.get_xmin()==-1);
    BOOST_CHECK(m.get_xmax()==1);
+   // check that uncertainties are 0.0:
+   for(size_t i=0; i<nbins; i++){
+	   BOOST_CHECK(m.get_uncertainty(i)==0.0);
+   }
    //fill a bit:
    for(size_t i=0; i<nbins; i++){
+       m.set(i, i*i);
+   }
+   // check that uncertainties are still 0.0:
+   for(size_t i=0; i<nbins; i++){
+   	   BOOST_CHECK(m.get_uncertainty(i)==0.0);
+   }
+   const double dv = 15.8;
+   m.set(0, m.get(0), dv);
+   BOOST_CHECK(m.get_uncertainty(0)==dv);
+   for(size_t i=1; i<nbins; i++){
+	   BOOST_CHECK(m.get_uncertainty(i)==0.0);
        m.set(i, i*i, i);
    }
 
@@ -181,41 +186,27 @@ BOOST_AUTO_TEST_CASE(test_plus){
     BOOST_CHECK(histos_equal(m0.get_values_histogram(), h_expected));    
 }
 
-/*
-//test *=
-BOOST_AUTO_TEST_CASE(test_multiply){
-    std::auto_ptr<RandomSource> rnd_src(new RandomSourceTaus());
-    Random rnd(rnd_src);
-    const size_t nbins = 101;
-    Histogram1D m0(nbins, 0, 1);
-    Histogram1D m1(m0);
-    Histogram1D m0m1(m0);
-    Histogram1D m0factor_expected(m0);
-    double factor = rnd.get();
-    for(size_t i=0; i<nbins; i++){
-        double g0 = rnd.get();
-        m0.set(i, g0);
-        m0factor_expected.set(i, g0*factor);
-        double g1 = rnd.get();
-        m1.set(i, g1);
-        m0m1.set(i, g0*g1);
-    }
-    Histogram1D m0_before(m0);
-    m0*=factor;
-    BOOST_CHECK(histos_equal(m0, m0factor_expected));
-    m1*=m0_before;
-    BOOST_CHECK(histos_equal(m1, m0m1));
-    bool exception = false;
-    //check error behaviour:
-    try{
-       Histogram1D m2(nbins + 1, 0, 1);
-       m0 *= m2;
-    }
-    catch(invalid_argument & ex){
-       exception = true;
-    }
-    BOOST_REQUIRE(exception);
-}*/
+BOOST_AUTO_TEST_CASE(add_coeff){
+	const size_t nbins=100;
+	Histogram1DWithUncertainties m1(nbins, -1, 1);
+	Histogram1DWithUncertainties m2(nbins, -1, 1);
+	Histogram1DWithUncertainties m_expected(nbins, -1, 1);
+	const double c = M_PI;
+	for(size_t i=0; i<nbins; i++){
+		double v1 = 0.33*i;
+		double dv1 = fabs(v1)/4.;
+		double v2 = 10. - i;
+		double dv2 = fabs(v2)/8.;
+		m1.set(i, v1, dv1);
+		m2.set(i, v2, dv2);
+		m_expected.set(i, v1 + c*v2, sqrt(pow(dv1, 2) + pow(fabs(c) * dv2, 2)));
+	}
+	{
+		Histogram1DWithUncertainties s(m1);
+		s.add_with_coeff(c, m2);
+		BOOST_CHECK(histos_equal(s, m_expected));
+	}
+}
 
 
 BOOST_AUTO_TEST_SUITE_END()

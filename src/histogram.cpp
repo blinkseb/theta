@@ -36,6 +36,7 @@ namespace{
    }
 }
 
+
 DoubleVector::DoubleVector(size_t n): data(0), n_data(n){
     if(n_data > 0){
        data = allocate_doubles(n_data);
@@ -50,7 +51,7 @@ DoubleVector::~DoubleVector(){
 DoubleVector::DoubleVector(const DoubleVector & rhs): data(0), n_data(rhs.n_data){
    if(n_data > 0){
        data = allocate_doubles(n_data);
-       memcpy(data, rhs.data, sizeof(double) * n_data);
+       std::copy(rhs.data, rhs.data + n_data, data);
    }
 }
 
@@ -58,14 +59,16 @@ void DoubleVector::operator=(const DoubleVector & rhs){
     if(&rhs == this) return;
     if(n_data != rhs.n_data){
         free_doubles(data);
-        if(rhs.n_data > 0)
+        if(rhs.n_data > 0){
             data = allocate_doubles(rhs.n_data);
-        else
+        }else{
             data = 0;
+        }
         n_data = rhs.n_data;
     }
-    if(n_data > 0)
-       memcpy(data, rhs.data, sizeof(double) * n_data);
+    if(n_data > 0){
+    	utils::copy_fast(data, rhs.data, n_data);
+    }
 }
 
 Histogram1D::Histogram1D(size_t b, double x_min, double x_max) : DoubleVector(b), xmin(x_min), xmax(x_max) {

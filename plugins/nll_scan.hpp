@@ -4,6 +4,7 @@
 #include "interface/variables.hpp"
 #include "interface/database.hpp"
 #include "interface/producer.hpp"
+#include "interface/distribution.hpp"
 
 #include <string>
 
@@ -66,7 +67,7 @@ private:
     std::auto_ptr<theta::Minimizer> minimizer;
     bool start_step_ranges_init;
     theta::ParValues m_start, m_step;
-    std::map<theta::ParId, std::pair<double, double> > m_ranges;
+    theta::Ranges m_ranges;
     
 
     //table columns:

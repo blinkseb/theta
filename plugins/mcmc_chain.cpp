@@ -1,5 +1,5 @@
 #include "plugins/mcmc_chain.hpp"
-#include "plugins/mcmc.hpp"
+#include "interface/mcmc.hpp"
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
 #include "interface/histogram.hpp"
@@ -13,7 +13,7 @@ using namespace theta;
 using namespace std;
 
 //the result class for the metropolisHastings routine.
-class MCMCResultTextfile{
+class MCMCResultTextfile: public MCMCResult {
     public:
         MCMCResultTextfile(const vector<string> & parameter_names_, const string & filename): parameter_names(parameter_names_){
             outfile.open(filename.c_str(), ios_base::out | ios_base::trunc);
@@ -50,7 +50,7 @@ class MCMCResultTextfile{
 };
 
 
-class MCMCResultDatabase{
+class MCMCResultDatabase: public MCMCResult {
     public:
         MCMCResultDatabase(const vector<string> & parameter_names, Table & table_): npar(parameter_names.size()), table(table_){
             c_weight = table.add_column("weight", typeInt);
@@ -84,12 +84,13 @@ void mcmc_chain::produce(const Data & data, const Model & model) {
     
     if(!init || (re_init > 0 && itoy % re_init == 0)){
         try{
-            sqrt_cov = get_sqrt_cov2(*rnd_gen, model, startvalues, override_parameter_distribution, additional_nll_term);
-            parameter_names.clear();
-            const ParIds & pars = nll->get_parameters();
-            parameter_names.reserve(pars.size());
-            for(ParIds::const_iterator pid = pars.begin(); pid!=pars.end(); ++pid){
-                parameter_names.push_back(vm->get_name(*pid));
+            mcmc_strategy->init(model, override_parameter_distribution);
+            if(parameter_names.empty()){
+                const ParIds & pars = nll->get_parameters();
+                parameter_names.reserve(pars.size());
+                for(ParIds::const_iterator pid = pars.begin(); pid!=pars.end(); ++pid){
+                    parameter_names.push_back(vm->get_name(*pid));
+                }
             }
             init = true;
         }
@@ -105,13 +106,13 @@ void mcmc_chain::produce(const Data & data, const Model & model) {
         ss << "chain_" << itoy;
         std::auto_ptr<Table> table = database->create_table(ss.str());
         MCMCResultDatabase result(parameter_names, *table);
-        metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
+        mcmc_strategy->run_mcmc(*nll, result);
     }
     else{
         stringstream ss;
         ss << outfile_prefix << "_" << itoy << ".txt";
         MCMCResultTextfile result(parameter_names, ss.str());
-        metropolisHastings(*nll, result, *rnd_gen, startvalues, sqrt_cov, iterations, burn_in);
+        mcmc_strategy->run_mcmc(*nll, result);
     }
 }
 
@@ -124,25 +125,18 @@ string mcmc_chain::construct_name(){
 }
 
 
-mcmc_chain::mcmc_chain(const theta::Configuration & cfg): Producer(cfg, construct_name()), RandomConsumer(cfg, get_name()),
-   init(false), itoy(0), vm(cfg.pm->get<VarIdManager>()){
+mcmc_chain::mcmc_chain(const theta::Configuration & cfg): Producer(cfg, construct_name()), init(false), itoy(0), vm(cfg.pm->get<VarIdManager>()){
     Setting s = cfg.setting;
     if(s.exists("outfile_prefix")){
         if(s.exists("output_database")){
-            throw ConfigurationException("You have to specify excatly one of the settings 'outfile_prefix', 'output_database', but found both");
+            throw ConfigurationException("You have to specify exactly one of the settings 'outfile_prefix', 'output_database', but found both");
         }
         outfile_prefix = static_cast<string>(s["outfile_prefix"]);
     }
     else{
         database = PluginManager<theta::Database>::build(Configuration(cfg, s["output_database"]));
     }
-    iterations = s["iterations"];
-    if(s.exists("burn-in")){
-        burn_in = s["burn-in"];
-    }
-    else{
-        burn_in = iterations / 10;
-    }
+    mcmc_strategy = construct_mcmc_strategy(cfg);
     if(s.exists("re-init")){
         re_init = s["re-init"];
     }

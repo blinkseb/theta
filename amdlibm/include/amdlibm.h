@@ -1,6 +1,6 @@
 /*
 
-(C) 2008-2011 Advanced Micro Devices, Inc. All Rights Reserved.
+(C) 2008-2012 Advanced Micro Devices, Inc. All Rights Reserved.
 
 Advanced Micro Devices, Inc.
 Software License Agreement
@@ -373,7 +373,7 @@ extern "C" {
 
 	__m128  amd_vrs4_tanf   (__m128  x);
 	__m128d amd_vrd2_tan    (__m128d x);
-
+    __m128d amd_vrd2_cosh   (__m128d x);
 
 
  /* Power */

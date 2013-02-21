@@ -17,7 +17,7 @@ void fail_assert(const char * filename, int lineno, const char * expression){
     throw std::logic_error(ss.str());
 }
 
-std::string demangle(const std::string & s){
+std::string theta::demangle(const std::string & s){
     std::string result(s);
     int status = 1;
     char * realname;

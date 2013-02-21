@@ -53,7 +53,7 @@ public:
      * code returned by ROOT::Minuit2::Minuit2Minimizer::Status().
      */
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
-            const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
+            const theta::ParValues & step, const theta::Ranges & ranges);
 private:
     
     ROOT::Minuit2::EMinimizerType type;

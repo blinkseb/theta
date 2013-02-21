@@ -7,8 +7,8 @@ using namespace std;
 using namespace theta;
 
 namespace{
-    std::string format_error(const Setting & s, const string & name, const Exception & ex){
-        return "While accessing setting at path '" + s.get_path() + "." + name + "': " + ex.message;
+    std::string format_error(const Setting & s, const string & name, const string & message){
+        return "While accessing setting at path '" + s.get_path() + "." + name + "': " + message;
     }
     
     std::string format_wrongtype(const Setting & s,  const Setting::Type & expected_type){
@@ -185,7 +185,17 @@ Setting Setting::operator[](int i) const{
     catch(const Exception & ex){
         stringstream ss;
         ss << "[" << i << "]";
-        throw ConfigurationException(format_error(*this, ss.str(), ex));
+        throw ConfigurationException(format_error(*this, ss.str(), ex.message));
+    }
+    catch(std::exception & ex){
+		stringstream ss;
+		ss << "[" << i << "]";
+		throw ConfigurationException(format_error(*this, ss.str(), ex.what()));
+	}
+    catch(...){
+    	stringstream ss;
+		ss << "[" << i << "]";
+		throw ConfigurationException(format_error(*this, ss.str(), "unknown exception"));
     }
 }
 
@@ -195,8 +205,14 @@ Setting Setting::operator[](const std::string & name) const{
         return Setting::resolve_link(&((*impl_this)[name]), impl_root, rec);
     }
     catch(const Exception & ex){
-        throw ConfigurationException(format_error(*this, name, ex));
+        throw ConfigurationException(format_error(*this, name, ex.message));
     }
+    catch(std::exception & ex){
+		throw ConfigurationException(format_error(*this, name, ex.what()));
+	}
+	catch(...){
+		throw ConfigurationException(format_error(*this, name, "unknown exception"));
+	}
 }
 
 bool Setting::exists(const std::string & path) const{

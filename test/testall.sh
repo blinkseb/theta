@@ -4,11 +4,15 @@
 
 [ -x bin/theta ] || { echo "theta main executable in 'bin/theta' not found (are we in the theta root directory?)"; exit 1; }
 
+THETA_DIR=$PWD
+
 . test/lib.sh
 
 [ -x root/create_testhistos ] && root/create_testhistos
 execute_checked bin/test
 rm -f testhistos.root
+
+[ "$*" = "unit" ] && exit 0;
 
 fail=0
 
@@ -27,12 +31,21 @@ for i in test/test-stat/*.py; do
 done
 
 echo "executing theta-auto tests"
-cd utils/test || { echo "did not find utils test dir!"; exit 1; }
+cd $THETA_DIR/utils/test || { echo "did not find utils test dir!"; exit 1; }
 rm -rf ./test/cache
 a=$( ../theta-auto.py test.py | grep Failures )
 [ $? -gt 0 ] && { echo "error executing theta-auto tests!"; exit 1; }
 eval $a
 fail=$(($fail+$Failures))
+
+echo "executing theta-auto2 tests"
+cd $THETA_DIR/utils2/test || { echo "did not find utils2 test dir!"; exit 1; }
+rm -rf ./test/cache
+a=$( ../theta-auto.py test.py | grep Failures )
+[ $? -gt 0 ] && { echo "error executing theta-auto2 tests!"; exit 1; }
+eval $a
+fail=$(($fail+$Failures))
+
 
 
 echo "Failures: ${fail}"

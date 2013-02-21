@@ -65,8 +65,8 @@ llvm::Function * llvm_exp_function::llvm_codegen(llvm_module & mod, const std::s
     IRBuilder<> Builder(context);
     BasicBlock * BB = BasicBlock::Create(context, "entry", F);
     Builder.SetInsertPoint(BB);
-    const Type * double_t = Type::getDoubleTy(context);
-    const Type * i32_t = Type::getInt32Ty(context);
+    Type * double_t = Type::getDoubleTy(context);
+    Type * i32_t = Type::getInt32Ty(context);
     Value * par_values = F->arg_begin();
     Value * exponent_total = Builder.CreateFAdd(ConstantFP::get(double_t, 0.0), ConstantFP::get(double_t, 0.0));
     const size_t n = v_pids.size();
@@ -99,7 +99,7 @@ llvm::Function * llvm_exp_function::llvm_codegen(llvm_module & mod, const std::s
             Builder.SetInsertPoint(BB_join);
             // we could also move the FADD into the branch. However, here I have the opportunity
             // for a completely valid use of PHI ...
-            PHINode * phi = Builder.CreatePHI(double_t);
+            PHINode * phi = Builder.CreatePHI(double_t, 2);
             phi->addIncoming(multmp0, BB_gtr0);
             phi->addIncoming(multmp1, BB_lt0);
             exponent_total = Builder.CreateFAdd(exponent_total, phi);
@@ -107,9 +107,7 @@ llvm::Function * llvm_exp_function::llvm_codegen(llvm_module & mod, const std::s
             Builder.SetInsertPoint(BB = BB_join);
         }
     }
-    llvm::GlobalAlias * exp_function_alias = mod.module->getNamedAlias("exp_function");
-    theta_assert(exp_function_alias);
-    llvm::Function * exp_function = dyn_cast<llvm::Function>(exp_function_alias->getAliasee());
+    llvm::Function * exp_function = mod.module->getFunction("exp_function");
     theta_assert(exp_function);
     Value * retval = Builder.CreateCall(exp_function, exponent_total);
     Builder.CreateRet(retval);

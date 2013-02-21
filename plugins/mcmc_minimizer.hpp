@@ -2,11 +2,9 @@
 #define PLUGINS_MCMC_MINIMIZER_HPP
 
 #include "interface/decls.hpp"
-#include "interface/variables.hpp"
-#include "interface/database.hpp"
 #include "interface/minimizer.hpp"
 #include "interface/random-utils.hpp"
-#include "interface/matrix.hpp"
+#include "interface/mcmc.hpp"
 
 #include <string>
 
@@ -56,13 +54,11 @@ public:
     mcmc_minimizer(const theta::Configuration & ctx);
     
     virtual theta::MinimizationResult minimize(const theta::Function & f, const theta::ParValues & start,
-                const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
+                const theta::ParValues & step, const theta::Ranges & ranges);
 private:
     std::auto_ptr<theta::Minimizer> after_minimizer;
     std::string name;
-    unsigned int iterations;
-    unsigned int burn_in;
-    double stepsize_factor;
+    theta::MCMCOptions options;
     int bootstrap_mcmcpars;
 };
 

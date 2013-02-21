@@ -22,33 +22,6 @@ namespace fs = boost::filesystem;
 
 namespace theta{ namespace utils{
 
-discard_output::discard_output(bool discard_stderr): stdout_dup(-1), stderr_dup(-1){
-    stdout_dup = dup(STDOUT_FILENO);
-    if(stdout_dup > 0 && close(STDOUT_FILENO)==0){
-        int fd_tmp = open("/dev/null", O_WRONLY);
-        assert(fd_tmp==STDOUT_FILENO);
-    }
-    if(discard_stderr){
-        stderr_dup = dup(STDERR_FILENO);
-        if(stderr_dup > 0 && close(STDERR_FILENO)==0){
-            int fd_tmp = open("/dev/null", O_WRONLY);
-            assert(fd_tmp==STDERR_FILENO);
-        }
-    }
-}
-
-discard_output::~discard_output(){
-    // restore original state by duplicating the saved descriptors
-    // to 1 and 2:
-    if(stdout_dup > 0){
-        dup2(stdout_dup, STDOUT_FILENO);
-        close(stdout_dup);
-    }
-    if(stderr_dup > 0){
-        dup2(stderr_dup, STDERR_FILENO);
-        close(stderr_dup);
-    }
-}
 
 std::string replace_theta_dir(const std::string & path) {
    return boost::algorithm::replace_all_copy(path, "$THETA_DIR", theta_dir);

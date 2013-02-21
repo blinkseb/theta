@@ -1,5 +1,6 @@
 #include "plugins/mle.hpp"
-#include "plugins/asimov_likelihood_widths.hpp"
+#include "interface/log2_dot.hpp"
+#include "interface/asimov-utils.hpp"
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
 #include "interface/minimizer.hpp"
@@ -28,8 +29,9 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     if(not start_step_ranges_init){
         const Distribution & d = nll->get_parameter_distribution();
-        fill_mode_support(start, ranges, d);
-        step.set(asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term));
+        ranges.set_from(d);
+        d.mode(start);
+        step.set(asimov_likelihood_widths(model, override_parameter_distribution));
         start_step_ranges_init = true;
     }
     MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);
@@ -76,31 +78,14 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
     }
     if(write_pchi2){
         const ObsIds & obs = data.get_observables();
-        DataWithUncertainties pred;
+        Data pred;
         model.get_prediction(pred, minres.values);
         double pchi2 = 0.0;
         for(ObsIds::const_iterator it=obs.begin(); it!=obs.end(); ++it){
             const Histogram1D & data_o = data[*it];
-            const Histogram1DWithUncertainties & pred_o = pred[*it];
-            //data_o.check_compatibility(pred_o);
-            for(size_t i=0; i<data_o.get_nbins(); ++i){
-                const double n = data_o.get(i);
-                const double mu = pred_o.get_value(i);
-                if(mu > 0){
-                    if(n > 0){
-                        pchi2 += n * utils::log(n / mu) + mu - n;
-                    }
-                    else{
-                        pchi2 += mu;
-                    }
-                }
-                else if(n > 0){
-                    pchi2 = numeric_limits<double>::infinity();
-                    break;
-                }
-            }
+            const Histogram1D & pred_o = pred[*it];
+            pchi2 += template_pchisquare(data_o.get_data(), pred_o.get_data(), data_o.size());
         }
-        pchi2 *= 2;
         products_sink->set_product(c_pchi2, pchi2);
     }
 }

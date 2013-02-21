@@ -8,7 +8,7 @@
  * 
  * This is a llvm-enabled version of the \link multiply multiply \endlink plugin. See documentation there.
  */
-class llvm_multiply: public llvm_enabled<theta::Function> {
+class llvm_multiply: public llvm_enabled_function {
 public:
     llvm_multiply(const theta::Configuration & cfg);
     virtual double operator()(const theta::ParValues & v) const;

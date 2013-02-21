@@ -34,7 +34,7 @@ public:
 
    /** \brief Store a value
     *
-    * Stores (and possibly overwrites) a value using the instance_name and gievn type T.
+    * Stores (and possibly overwrites) a value using the instance_name and given type T.
     */
    template<typename T>
    void set(const std::string & instance_name, const boost::shared_ptr<T> & value);
@@ -47,10 +47,12 @@ public:
    template<typename T>
    size_t use_count(const std::string & instance_name = "default") const;
    
+   /** Returns whether the property indicated by type T and instance_name exists, i.e. is non-null
+    *
+    */
    template<typename T>
    bool exists(const std::string & instance_name = "default") const;
    
-   ~PropertyMap(){}
 private:
    struct nametype{
        std::string name;

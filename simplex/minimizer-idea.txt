@@ -1,0 +1,22 @@
+Requirements:
+ * should be able to cope with box constraints of parameter naturally
+
+
+
+
+Idea:
+ 1.The covariance matrix usually has little dependence on the parameter point. Therefore, one
+   could use the Hessian of the likelihood for the Asimov dataset as a good initial guess of the actual Hessian
+   of another dataset of the same model. This requires extending the minimization interface, which is
+   very general currently, e.g. by replacing the "step" parameter with a "step" matrix. This would probably
+   also improve the mcmc_minimizer performance.
+ 2.The priors of the model parameters together with the likelihood of the asimov data could give some
+   estimate where the fitted values will be distributed: they will be distributed approximately as
+   a multivariate Gaussian around the true value with the covariance from the Asimov likelihood. This
+   could be used to better seed the start value / step size for minimization.
+ (3.The "little" dependence is probably mainly in the parameter of interest; this dependence could
+   be parameterized(?))
+
+
+
+

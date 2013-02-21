@@ -3,7 +3,6 @@
 #include "interface/random.hpp"
 #include "interface/plugin.hpp"
 
-using namespace std;
 using namespace theta;
 
 /*
@@ -121,7 +120,7 @@ gamma_distribution::gamma_distribution(const theta::Configuration & cfg): supp(0
    k = (mu * mu) / (sigma * sigma);
    theta = sigma * sigma / mu;
    if(cfg.setting.exists("range")){
-       supp.first = max<double>(0.0, cfg.setting["range"][0]);
+       supp.first = std::max<double>(0.0, cfg.setting["range"][0]);
        supp.second = cfg.setting["range"][1].get_double_or_inf();
        if(supp.first < 0.0 || supp.second <= supp.first || k*theta < supp.first || k*theta > supp.second){
            throw ConfigurationException("invalid range given: range must be non-empty, must not contain any non-negative value and must contain the mean (k*theta)");

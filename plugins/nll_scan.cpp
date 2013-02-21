@@ -1,6 +1,6 @@
 #include "plugins/nll_scan.hpp"
-#include "plugins/asimov_likelihood_widths.hpp"
 #include "plugins/reduced_nll.hpp"
+#include "interface/asimov-utils.hpp"
 #include "interface/plugin.hpp"
 #include "interface/histogram.hpp"
 #include "interface/distribution.hpp"
@@ -14,8 +14,9 @@ void nll_scan::produce(const Data & data, const Model & model) {
     std::auto_ptr<NLLikelihood> nll = get_nllikelihood(data, model);
     if(not start_step_ranges_init){
         const Distribution & d = nll->get_parameter_distribution();
-        fill_mode_support(m_start, m_ranges, d);
-        m_step.set(asimov_likelihood_widths(model, override_parameter_distribution, additional_nll_term));
+        m_ranges.set_from(d);
+        d.mode(m_start);
+        m_step.set(asimov_likelihood_widths(model, override_parameter_distribution));
         start_step_ranges_init = true;
     }
     MinimizationResult minres = minimizer->minimize(*nll, m_start, m_step, m_ranges);
@@ -32,12 +33,12 @@ void nll_scan::produce(const Data & data, const Model & model) {
         ParValues tmp_start(m_start);
         ParValues tmp_step(m_step);
         tmp_step.set(pid, 0.0);
-        std::map<ParId, pair<double, double> > tmp_ranges(m_ranges);
+        Ranges tmp_ranges(m_ranges);
         
         tmp_start.set(values0);
         for(unsigned int i = i0; i < n_steps; ++i){
             double x = start + i * step;
-            tmp_ranges[pid] = make_pair(x, x);
+            tmp_ranges.set(pid, make_pair(x, x));
             tmp_start.set(pid, x);
             minres = minimizer->minimize(*nll, tmp_start, tmp_step, tmp_ranges);
             result.set(i, minres.fval - fval0);
@@ -46,7 +47,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
         tmp_start.set(values0);
         for(int i = i0 - 1; i>=0; --i){
             double x = start + i * step;
-            tmp_ranges[pid] = make_pair(x, x);
+            tmp_ranges.set(pid, make_pair(x, x));
             tmp_start.set(pid, x);
             minres = minimizer->minimize(*nll, tmp_start, tmp_step, tmp_ranges);
             result.set(i, minres.fval - fval0);

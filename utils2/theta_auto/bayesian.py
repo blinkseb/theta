@@ -15,20 +15,48 @@ from utils import *
 # the +-1sigma and +-2sigma (i.e., the centrgl 68% and central 84%) are given.
 #
 # Returns a dictionary (spid) --> (q) --> (list of results)
-# where q is one element of quantiles. The list of results are the quantiles 
-def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None, parameter = 'beta_signal'):
+# where q is one element of quantiles (a float value). The list of results are the quantiles 
+#
+# q can also be the special string "accrate" to return the acceptance rate, if the parameter \c accrate was set to
+# \c True
+def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat',
+   options = None, parameter = 'beta_signal', iterations = 10000, seed = 0):
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
-    colnames = ['quant__quant%05d' % int(q*10000 + 0.5) for q in quantiles]
+    colnames = ['quant__quant%05d' % int(q*10000 + 0.5) for q in quantiles] + ['quant__accrate']
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
+        p = QuantilesProducer(model, signal_processes, nuisance_constraint, signal_prior, parameter = parameter, quantiles = quantiles, iterations = iterations, seed = seed)
         r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
-             producers = [QuantilesProducer(model, signal_processes, nuisance_constraint, signal_prior, parameter = parameter, quantiles = quantiles)],
-             nuisance_prior_toys = nuisance_prior_toys)
+             producers = [p], nuisance_prior_toys = nuisance_prior_toys)
         r.run_theta(options)
         res = r.get_products(colnames)
         result[spid] = {}
         for i, q in enumerate(quantiles): result[spid][q] = res[colnames[i]]
+        result[spid]['accrate'] = res['quant__accrate']
+    return result
+    
+    
+## \brief Compute bayesian posterior ratio
+#
+# Uses the theta plugin mcmc_posterior_ratio.
+#
+# beta_signal_values are the values for beta_signal to use in the nominator / denominator of the ratio.
+#
+# Returns a dictionary (spid) --> (list of results)
+# The list of results are the ratios
+def bayesian_nl_posterior_ratio(model, input, n, signal_prior_sb = 'fix:1.0', signal_prior_b = 'fix:0.0', signal_process_groups = None, nuisance_constraint = None,
+   nuisance_prior_toys = None, options = None, iterations = 10000):
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    result = {}
+    for spid, signal_processes in signal_process_groups.iteritems():
+        r = Run(model, signal_processes, signal_prior = 'flat', input = input, n = n,
+             producers = [MCMCRatioProducer(model, signal_processes, nuisance_constraint, signal_prior_sb = signal_prior_sb, signal_prior_b = signal_prior_b, iterations = iterations)],
+             nuisance_prior_toys = nuisance_prior_toys)
+        r.run_theta(options)
+        res = r.get_products(['mcmcratio__nl_posterior_sb', 'mcmcratio__nl_posterior_b'])
+        result[spid] = map(lambda r: r[1] - r[0], zip(res['mcmcratio__nl_posterior_sb'], res['mcmcratio__nl_posterior_b']))
     return result
 
 ## \brief Calculate Bayesian limits.
@@ -92,69 +120,3 @@ def bayesian_posteriors(model, input, n, histogram_specs, signal_process_groups 
         for i, p in enumerate(parameters): result[spid][p] = map(histogram_from_dbblob, res[colnames[i]])
     return result
 
-
-
-
-
-"""
-
-def posteriors(model, histogram_specs, input = 'data', n = 3, signal_prior = 'flat', nuisance_prior = '', signal_processes = None, mcmc_iterations = 10000, **options):
-    if signal_processes is None: signal_processes = [[sp] for sp in model.signal_processes]
-    signal_prior = signal_prior_dict(signal_prior)
-    nuisance_prior = nuisance_prior_distribution(model, nuisance_prior)
-    main = {'n-events': n, 'model': '@model', 'producers': ('@posteriors',), 'output_database': sqlite_database(), 'log-report': False}
-    posteriors = {'type': 'mcmc_posterior_histo', 'name': 'posteriors', 'parameters': [],
-       'override-parameter-distribution': product_distribution("@signal_prior", "@nuisance_prior"),
-       'smooth': options.get('smooth', True), 'iterations': mcmc_iterations }
-    for par in histogram_specs:
-        posteriors['parameters'].append(par)
-        nbins, xmin, xmax = histogram_specs[par]
-        posteriors['histo_%s' % par] = {'range': [float(xmin), float(xmax)], 'nbins': nbins}
-    toplevel_settings = {'signal_prior': signal_prior, 'posteriors': posteriors, 'main': main}
-    options['load_root_plugins'] = False
-    toplevel_settings.update(get_common_toplevel_settings(**options))
-    cfg_names_to_run = []
-    main['data_source'], toplevel_settings['model-distribution-signal'] = data_source_dict(model, input)
-    cfg_names_to_run = []
-    for sp in signal_processes:
-        model_parameters = model.get_parameters(sp)
-        toplevel_settings['nuisance_prior'] = nuisance_prior.get_cfg(model_parameters)
-        name = write_cfg(model, sp, 'posteriors', input, additional_settings = toplevel_settings, **options)
-        cfg_names_to_run.append(name)
-    if 'run_theta' not in options or options['run_theta']:
-        run_theta(cfg_names_to_run)
-    else: return None
-    
-    cachedir = os.path.join(config.workdir, 'cache')
-    plotsdir = os.path.join(config.workdir, 'plots')
-    
-    result = {}
-    config.report.new_section('Posteriors %s' % input)
-    result_table = Report.table()
-    result_table.add_column('process', 'signal process')
-    parameters = sorted([par for par in histogram_specs])
-    for par in parameters:
-        result_table.add_column('maximum posterior %s' % par)
-    for name in cfg_names_to_run:
-        method, sp, dummy = name.split('-',2)
-        config.report.add_html('<h2>For signal "%s"</h2>' % sp)
-        result_table.set_column('process', sp)
-        sqlfile = os.path.join(cachedir, '%s.db' % name)
-        cols = ['posteriors__posterior_%s' % par for par in parameters]
-        data = sql(sqlfile, 'select %s from products' % ', '.join(cols))
-        data = [map(plotdata_from_histoColumn, row) for row in data]
-        result[sp] = {}
-        i = 0
-        for par in parameters:
-            result[sp][par] = [row[i] for row in data]
-            for pd in result[sp][par]: pd.as_function = True
-            plot(result[sp][par], par, 'posterior density', os.path.join(plotsdir, '%s-%s.png' % (name, par)))
-            config.report.add_html('<p>%s:<br/><img src="plots/%s-%s.png" /></p>' % (par, name, par))
-            i += 1
-            maxima = sorted(map(argmax, result[sp][par]))
-            result_table.set_column('maximum posterior %s' % par, '%.3g' % maxima[int(0.5 * len(maxima))])
-        result_table.add_row()
-    config.report.add_p('input: %s, n: %d, signal prior: %s, nuisance prior: %s' % (input, n, str(signal_prior), str(nuisance_prior)))
-    config.report.add_html(result_table.html())
-    return result
-"""

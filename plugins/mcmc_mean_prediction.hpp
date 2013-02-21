@@ -51,27 +51,20 @@
  * and the latter the rms of the predictions in each bin, as seen along the chain. The third column is called
  * "obs1_best" and contains the prediction with the highest likelihood value the chain has seen.
  */
-class mcmc_mean_prediction: public theta::Producer, public theta::RandomConsumer{
+class mcmc_mean_prediction: public theta::Producer {
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     mcmc_mean_prediction(const theta::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
     
 private:
-    void declare_products(const boost::shared_ptr<theta::VarIdManager> & vm);
-    
     //result columns: one "mean" and one "width" column per observable.
     theta::ObsIds observables;
     std::vector<theta::Column> c_mean;
     std::vector<theta::Column> c_width;
     std::vector<theta::Column> c_best;
     
-    //MCMC parameters:
-    unsigned int iterations;
-    unsigned int burn_in;
-    theta::Matrix sqrt_cov;
-    std::vector<double> startvalues;
-    //whether sqrt_cov* and startvalues* have been initialized:
+    std::auto_ptr<theta::MCMCStrategy> mcmc_strategy;
     bool init;
 };
 

@@ -1,6 +1,5 @@
 #include "plugins/mcmc_minimizer.hpp"
-#include "plugins/mcmc.hpp"
-#include "plugins/mcmc-result.hpp"
+#include "interface/mcmc.hpp"
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
 #include "interface/histogram.hpp"
@@ -10,10 +9,10 @@ using namespace theta;
 using namespace std;
 
 //the result class for the metropolisHastings routine.
-class MCMCMinResult: public Result{
+class MCMCMinResult: public ResultMeanCov{
     public:
         //ipar_ is the parameter of interest
-        MCMCMinResult(size_t npar, const ParIds & pids_): Result(npar), n(0), n_different(0), pids(pids_), min_nll(numeric_limits<double>::infinity()){
+        MCMCMinResult(size_t npar, const ParIds & pids_): ResultMeanCov(npar), n(0), n_different(0), pids(pids_), min_nll(numeric_limits<double>::infinity()){
         }
                 
         virtual void fill2(const double * x, double nll, size_t n_){
@@ -45,38 +44,37 @@ class MCMCMinResult: public Result{
 };
 
 
-MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues & start,
-                const ParValues & step, const map<ParId, pair<double, double> > & ranges){
+MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues & start, const ParValues & step, const Ranges & ranges){
     const ParIds & pids = f.get_parameters();
     size_t n = pids.size();
     Matrix sqrt_cov(n,n);
-    vector<double> v_start(n);
+    options.startvalues.resize(n);
     ParIds::const_iterator it=pids.begin();
     for(size_t i=0; i<n; ++it, ++i){
-        v_start[i] = start.get(*it);
+        options.startvalues[i] = start.get(*it);
     }
     it=pids.begin();
     for(size_t i=0; i<n; ++it, ++i){
-        sqrt_cov(i,i) = step.get(*it) * stepsize_factor;
+        sqrt_cov(i,i) = step.get(*it);
         theta_assert(std::isfinite(sqrt_cov(i,i)));
     }
     for (int i = 0; i < bootstrap_mcmcpars; i++) {
-        Result res(n);
-        metropolisHastings(f, res, *rnd_gen, v_start, sqrt_cov, iterations, burn_in, true);
-        if(res.getCount() < iterations / 2) {
+        ResultMeanCov res(n);
+        metropolis_hastings_multigauss(f, options, res, *rnd_gen, sqrt_cov);
+        if(res.getCount() < options.iterations / 2) {
             throw MinimizationException("during mcmcpars bootstrapping: more than 50% of the chain is infinite!");
         }
-        v_start = res.getMeans();
+        options.startvalues = res.getMeans();
         Matrix cov = res.getCov();
         get_cholesky(cov, sqrt_cov);
     }
     
     MCMCMinResult result(n, pids);
-    double first_nll = f(&v_start[0]);
+    double first_nll = f(&options.startvalues[0]);
     if(!std::isfinite(first_nll)){
         throw MinimizationException("first nll value was not finite");
     }
-    metropolisHastings(f, result, *rnd_gen, v_start, sqrt_cov, iterations, burn_in);
+    metropolis_hastings_multigauss(f, options, result, *rnd_gen, sqrt_cov);
     //now step 2: call the after_minimizer:
     const ParValues & start2 = result.values_at_minimum();
     ParValues step2;
@@ -99,21 +97,21 @@ MinimizationResult mcmc_minimizer::minimize(const Function & f, const ParValues 
     }
 }
 
-mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer(cfg, cfg.setting["name"]), name(cfg.setting["name"]),
-  stepsize_factor(1.0), bootstrap_mcmcpars(0){
+mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer(cfg, cfg.setting["name"]), name(cfg.setting["name"]), bootstrap_mcmcpars(0){
     Setting s = cfg.setting;
-    iterations = s["iterations"];
+    options.ignore_inf_nll_start = true;
+    options.iterations = s["iterations"];
     if(s.exists("burn-in")){
-        burn_in = s["burn-in"];
+        options.burn_in = s["burn-in"];
     }
     else{
-        burn_in = iterations / 10;
+        options.burn_in = options.iterations / 10;
     }
     if(s.exists("after_minimizer")){
         after_minimizer = PluginManager<Minimizer>::build(Configuration(cfg, s["after_minimizer"]));
     }
     if(s.exists("stepsize_factor")){
-        stepsize_factor = s["stepsize_factor"];
+        options.factor = s["stepsize_factor"];
     }
     if(s.exists("bootstrap_mcmcpars")){
         bootstrap_mcmcpars = s["bootstrap_mcmcpars"];
@@ -121,4 +119,3 @@ mcmc_minimizer::mcmc_minimizer(const theta::Configuration & cfg): RandomConsumer
 }
 
 REGISTER_PLUGIN(mcmc_minimizer)
-

@@ -67,7 +67,7 @@ public:
      */
     //While larger buffer sizes help very much for small buffers, tests have shown that
     // choosing a buffer sizes larger than around 100 does not increase performance significantly.
-    Random(std::auto_ptr<RandomSource> & rnd_): rnd(rnd_), random_data(100),
+    explicit Random(std::auto_ptr<RandomSource> & rnd_): rnd(rnd_), random_data(100),
         current(random_data.end()), end(random_data.end()){
     }
     

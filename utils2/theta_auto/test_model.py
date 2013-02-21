@@ -29,18 +29,20 @@ def simple_counting(s, n_obs, b=0.0, b_uncertainty=0.0, s2 = None):
 # signals are the signal yields, backgrounds are the background yields
 # b_uncertainty1, b_uncertainty2 and b_uncertainty3 are either None or an array
 # of *relative* background uncertainties in the channels.
-def multichannel_counting(signals, n_obs, backgrounds, b_uncertainty1 = None, b_uncertainty2 = None, b_uncertainty3 = None, obsnames = None):
+def multichannel_counting(signals, n_obs = None, backgrounds = None, b_uncertainty1 = None, b_uncertainty2 = None, b_uncertainty3 = None, obsnames = None):
     n = len(signals)
-    assert n==len(n_obs) and n==len(backgrounds)
+    assert n_obs is None or n==len(n_obs)
+    assert backgrounds is None or n==len(backgrounds)
     model = Model()
     for i in range(n):
         if obsnames is None: obsname = 'obs%d' % i
         else: obsname = obsnames[i]
-        model.set_data_histogram(obsname, Histogram(0.0, 1.0, [float(n_obs[i])]))
+        if n_obs is not None: model.set_data_histogram(obsname, Histogram(0.0, 1.0, [float(n_obs[i])]))
         hf_s = HistogramFunction()
         hf_s.set_nominal_histo(Histogram(0.0, 1.0, [float(signals[i])]))
         model.set_histogram_function(obsname, 's', hf_s)
         
+        if backgrounds is None: continue
         hf_b = HistogramFunction()
         hf_b.set_nominal_histo(Histogram(0.0, 1.0, [float(backgrounds[i])]))
         model.set_histogram_function(obsname, 'b', hf_b)
@@ -101,7 +103,7 @@ def template_counting_bb(s, s_uncertainty, n_obs):
     return model
 
 
-# a gaussian signal (mean 50, width 20) over flat background on a range 0--100, with 100 bins no data.
+# a gaussian "signal" distribution (mean s_mean, width s_sigma) over flat background on a range 0--100, with 100 bins; no observed data.
 # b_uncertainty is the (absolute!) uncertainty on the background yield, which will be handeled with a log-normal.
 def gaussoverflat(s, b, b_uncertainty = 0.0, s_mean = 50.0, s_sigma = 20., obs_suffix = ''):
     model = Model()    

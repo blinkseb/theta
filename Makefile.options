@@ -10,7 +10,7 @@
 OPTIONS_BUILD_TESTS := yes
 
 # If yes, use amdlibm for some math functions instead of libm
-OPTIONS_USE_AMDLIBM := no
+OPTIONS_USE_AMDLIBM := yes
 
 # If yes, build llvm plugins in "llvm" subdirectory. Requires working
 # llvm installation (tested with 2.7 and 2.8)
@@ -24,7 +24,7 @@ OPTIONS_DEBUG := no
 OPTIONS_TIMER := no
 
 # Additional flags for compilation / linking so files / linking exe files:
-OPTIONS_CFLAGS :=
+OPTIONS_CFLAGS := 
 OPTIONS_LDFLAGS_SO :=
 OPTIONS_LDFLAGS_EXE :=
 

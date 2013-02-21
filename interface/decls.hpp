@@ -9,6 +9,7 @@ namespace libconfig{
 }
 
 namespace theta{
+    class Matrix;
     class DoubleVector;
     class Histogram1D;
     class Histogram1DWithUncertainties;
@@ -18,6 +19,7 @@ namespace theta{
     class ParameterDependentProducer;
     class ProductsSource;
     class Distribution;
+    class Ranges;
     class Database;
     class DatabaseInput;
     class Table;
@@ -25,7 +27,9 @@ namespace theta{
     class ProductsTable;
     class LogTable;
     class RndInfoTable;
-        
+    
+    class MCMCStrategy;
+
     class Configuration;
     class Random;
     class VarIdManager;

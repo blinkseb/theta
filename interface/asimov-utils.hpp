@@ -1,8 +1,31 @@
-#ifndef PLUGINS_ASIMOV_LIKELIHOOD_WIDTHS_HPP
-#define PLUGINS_ASIMOV_LIKELIHOOD_WIDTHS_HPP
+#ifndef ASIMOV_UTILS_HPP
+#define ASIMOV_UTILS_HPP
 
 #include "interface/decls.hpp"
+#include "interface/data.hpp"
+#include "interface/phys.hpp"
+
 #include <boost/shared_ptr.hpp>
+
+
+namespace theta{
+
+/** \brief The negative log-likelihood function for Asimov data
+ */
+class asimov_data_nll: public Function{
+public:
+    
+    /// Construct from the model and the override parameter distribution, which will be part of the likelihood.
+    asimov_data_nll(const theta::Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution);
+    
+    /// Evaluate the negative log-likelihood.
+    double operator()(const ParValues & values) const;
+    
+private:
+    Data asimov_data;
+    std::auto_ptr<NLLikelihood> nll;
+};
+
 
 /** \brief Calculate parameter widths from the asimov data for the given model
  *
@@ -23,7 +46,19 @@
  *
  * This function is meant to be used to choose initial step sizes for minimization and MCMC integration.
  */
-theta::ParValues asimov_likelihood_widths(const theta::Model & model, const boost::shared_ptr<theta::Distribution> & override_parameter_distribution,
-     const boost::shared_ptr<theta::Function> & additional_nll_term);
+ParValues asimov_likelihood_widths(const Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution);
+
+/** \brief Calculate an approximation of the inverse hessian from asimov data of the given model
+ *
+ * The function uses numerical second derivatives of the asimov likelihood to calculate the Hessian, and the invserse
+ * Hessian is returned. This is a reasonable estimate for the covariance matrix for many purposes.
+ *
+ * This method performs a "bootstrap" in the sense that first, characteristic lengths for all axes are found
+ * via asimov_likelihood_widths. The step size used in the numerical derivative is then this width times epsilon.
+ * A good default value for epsilon seems to be around 1e-4.
+ */
+Matrix asimov_likelihood_matrix(const Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution, double epsilon);
+
+}//namespace theta
 
 #endif

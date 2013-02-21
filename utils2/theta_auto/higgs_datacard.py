@@ -2,8 +2,9 @@
 import math
 import utils
 from Model import *
+from root import *
 
-_verbose = True
+_debug = False
 
 def is_int(s):
     try:
@@ -119,7 +120,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             hname_tmp = hname.replace('$PROCESS', 'data_obs')
             histo = rf.get_histogram(hname_tmp, include_uncertainties = False)
         if histo is None:
-            if _verbose: print "note: did not find data histogram in %s" % rf.get_filename()
+            if _debug: print "note: did not find data histogram in %s" % rf.get_filename()
             raise RuntimeError, "did not find histo"
         model.set_data_histogram(theta_obs, histo, reset_binning = True)
         return
@@ -132,8 +133,11 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
     hname_with_systematics = hname_with_systematics.replace('$PROCESS', proc)
     nominal_histogram = rf.get_histogram(hname, include_uncertainties = include_uncertainties)
     if nominal_histogram is None:
-        if _verbose: print "note: did not find histogram %s in %s" % (hname, rf.get_filename())
+        if _debug: print "note: did not find histogram %s in %s" % (hname, rf.get_filename())
         raise RuntimeError, "did not find histo"
+    if _debug:
+        nominal_histogram_uoflow = rf.get_histogram(hname, include_uncertainties, include_uoflow = True)
+        print "norm(%s) = %.3f;  %.3f" % (hname, nominal_histogram.get_value_sum(), nominal_histogram_uoflow.get_value_sum())
     if utils.reldiff(old_nominal_histogram.get_value_sum(), nominal_histogram.get_value_sum()) > 0.01 and abs(old_nominal_histogram.get_value_sum() - nominal_histogram.get_value_sum()) > 1e-4:
         raise RuntimeError, "add_shapes: histogram normalisation given in datacard and from root file differ by more than >1% (and absolute difference is > 1e-4)"
     hf.set_nominal_histo(nominal_histogram, reset_binning = True)
@@ -153,12 +157,18 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             hname_minus = hname_with_systematics.replace('$SYSTEMATIC', u + 'Down')
         histo_plus = rf.get_histogram(hname_plus, include_uncertainties = include_uncertainties)
         if histo_plus is None:
-            if _verbose: print "note: did not find histogram %s in %s" % (hname_plus, rf.get_filename())
+            if _debug: print "note: did not find histogram %s in %s" % (hname_plus, rf.get_filename())
             raise RuntimeError, "did not find histo"
         histo_minus = rf.get_histogram(hname_minus, include_uncertainties = include_uncertainties)
         if histo_minus is None:
-            if _verbose: print "note: did not find histogram %s in %s" % (hname_minus, rf.get_filename())
+            if _debug: print "note: did not find histogram %s in %s" % (hname_minus, rf.get_filename())
             raise RuntimeError, "did not find histo"
+        if _debug:
+            histo_plus_uoflow = rf.get_histogram(hname_plus, include_uncertainties, include_uoflow = True)
+            histo_minus_uoflow = rf.get_histogram(hname_minus, include_uncertainties, include_uoflow = True)
+            print "norm(%s) = %.3f;  %.3f" % (hname_plus, histo_plus.get_value_sum(), histo_plus_uoflow.get_value_sum())
+            print "norm(%s) = %.3f;  %.3f" % (hname_minus, histo_minus.get_value_sum(), histo_minus_uoflow.get_value_sum())
+            
         # make the rate uncertainty part of the coefficient function, i.e., normalize plus and minus histograms
         # to nominal and add a lognormal uncertainty to the coefficient function:
         lambda_plus = math.log(histo_plus.get_value_sum() / nominal_histogram.get_value_sum()) * uncs[u]
@@ -189,7 +199,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
 #
 # variables is a dictionary of additional variables used in the replacement to find histogram shapes, for example {'MASS': '125'}. Note that
 # the value should always be a string.
-def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = lambda unc: True, debug = False, include_mc_uncertainties = False, variables = {}):
+def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = lambda unc: True, include_mc_uncertainties = False, variables = {}):
     model = Model()
     lines = [l.strip() for l in file(fname)]
     lines = [(lines[i], i+1) for i in range(len(lines)) if not lines[i].startswith('#') and lines[i]!='' and not lines[i].startswith('--')]
@@ -321,7 +331,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     # factors of 0 are omitted.
     shape_systematics = {}
     for i in range(kmax):
-        if debug: print "processing line %d" % lines[i][1]
+        if _debug: print "processing line %d" % lines[i][1]
         cmds = get_cmds(lines[i])
         assert len(cmds) >= len(processes_for_table) + 2, "Line %d: wrong number of entries for uncertainty '%s'" % (lines[i][1], cmds[0])
         if not filter_uncertainty(cmds[0]): continue

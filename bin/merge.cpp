@@ -44,7 +44,6 @@ sqlite3_stmt* sqlite3_prepare(sqlite3 * db, const char* sql){
 }
 
 void sqlite_error(int code, const string & function){
-    //TODO: translate code to english.
     cerr << "SQL error " << code << " in " << function << ". Exiting." << endl;
     exit(1);
 }

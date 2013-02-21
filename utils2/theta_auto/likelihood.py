@@ -155,7 +155,7 @@ def nll_scan(model, input, n, npoints=101, range = [0.0, 3.0], adaptive_startval
         result[spid] = map(histogram_from_dbblob, res['nllscan__nll'])
     return result
     
-def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, options = None, eventid_info = False):
+def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, options = None, eventid_info = False, signal_prior_sb = 'flat'):
     """
     Calculate Z values (significance in sigma), using Wilks' Theorem. The reported approximate Z-values are
     
@@ -181,7 +181,7 @@ def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constr
     if options is None: options = Options()
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
-        p = DeltaNllHypotest(model, signal_processes, nuisance_constraint)
+        p = DeltaNllHypotest(model, signal_processes, nuisance_constraint, signal_prior_sb = signal_prior_sb)
         r = Run(model, signal_processes = signal_processes, signal_prior = 'flat', input = input, n=n, producers = [p], nuisance_prior_toys = nuisance_prior_toys)
         r.run_theta(options)
         result[spid] = {}

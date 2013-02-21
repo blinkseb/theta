@@ -4,6 +4,8 @@
 #include "interface/decls.hpp"
 #include "interface/variables.hpp"
 
+#include <map>
+
 namespace theta{
 
     /** \brief A probability distribution of real-values random variables in one or more dimensions
@@ -105,29 +107,42 @@ namespace theta{
         ParIds distribution_par_ids;
     };
     
-    /** \brief An empty distribution, not depending on any parameters
-     *
-     * This class simplifies the architecture at some places as an EmptyDistribution can take
-     * a place where "no distribution" is meant; this avoids some special cases.
-     */
     class EmptyDistribution: public Distribution{
     public:
-        virtual const std::pair<double, double> & support(const ParId & p) const;
-        virtual double eval_nl(const ParValues & values) const{ return 0.0; }
-        virtual double eval_nl_with_derivatives(const ParValues & values, ParValues & derivatives) const{ return 0.0; }
-        virtual void mode(ParValues & result) const{}
-        virtual void sample(ParValues & result, Random & rnd) const{}
-        virtual ~EmptyDistribution();
+    	virtual void sample(ParValues & result, Random & rnd) const{}
+    	virtual void mode(ParValues & result) const{}
+    	virtual const std::pair<double, double> & support(const ParId & p) const;
+    	virtual double eval_nl(const ParValues & values) const { return 0.0;}
+    	virtual ~EmptyDistribution();
     };
-        
-    /** \brief Fill mode and and support from a Distribution instance
+
+
+    /** \brief Class saving parameter ranges
      *
-     * This is a utility routine calling the Distribution::mode and
-     * and Distribution::support routines for all parameters of the Distribution and filling
-     * the result into the parameters \c mode, \c width and \c support
      */
-    void fill_mode_support(theta::ParValues & mode, std::map<theta::ParId, std::pair<double, double> > & support, const theta::Distribution & d);
-    
+    class Ranges{
+       std::map<ParId, std::pair<double, double> > ranges;
+    public:
+       Ranges(){}
+       Ranges(const std::map<ParId, std::pair<double, double> > & ranges);
+
+       explicit Ranges(const theta::Distribution & dist);
+
+       /// set ranges from the support of the distribution
+       void set_from(const theta::Distribution & dist);
+
+       /// set the range
+       void set(const ParId & pid, const std::pair<double, double> & range);
+
+       /// Get the range for the specified parameter. Throws invalid_argument in case
+       const std::pair<double, double> & get(const ParId & pid) const;
+
+       /// Returns whether or not the parameter is fixed, i.e. whether lower and upper bound coincide.
+       bool fixed(const ParId & pid) const;
+
+       /// truncate the values to the ranges. Parameters for which no range is set are not changed.
+       void trunc(ParValues & values) const;
+    };
 }
 
 #endif

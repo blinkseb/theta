@@ -23,29 +23,29 @@
  *      delta2-plus-histogram = { / * fixed-histogram-specification * / };
  *      delta2-minus-histogram = { / * fixed-histogram-specification * / };
  *      //optional settings:
- *      parameter_factors = (0.5, 1.2);
+ *      parameter_factors = (0.5, 1.2); // default is (1.0, 1.0, ...)
  *      normalize_to_nominal = true; // default is false
  *   };
  * \endcode
  *
  * \c parameters is a list of parameter names used to interpolate between the nominal and the shifted Histograms. For a parameter value of 0.0,
- *    the nominal histograms is reproduced, for a parameter value of +-1, the "-plus-hitsogram" or "-minus-histogram" are reproduced.
+ *    the nominal histograms is reproduced, for a parameter value of +-1, the "-plus-histogram" or "-minus-histogram" are reproduced.
  *    Therefore, the parameters usually have a Gaussian prior around 0.0 with width 1.0.
  *
  * For each parameter given in \c parameters, there must be according "-plus-histogram" and "-minus-histogram" settings.
  * \c fixed-histogram-specification is a Histogram Setting block that returns a Histogram which does not depend on any parameters.
  *
- * \c parameter_factors is an optional list of floating point values to multiply the parameter value with before they are used in thye interpolation.
+ * \c parameter_factors is an optional list of floating point values to multiply the parameter value with before they are used in the interpolation.
  *  If given, it must have the same length as the \c parameters list as it refers to these parameters, in the same order. If it is not given,
  *  it is equivalent to specifying a list of 1.0.
  *  This setting is useful
  *  if some shifted histograms actually represent other than +-1sigma shifts. For example, setting a parameter_factor to 0.5 while leaving the
- *  prior to Gaussian around 0.0 with width 1.0 efectively means that the shifted shapes are the ones corresponding to +-2sigma.
+ *  prior to Gaussian around 0.0 with width 1.0 means that the shifted shapes are the ones corresponding to +-2sigma.
  *
  * If \c normalize_to_nominal is \c true, the histogram after interpolation will be normalized to the nominal histogram. The default (false) is to
  * interpolate the bin content in each bin and not to change the normalization after the interpolation at all. Setting this parameter to \c true
- * is useful if one wants to treat the normalization uncertainty not as part of the interpolation but rather seperately by the
- * coefficienct-function (which can use the same parameter as used here for histogram interpolation). This provides more flexibility in the
+ * is useful if one wants to treat the normalization uncertainty not as part of the interpolation but rather separately by the
+ * coefficient-function (which can use the same parameter as used here for histogram interpolation). This provides more flexibility in the
  * handling of the normalization uncertainty.
  *
  * If this calculation leads to a negative bin entry, it is set to zero to avoid unphysical templates. The uncertainty is not changed in this case.
@@ -62,12 +62,11 @@ public:
     
     virtual void apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const;
     virtual void apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const;
-    
     virtual void get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const;
     
 private:
     // add the morph terms to the "nominal" histogram t.
-    // make this a template so we can re-use code for bothe the version with and without uncertainties.
+    // make this a template so we can re-use code for both versions: with and without uncertainties.
     template<typename HT>
     void add_morph_terms(HT & t, const theta::ParValues & values) const;
     
@@ -88,7 +87,6 @@ private:
     bool normalize_to_nominal;
     
     //intermediate histogram for operator()
-    mutable theta::Histogram1D diff_total;
     mutable theta::Histogram1DWithUncertainties h_wu;
     mutable theta::Histogram1D h;
 };

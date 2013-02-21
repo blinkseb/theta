@@ -6,7 +6,7 @@ using namespace theta;
 using namespace std;
 
 MinimizationResult minimizer_chain::minimize(const Function & f, const ParValues & start,
-                const ParValues & step, const map<ParId, pair<double, double> > & ranges){
+                const ParValues & step, const Ranges & ranges){
     MinimizationResult res;
     bool success = false;
     for(size_t i=0; i < minimizers.size(); ++i){

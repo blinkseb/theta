@@ -3,9 +3,9 @@ deps := $(patsubst %.o,%.d,$(objects))
 
 include ../Makefile.rules
 
-all: 
+#all: 
 
-#all: ../lib/liblbfgs.so
+all: ../lib/liblbfgs.so
 
 ../lib/liblbfgs.so: $(objects)
 	@$(LINK_SO)

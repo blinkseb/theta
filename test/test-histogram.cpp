@@ -13,21 +13,50 @@
 using namespace std;
 using namespace theta;
 
-bool histos_equal(const Histogram1D & h1, const Histogram1D & h2){
-    if(h1.get_nbins()!=h2.get_nbins()) return false;
-    if(h1.get_xmin()!=h2.get_xmin()) return false;
-    if(h1.get_xmax()!=h2.get_xmax()) return false;
-    const size_t n = h1.get_nbins();
-    for(size_t i=0; i<n; i++){
-        if(h1.get(i)!=h2.get(i)) return false;
-    }
-    return true;
-}
-
 // general note: use odd bin numbers to test SSE implementation for which
 // an odd number of bins is a special case.
 
 BOOST_AUTO_TEST_SUITE(histogram_tests)
+
+// test the utils fast functions
+BOOST_AUTO_TEST_CASE(utils_test){
+	double* x=0, * y=0, * y2=0;
+	const unsigned int align = 16;
+	for(int N = 1; N < 30; ++N){
+		int N_alloc = N + (N % 2);
+		assert(0==posix_memalign((void**)(&x), align, sizeof(double) * N_alloc));
+    	assert(0==posix_memalign((void**)(&y), align, sizeof(double) * N_alloc));
+    	assert(0==posix_memalign((void**)(&y2), align, sizeof(double) * N_alloc));
+
+    	for(int j=0; j<N; ++j){
+    		x[j] = N + j*j;
+    		y2[j] = j;
+    	}
+    	utils::copy_fast(y, x, N);
+    	for(int j=0; j<N; ++j){
+			BOOST_REQUIRE(x[j] == y[j]);
+		}
+    	utils::add_fast(x, y2, N);
+    	for(int j=0; j<N; ++j){
+			BOOST_REQUIRE(close_to_relative(y[j] + y2[j], x[j]));
+		}
+    	utils::copy_fast(x, y, N);
+    	double c = M_PI;
+    	utils::add_fast_with_coeff(x, y2, c, N);
+    	for(int j=0; j<N; ++j){
+			BOOST_REQUIRE(close_to_relative(y[j] + c * y2[j], x[j]));
+		}
+    	utils::copy_fast(x, y, N);
+    	utils::mul_fast(x, c, N);
+    	for(int j=0; j<N; ++j){
+			BOOST_REQUIRE(close_to_relative(c * y[j], x[j]));
+		}
+
+    	free(x);
+    	free(y);
+    	free(y2);
+	}
+}
 
 //test constructors and copy assignment
 BOOST_AUTO_TEST_CASE(ctest){
@@ -45,6 +74,21 @@ BOOST_AUTO_TEST_CASE(ctest){
    //fill a bit:
    for(size_t i=0; i<nbins; i++){
        m.set(i, i*i);
+   }
+
+   // try different byte offsets as there are a lot of optimizations:
+   for(size_t off=0; off < 67; ++off){
+	   const size_t nb = 32 + off;
+	   Histogram1D h0(nb, -1, 1);
+	   BOOST_REQUIRE(h0.get_nbins()==nb);
+	   for(size_t i=0; i<nb; i++){
+		   h0.set(i, i*i - i);
+	   }
+	   Histogram1D h0_init(h0);
+	   BOOST_CHECK(histos_equal(h0, h0_init));
+	   Histogram1D h0_assign(100, -1, 1);
+	   h0_assign = h0;
+	   BOOST_CHECK(histos_equal(h0, h0_assign));
    }
 
    //copy constructor:
@@ -88,6 +132,44 @@ BOOST_AUTO_TEST_CASE(ctest){
       exception = true;
    }
    BOOST_CHECK(exception);
+}
+
+BOOST_AUTO_TEST_CASE(add_coeff){
+	const size_t nbins=100;
+	Histogram1D m1(nbins, -1, 1);
+	Histogram1D m2(nbins, -1, 1);
+	Histogram1D m_expected(nbins, -1, 1);
+	const double c = M_PI;
+	for(size_t i=0; i<nbins; i++){
+		double v1 = 0.33*i;
+		double v2 = 10. - i;
+		m1.set(i, v1);
+		m2.set(i, v2);
+		m_expected.set(i, v1 + c*v2);
+	}
+	{
+		Histogram1D s(m1);
+		s.add_with_coeff(c, m2);
+		BOOST_CHECK(histos_equal(s, m_expected));
+	}
+
+    const double c2 = 4.3;
+    Histogram1D m3(nbins, -1, 1);
+    for(size_t i=0; i<nbins; i++){
+    	double v = 2.*i*i;
+    	m3.set(i, v);
+    	double expected = m1.get(i) + c * m2.get(i) + c2 * v;
+    	m_expected.set(i, expected);
+    }
+    {
+    	Histogram1D s(m1);
+    	s.add_with_coeff2(c, m2, c2, m3);
+    	BOOST_CHECK(histos_equal(s, m_expected));
+    	s = m1;
+    	s.add_with_coeff(c, m2);
+    	s.add_with_coeff(c2, m3);
+    	BOOST_CHECK(histos_equal(s, m_expected));
+    }
 }
 
 

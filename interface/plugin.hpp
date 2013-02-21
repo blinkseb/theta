@@ -19,16 +19,13 @@ namespace theta {
      * the most important being \c setting, which is the setting group from the configuration file
      * for which this plugin class should be created.
      *
-     * The standard proporties in the PropertyMap are:
+     * The standard properties in the PropertyMap are:
      * <ul>
      *   <li>VarIdManager "default" to get information about variables</li>
      *   <li>ProductsSink "default" where the producers  and other ProductSources write their results</li>
      *   <li>int "runid"</li>
      *   <li>RndInfoTable "default"</li>
-     *   <li>int "seed_offset"</li>
      * </ul>
-     *
-     * Apart from the ProductsSink, none of these properties must be used beyond the initialisation.
      */
     class Configuration{
     public:
@@ -54,7 +51,7 @@ namespace theta {
     template<typename> class PluginManager;
     /** \brief Class used internally for the PluginManager
      *
-     * You usually do not have to care about it, as this is a detail handeled by the REGISTER_PLUGIN macro.
+     * You usually do not have to care about it, as this is a detail handled by the REGISTER_PLUGIN macro.
      *
      * This is the abstract factory class for a certain \c base_type. For each \c base_type, there
      * is an instance of PluginManager&lt;base_type&gt; which will save pointers to all currently registered
@@ -81,18 +78,13 @@ namespace theta {
          }
      };
 
-     //helper macros for REGISTER_PLUGIN
-     #define CONCAT(a,b) CONCAT2(a,b)
-     #define CONCAT2(a,b) a ## b
-
      /* define a template specialization of abstract_factory<base_type> which constructs the desired type
      */
-     #define REGISTER_PLUGIN_NAME(type,name) namespace { class CONCAT(factory,__LINE__): public theta::factory<type::base_type>{ \
-     public:\
+     #define REGISTER_PLUGIN_NAME(type,name) namespace { struct factory__##type##name : public theta::factory<type::base_type>{ \
      virtual std::auto_ptr<type::base_type> build(const theta::Configuration & cfg){return std::auto_ptr<type::base_type>(new type(cfg)); }\
      virtual std::string get_typename(){ return #name ;}\
-     CONCAT(factory,__LINE__)(){reg();}\
-     }; CONCAT(factory,__LINE__) CONCAT(factory_instance,__LINE__);}
+     factory__##type##name (){reg();}\
+     } factory_instance__##type##name;}
 
      #define REGISTER_PLUGIN(type) REGISTER_PLUGIN_NAME(type, type)
      #define REGISTER_PLUGIN_DEFAULT(type) REGISTER_PLUGIN_NAME(type, default) 

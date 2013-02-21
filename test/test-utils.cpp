@@ -32,8 +32,8 @@ BOOST_AUTO_TEST_CASE(roots_quad_tests){
     c = 2;
     res = roots_quad(x1, x2, b, c);
     BOOST_CHECK(res == 0);
-    BOOST_CHECK(isnan(x1));
-    BOOST_CHECK(isnan(x2));
+    BOOST_CHECK(std::isnan(x1));
+    BOOST_CHECK(std::isnan(x2));
     
     // b == 0.0:
     b = 0;

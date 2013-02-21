@@ -34,6 +34,28 @@ protected:
     virtual Column declare_column_impl(const std::string & full_column_name, const data_type & type) = 0;
 };
 
+/** \brief A products sink forgetting everything
+ *
+ * Trivial implementation. Useful mainly for testing if a non-null ProductsSink is required at some point.
+ */
+class NullProductsSink: public ProductsSink{
+public:
+    Column declare_product(const ProductsSource & source, const std::string & product_name, const data_type & type);
+    Column declare_column(const std::string & full_column_name, const data_type & type);
+    const std::map<std::string, std::pair<Column, data_type> > & get_name_to_column_type() const;
+
+    virtual void set_product(const Column & c, double d){}
+    virtual void set_product(const Column & c, int i){}
+    virtual void set_product(const Column & c, const std::string & s){}
+    virtual void set_product(const Column & c, const Histogram1D & h){}
+    virtual ~NullProductsSink();
+
+protected:
+    std::map<std::string, std::pair<Column, data_type> > name_to_column_type;
+    // this is to be implemented by subclasses:
+    virtual Column declare_column_impl(const std::string & full_column_name, const data_type & type){return Column();}
+};
+
 
 /** \brief Base class for all classes writing products to a ProductsSink
  *
@@ -41,7 +63,7 @@ protected:
  *
  * Each ProductsSource has a name in order to identify
  * the products in case of multiple same producers. This name
- * is set explicitely in the configuration file via the 'name' setting.
+ * is set explicitly in the configuration file via the 'name' setting.
  */
 class ProductsSource{
 public:
@@ -49,7 +71,7 @@ public:
     const std::string & get_name() const;
     
 protected:
-    /// To be used by derived classes, to fill name and products_sink; if non-empty, name_ overrides the name given in the configuration (!)
+    /// To be used by derived classes, to fill name and products_sink; if non-empty, name_ overrides the name given in the configuration
     explicit ProductsSource(const Configuration & cfg, const std::string & name_ = "");
     ProductsSource(const std::string & name_, const boost::shared_ptr<ProductsSink> & sink);
     
@@ -63,13 +85,9 @@ protected:
  * a Model. Every Producer belongs to exactly one Run, which calls its produce method (typically
  * repeatedly on some pseudo data).
  *
- * Common to all producers are the settings "override-parameter-distribution" and "additional-nll-term".
- * The former is a distribution for all model parameters to be used for the likelihood function instead
- * of the ones from the model. The latter is a Function to add to the negative log-likelihood such as external
- * constraints or priors which cannot be expressed as parameter distributions.
- * 
- * The override-parameter-distribution, if given, must be defined for all parameters the model and the additional-nll-term
- * depend on.
+ * Common to all producers is the settings "override-parameter-distribution", which is 
+ * a distribution for all model parameters to be used for the likelihood function instead
+ * of the ones from the model.
  */
 class Producer: public ProductsSource{
 public:
@@ -96,7 +114,7 @@ public:
 protected:
     /** \brief Construct from a Configuration instance
      *
-     * Parses the settings "add-nllikelihood-functions".
+     * Parses the settings "additional-nll-term".
      *
      * I name_ is non-empty, it overrides the name given in the configuration setting.
      */
@@ -111,7 +129,6 @@ protected:
     std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data, const Model & model);
     
     boost::shared_ptr<theta::Distribution> override_parameter_distribution;
-    boost::shared_ptr<theta::Function> additional_nll_term;
 };
 
 /** \brief Base class for Producers whose result depend on parameter values

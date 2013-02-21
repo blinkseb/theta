@@ -2,6 +2,7 @@
 #define MODEL_HPP
 
 #include "interface/decls.hpp"
+#include "interface/atomic.hpp"
 #include "interface/variables.hpp"
 #include "interface/phys.hpp"
 #include "interface/data.hpp"
@@ -39,6 +40,9 @@ namespace theta {
      *    };
      * 
      *    bb_uncertainties = true; // optional, default is false, which does not include MC uncertainties
+     * 
+     *    additional_nll_term = { // optional. If given, must be a Function specification to add to the negative log likelihood
+     *    };
      * };
      *
      * //see fixed_poly documentation for details; can also use any other HistogramFunction here.
@@ -121,6 +125,16 @@ namespace theta {
         virtual const Distribution & get_parameter_distribution() const = 0;
         
         
+        /** \brief Return the additional term for the negative log-likelihood, if any.
+         * 
+         * If no additional nll term is defined, a null pointer is returned.
+         * 
+         * The memory of the returned pointer belong to the model, it is valid as long as the
+         * model lives.
+         */
+        virtual const Function * get_additional_nll_term() const = 0;
+        
+        
         /** \brief Return the distribution for the real-valued observables, if any.
          *
          * If none is defined, a null-pointer is returned.
@@ -153,6 +167,7 @@ namespace theta {
         coeffs_type coeffs;
         std::auto_ptr<Distribution> parameter_distribution;
         std::auto_ptr<Distribution> rvobservable_distribution;
+        std::auto_ptr<Function> additional_nll_term;
         
         bool bb_uncertainties;
         
@@ -161,10 +176,14 @@ namespace theta {
         void get_prediction_impl(DataT<HT> & result, const ParValues & parameters) const;
         
      public:
-        default_model(const Configuration & cfg);
+        explicit default_model(const Configuration & cfg);
         virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const;
         virtual void get_prediction(Data & result, const ParValues & parameters) const;
         virtual std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data) const;
+        
+        virtual const Function * get_additional_nll_term() const{
+            return additional_nll_term.get();
+        }
         
         virtual const Distribution & get_parameter_distribution() const {
            return *parameter_distribution;
@@ -192,14 +211,6 @@ namespace theta {
     class NLLikelihood: public Function {
         
     public:
-        /** \brief Set the additional term for the negative log-likelihood
-         *
-         * The result of the function evaluation will add these function values.
-         *
-         * This can be used as additional constraints / priors for the likelihood function or
-         * external information.
-         */
-        virtual void set_additional_term(const boost::shared_ptr<Function> & term) = 0;
         
         /** \brief Set an alternate prior distribution for the parameters
          *
@@ -217,12 +228,11 @@ namespace theta {
         
         /** \brief Returns the currently set parameter distribution used in the likelihood evaluation
          * 
-         * This is either the distribution from the model, or, if set_override_distribution has been called,
+         * This is either the distribution from the model, or -- if set_override_distribution has been called --
          * the Distribution instance given there.
          * 
          * The returned Distribution reference depends exactly on the model parameters (which is the
          * same as getParameters()).
-         * 
          */
         virtual const Distribution & get_parameter_distribution()const = 0;
         
@@ -241,26 +251,24 @@ namespace theta {
         using Function::operator();
         virtual double operator()(const ParValues & values) const;
         
-        virtual void set_additional_term(const boost::shared_ptr<Function> & term);
         virtual void set_override_distribution(const boost::shared_ptr<Distribution> & d);
         virtual const Distribution & get_parameter_distribution() const{
             if(override_distribution) return *override_distribution;
             else return model.get_parameter_distribution();
         }
         
+        static uint64_t get_n_eval(){
+            return atomic_get(&n_eval);
+        }
         
     protected:
         const default_model & model;
         const Data & data;
-
-        const ObsIds obs_ids;
-        
-        boost::shared_ptr<Function> additional_term;
+        static atomic_int n_eval;
         boost::shared_ptr<Distribution> override_distribution;
-
         
+        default_model_nll(const default_model & m, const Data & data);
         
-        default_model_nll(const default_model & m, const Data & data, const ObsIds & obs);
     private:
         //cached predictions:
         mutable Data predictions;
@@ -274,7 +282,7 @@ namespace theta {
          virtual double operator()(const ParValues & values) const;
          
      private:
-         default_model_bbadd_nll(const default_model & m, const Data & data, const ObsIds & obs);
+         default_model_bbadd_nll(const default_model & m, const Data & data);
          mutable DataWithUncertainties predictions_wu;
      };
 }

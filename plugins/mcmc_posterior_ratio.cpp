@@ -1,5 +1,4 @@
 #include "plugins/mcmc_posterior_ratio.hpp"
-#include "plugins/mcmc.hpp"
 #include "interface/plugin.hpp"
 #include "interface/model.hpp"
 #include "interface/histogram.hpp"
@@ -9,7 +8,7 @@ using namespace theta;
 using namespace std;
 
 //the result class for the metropolisHastings routine.
-class MCMCPosteriorRatioResult{
+class MCMCPosteriorRatioResult: public MCMCResult{
     public:
         MCMCPosteriorRatioResult(size_t npar_): npar(npar_), min_nll_value(numeric_limits<double>::infinity()), n_total(0){}
         
@@ -38,9 +37,6 @@ class MCMCPosteriorRatioResult{
             return min_nll_value - log(posterior_sum / n_total);
         }
         
-        double get_jump_rate(){
-            return (1.0 * n.size()) / n_total;
-        }
     private:
         size_t npar;
         vector<double> nll_values;
@@ -53,8 +49,20 @@ class MCMCPosteriorRatioResult{
 void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model & model) {
     if(!init){
         try{
-            sqrt_cov_sb = get_sqrt_cov2(*rnd_gen, model, startvalues_sb, s_plus_b, additional_nll_term);
-            sqrt_cov_b = get_sqrt_cov2(*rnd_gen, model, startvalues_b, b_only, additional_nll_term);
+            const ParIds & pids = model.get_parameters();
+            ParValues sb_mode, b_mode;
+            s_plus_b->mode(sb_mode);
+            b_only->mode(b_mode);
+            const size_t n = pids.size();
+            ParIds::const_iterator it=pids.begin();
+            options_sb.startvalues.resize(n);
+            options_b.startvalues.resize(n);
+            for(size_t i=0; i<n; ++it, ++i){
+                options_sb.startvalues[i] = sb_mode.get(*it);
+                options_b.startvalues[i] = b_mode.get(*it);
+            }
+            sqrt_cov_sb = get_sqrt_cov2(*rnd_gen, model, s_plus_b);
+            sqrt_cov_b = get_sqrt_cov2(*rnd_gen, model, b_only);
             init = true;
         }catch(Exception & ex){
             ex.message = "initialization failed: " + ex.message;
@@ -66,12 +74,12 @@ void mcmc_posterior_ratio::produce(const theta::Data & data, const theta::Model 
     
     //a. calculate s plus b:
     MCMCPosteriorRatioResult res_sb(nll->getnpar());
-    metropolisHastings(*nll, res_sb, *rnd_gen, startvalues_sb, sqrt_cov_sb, iterations, burn_in);
+    metropolis_hastings_multigauss(*nll, options_sb, res_sb, *rnd_gen, sqrt_cov_sb);
     double nl_posterior_sb = res_sb.get_nl_average_posterior();
 
     //b. calculate b only:
     MCMCPosteriorRatioResult res_b(nll->getnpar());
-    metropolisHastings(*nll, res_b, *rnd_gen, startvalues_b, sqrt_cov_b, iterations, burn_in);
+    metropolis_hastings_multigauss(*nll, options_b, res_b, *rnd_gen, sqrt_cov_b);
     double nl_posterior_b = res_b.get_nl_average_posterior();
 
     if(std::isnan(nl_posterior_sb) || std::isnan(nl_posterior_b)){
@@ -85,13 +93,12 @@ mcmc_posterior_ratio::mcmc_posterior_ratio(const theta::Configuration & cfg): Pr
     Setting s = cfg.setting;
     s_plus_b = theta::PluginManager<Distribution>::build(theta::Configuration(cfg, s["signal-plus-background-distribution"]));
     b_only = theta::PluginManager<Distribution>::build(theta::Configuration(cfg, s["background-only-distribution"]));    
-    
-    iterations = s["iterations"];
+    options_sb.iterations = options_b.iterations = s["iterations"];
     if(s.exists("burn-in")){
-        burn_in = s["burn-in"];
+        options_sb.burn_in = options_b.burn_in = s["burn-in"];
     }
     else{
-        burn_in = iterations / 10;
+        options_sb.burn_in = options_b.burn_in = options_sb.iterations / 10;
     }
     c_nl_posterior_sb = products_sink->declare_product(*this, "nl_posterior_sb", theta::typeDouble);
     c_nl_posterior_b =  products_sink->declare_product(*this, "nl_posterior_b",  theta::typeDouble);

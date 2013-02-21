@@ -6,6 +6,7 @@
 #include "interface/variables.hpp"
 #include "interface/database.hpp"
 #include "interface/producer.hpp"
+#include "interface/distribution.hpp"
 
 #include <string>
 
@@ -91,7 +92,7 @@ private:
     
     bool start_step_ranges_init;
     theta::ParValues start, step;
-    std::map<theta::ParId, std::pair<double, double> > ranges;
+    theta::Ranges ranges;
 
     //table columns:
     std::vector<theta::Column> lower_columns;

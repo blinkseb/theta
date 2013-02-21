@@ -211,8 +211,35 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
     h = apply(*hf2,pv);
     BOOST_CHECK(h.get_value(0) == 1.0);
     BOOST_CHECK(close_to_relative(h.get_uncertainty(0), 0.1 / 1.12));
-    
-    
 }
+
+
+BOOST_AUTO_TEST_CASE(copy_to_functor){
+	Histogram1D h(100, -1.0, 1.0);
+	Histogram1D h2(101, -1.0, 1.0);
+	for(int i=0; i<100; ++i){
+		h.set(i, i*i);
+		h2.set(i, -i);
+	}
+	h2.set(100, 0.0);
+	BOOST_ASSERT(!histos_equal(h, h2));
+	copy_to<Histogram1D> f(h);
+	f(h2);
+	BOOST_REQUIRE(h.get_nbins()==101);
+	BOOST_REQUIRE(histos_equal(h, h2));
+
+#ifdef CXX11
+	h = Histogram1D(100, -1.0, 1.0);
+	for(int i=0; i<100; ++i){
+	    h.set(i, i*i);
+	}
+	f(h);
+	f(std::move(h2));
+	BOOST_REQUIRE(h.get_nbins()==101);
+	BOOST_REQUIRE(h2.get_nbins()==100);
+#endif
+}
+
+
 
 BOOST_AUTO_TEST_SUITE_END()

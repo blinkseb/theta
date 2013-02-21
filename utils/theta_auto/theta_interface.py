@@ -54,6 +54,8 @@ def write_cfg(model, signal_processes, method, input, id = None, additional_sett
         cfg_model['parameter-distribution'] = model.distribution.get_cfg(model_parameters)
     if len(rvobservables) > 0:
         cfg_model['rvobs-distribution'] = model.rvobs_distribution.get_cfg(rvobservables)
+    if model.additional_nll_term is not None:
+        cfg_model['additional_nll_term'] = model.additional_nll_term.get_cfg()
     config += "model = " + settingvalue_to_cfg(cfg_model, 0, ['model']) + ";\n"
     for s in additional_settings:
         config += s + " = " + settingvalue_to_cfg(additional_settings[s], 0, [s]) + ";\n"

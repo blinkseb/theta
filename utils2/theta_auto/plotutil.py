@@ -5,7 +5,7 @@ import matplotlib
 # note: some matplotlib backends are broken and cause segfaults in fig.save.
 # try commenting out and in the use of Cairo in case of problems ...
 #try:
-matplotlib.use('Cairo')
+#matplotlib.use('Cairo')
 #except ImportError: pass
 
 import matplotlib.pyplot as plt
@@ -66,19 +66,40 @@ class plotdata:
         self.draw_histo = True
         self.draw_line = True
         
-    # make a histogram of the given values
-    def histogram(self, values, xmin, xmax, nbins, errors = False):
+    # create new data by making a histogram from xmin to xmax with nbins from the given values
+    # which should be a iterable yielding floats.
+    # If errors is True, yerrors is set to sqrt(n) in each bin.
+    # if include_uoflow is True, values under (over) the range are inserted in the first (last) bin.
+    def histogram(self, values, xmin, xmax, nbins, errors = False, include_uoflow = False):
         xmin, xmax = float(xmin), float(xmax)
         self.xmax = xmax
         self.x = [xmin + (xmax - xmin) / nbins * i for i in range(nbins)]
         self.y = [0.0] * nbins
-        if errors: self.yerrors = [0.0] * nbins
         for v in values:
             ibin = int((v - xmin) / (xmax - xmin) * nbins)
-            if ibin < 0 or ibin >= nbins: continue
+            if not include_uoflow:
+                if ibin < 0 or ibin >= nbins: continue
+            else:
+                if ibin < 0: ibin = 0
+                if ibin >= nbins: ibin = nbins-1
             self.y[ibin] += 1
-            if errors: self.yerrors[ibin] += 1
-        if errors: self.yerrors = map(math.sqrt, self.yerrors)
+        if errors: self.yerrors = map(math.sqrt, self.y)
+        
+    # add the values in values to the current histogram, i.e. increments y[ibin] by 1
+    # for the corresponding bin for each v in values.
+    def histogram_add(self, values, include_uoflow = False):
+        xmin, xmax, nbins = self.x[0], self.xmax, len(self.x)
+        if len(self.y) == 0: self.y = [0.0] * nbins
+        assert len(self.y) == nbins
+        for v in values:
+            ibin = int((v - xmin) / (xmax - xmin) * nbins)
+            if not include_uoflow:
+                if ibin < 0 or ibin >= nbins: continue
+            else:
+                if ibin < 0: ibin = 0
+                if ibin >= nbins: ibin = nbins-1
+            self.y[ibin] += 1
+        
 
     # scale all y values by factor
     def scale_y(self, factor):

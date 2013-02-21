@@ -8,8 +8,17 @@
 using namespace theta;
 using namespace std;
 
+fixed_gauss::fixed_gauss(){}
+
 fixed_poly::fixed_poly(const Configuration & ctx){
     Setting s = ctx.setting;
+    double relative_bb_uncertainty = 0.0;
+    if(s.exists("relative_bb_uncertainty")){
+    	relative_bb_uncertainty = s["relative_bb_uncertainty"];
+    	if(relative_bb_uncertainty < 0.0){
+    		throw ConfigurationException("relative_bb_uncertainty < 0.0 not allowed");
+    	}
+    }
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     ObsId obs_id = vm->get_obs_id(s["observable"]);
     int order = s["coefficients"].size() - 1;
@@ -18,33 +27,50 @@ fixed_poly::fixed_poly(const Configuration & ctx){
         ss << "Empty definition of coefficients for polynomial at path " << s["coefficients"].get_path();
         throw ConfigurationException(ss.str());
     }
-    size_t nbins = vm->get_nbins(obs_id);
+    const size_t nbins = vm->get_nbins(obs_id);
     pair<double, double> range = vm->get_range(obs_id);
     Histogram1D h(nbins, range.first, range.second);
+    Histogram1D h_unc = h;
     vector<double> coeffs(order + 1);
     for (int i = 0; i <= order; i++) {
         coeffs[i] = s["coefficients"][i];
     }
-    for (size_t i = 0; i < nbins; i++) {
-        double x = h.get_bincenter(i);
+    const double binwidth = (range.second - range.first) / nbins;
+    double x = range.first + 0.5 * binwidth;
+    for (size_t i = 0; i < nbins; i++, x+=binwidth) {
         double value = coeffs[order];
         for (int k = 0; k < order; k++) {
             value *= x;
             value += coeffs[order - k - 1];
         }
         h.set(i, value);
+		h_unc.set(i, relative_bb_uncertainty * value);
     }
     double norm_to = ctx.setting["normalize_to"];
-    double norm;
-    if ((norm = h.get_sum()) == 0.0) {
+    double norm = h.get_sum();
+    if (norm == 0.0) {
         throw ConfigurationException("Histogram specification is zero (can't normalize)");
     }
-    h *= norm_to / norm;
-    set_histo(Histogram1DWithUncertainties(h));
+    Histogram1DWithUncertainties h_wu;
+    if(relative_bb_uncertainty > 0.0){
+    	h_wu.set(h, h_unc);
+    }
+    else{
+    	h_wu.set(h);
+    }
+    h_wu *= norm_to / norm;
+    set_histo(h_wu);
 }
 
 fixed_gauss::fixed_gauss(const Configuration & ctx){
     Setting s = ctx.setting;
+    double relative_bb_uncertainty = 0.0;
+    if(s.exists("relative_bb_uncertainty")){
+    	relative_bb_uncertainty = s["relative_bb_uncertainty"];
+    	if(relative_bb_uncertainty < 0.0){
+    		throw ConfigurationException("relative_bb_uncertainty < 0.0 not allowed");
+    	}
+    }
     double width = s["width"];
     double mean = s["mean"];
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
@@ -52,18 +78,28 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
     size_t nbins = vm->get_nbins(obs_id);
     pair<double, double> range = vm->get_range(obs_id);
     Histogram1D h(nbins, range.first, range.second);
+    Histogram1D h_unc = h;
     //fill the histogram:
     for (size_t i = 0; i < nbins; i++) {
         double d = (h.get_bincenter(i) - mean) / width;
-        h.set(i, exp(-0.5 * d * d));
+        double value = exp(-0.5 * d * d);
+        h.set(i, value);
+        h_unc.set(i, relative_bb_uncertainty * value);
     }
     double norm_to = ctx.setting["normalize_to"];
-    double norm;
-    if ((norm = h.get_sum()) == 0.0) {
+    double norm = h.get_sum();
+    if (norm == 0.0) {
         throw ConfigurationException("Histogram specification is zero (can't normalize)");
     }
-    h *= norm_to / norm;
-    set_histo(Histogram1DWithUncertainties(h));
+    Histogram1DWithUncertainties h_wu;
+	if(relative_bb_uncertainty > 0.0){
+		h_wu.set(h, h_unc);
+	}
+	else{
+		h_wu.set(h);
+	}
+	h_wu *= norm_to / norm;
+	set_histo(h_wu);
 }
 
 log_normal::log_normal(const Configuration & cfg){
@@ -194,10 +230,6 @@ const std::pair<double, double> & flat_distribution::support(const theta::ParId&
 /* START gauss */
 void gauss::sample(ParValues & result, Random & rnd) const{
     const size_t n = v_par_ids.size();
-    //TODO: requires allocation every time. That could be moved as mutable to the class
-    // to save this allocations.
-    boost::scoped_array<double> x(new double[n]);
-    boost::scoped_array<double> x_trafo(new double[n]);
     int rep = 0;
     bool repeat;
     do{
@@ -257,40 +289,42 @@ double gauss::eval_nl(const ParValues & values) const{
 gauss::gauss(const Configuration & cfg){
     Matrix cov;
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
-      if(cfg.setting.exists("parameter")){
-            mu.resize(1);
-            cov.reset(1,1);
-            ranges.resize(1);
-            v_par_ids.push_back(vm->get_par_id(cfg.setting["parameter"]));
-            mu[0] = cfg.setting["mean"];
-            double width = cfg.setting["width"];
-            cov(0,0) = width*width;
-            ranges[0].first = cfg.setting["range"][0].get_double_or_inf();
-            ranges[0].second = cfg.setting["range"][1].get_double_or_inf();
+    size_t n;
+    if(cfg.setting.exists("parameter")){
+    	n = 1;
+    	mu.resize(1);
+    	cov.reset(1,1);
+    	ranges.resize(1);
+    	v_par_ids.push_back(vm->get_par_id(cfg.setting["parameter"]));
+    	mu[0] = cfg.setting["mean"];
+    	double width = cfg.setting["width"];
+    	cov(0,0) = width*width;
+    	ranges[0].first = cfg.setting["range"][0].get_double_or_inf();
+    	ranges[0].second = cfg.setting["range"][1].get_double_or_inf();
+    }
+    else{ //multi-dimensional case:
+    	n = cfg.setting["parameters"].size();
+    	if(n==0){
+    		stringstream ss;
+    		ss << "While building gauss distribution defined at path " << cfg.setting.get_path() << ": expected one or more 'parameters'.";
+    		throw ConfigurationException(ss.str());
         }
-        else{ //multi-dimensional case:
-           size_t n = cfg.setting["parameters"].size();
-           if(n==0){
-               stringstream ss;
-               ss << "While building gauss distribution defined at path " << cfg.setting.get_path() << ": expected one or more 'parameters'.";
-               throw ConfigurationException(ss.str());
-           }
-           if(cfg.setting["ranges"].size()!=n || cfg.setting["mean"].size()!=n || cfg.setting["covariance"].size()!=n){
-               throw ConfigurationException("gauss: length of ranges, mu, covariance mismatch!");
-           }
-           mu.resize(n);
-           cov.reset(n,n);
-           ranges.resize(n);
-           for(size_t i=0; i<n; i++){
-               v_par_ids.push_back(vm->get_par_id(cfg.setting["parameters"][i]));
-               mu[i] = cfg.setting["mean"][i];
-               ranges[i].first = cfg.setting["ranges"][i][0].get_double_or_inf();
-               ranges[i].second = cfg.setting["ranges"][i][1].get_double_or_inf();
-               for(size_t j=0; j<n; j++){
-                   cov(i,j) = cfg.setting["covariance"][i][j];
-               }
-           }
-      }
+    	if(cfg.setting["ranges"].size()!=n || cfg.setting["mean"].size()!=n || cfg.setting["covariance"].size()!=n){
+    		throw ConfigurationException("gauss: length of ranges, mu, covariance mismatch!");
+        }
+    	mu.resize(n);
+    	cov.reset(n,n);
+    	ranges.resize(n);
+    	for(size_t i=0; i<n; i++){
+    		v_par_ids.push_back(vm->get_par_id(cfg.setting["parameters"][i]));
+    		mu[i] = cfg.setting["mean"][i];
+    		ranges[i].first = cfg.setting["ranges"][i][0].get_double_or_inf();
+    		ranges[i].second = cfg.setting["ranges"][i][1].get_double_or_inf();
+    		for(size_t j=0; j<n; j++){
+    			cov(i,j) = cfg.setting["covariance"][i][j];
+            }
+        }
+    }
     for(vector<ParId>::const_iterator p_it=v_par_ids.begin(); p_it!=v_par_ids.end(); p_it++){
         par_ids.insert(*p_it);
     }
@@ -298,6 +332,8 @@ gauss::gauss(const Configuration & cfg){
     inverse_cov = cov;
     sqrt_cov.cholesky_decomposition(); //throws MathException if not possible
     inverse_cov.invert_cholesky();
+    x.resize(n);
+    x_trafo.resize(n);
 }
 
 const std::pair<double, double> & gauss::support(const ParId & p)const{
@@ -368,7 +404,7 @@ gauss1d::gauss1d(const Configuration & cfg){
    if(range.second < range.first){
       throw ConfigurationException("empty 'range' given");
    }
-   if(!isnan(mu) && (range.second < mu || mu < range.first)){
+   if(!std::isnan(mu) && (range.second < mu || mu < range.first)){
       throw ConfigurationException("given range does not include mean");
    }
 }

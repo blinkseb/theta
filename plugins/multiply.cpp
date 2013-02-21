@@ -1,5 +1,6 @@
 #include "plugins/multiply.hpp"
 #include "interface/plugin.hpp"
+#include "interface/redirect_stdio.hpp"
 #include <iostream>
 
 using namespace theta;
@@ -9,7 +10,7 @@ multiply::multiply(const Configuration & cfg): literal_factor(1.0){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     string type = cfg.setting["type"];
     if(type == "mult"){
-        cout << "Warning: function plugin with type='mult' is obsolete. Use type='multiply' instead and adapt configuration accordingly (see documentation; in particular use 'factors' setting instead of 'parameters')." << endl;
+        theta::out << "Warning: function plugin with type='mult' is obsolete. Use type='multiply' instead and adapt configuration accordingly (see documentation; in particular use 'factors' setting instead of 'parameters')." << endl;
         //compatibility mode: search for "parameters", instead of "factors"
         size_t n = cfg.setting["parameters"].size();
         for(size_t i=0; i<n; ++i){

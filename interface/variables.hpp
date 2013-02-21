@@ -13,6 +13,7 @@
 #include <cmath>
 
 #include <boost/utility.hpp>
+//#include <boost/container/flat_set.hpp>
 
 namespace theta {
     
@@ -95,9 +96,15 @@ namespace theta {
      */
     template<class id_type>
     class VarIds {
+        //typedef typename boost::container::flat_set<id_type> set_type;
+        typedef typename std::set<id_type> set_type;
     public:
         /// \brief Sort of an iterator. Not necessarily one of the standard flavor, but can be used to go through all ids.
-        typedef typename std::set<id_type>::const_iterator const_iterator;
+        typedef typename set_type::const_iterator const_iterator;
+
+        void operator=(const VarIds & rhs){
+            vars = rhs.vars;
+        }
 
         /// \brief Get the an iterator pointing to the first element. 
         const_iterator begin()const {
@@ -139,21 +146,17 @@ namespace theta {
         bool operator==(const VarIds<id_type> & rhs) const{
             return vars == rhs.vars;
         }
+        bool operator!=(const VarIds<id_type> & rhs) const{
+        	return vars != rhs.vars;
+        }
 
         /// The number of contained ids
         size_t size() const {
             return vars.size();
         }
     private:
-        std::set<id_type> vars;
+        set_type vars;
     };
-    
-    /// \brief Template instantiation for a set of observables
-    typedef VarIds<ObsId> ObsIds;
-    /// \brief Template instantiation for a set of parameters
-    typedef VarIds<ParId> ParIds;
-
-    class ParValues;
     
     /** \brief Manager class for parameter and observable information
      *
@@ -288,6 +291,28 @@ namespace theta {
            }
         }
         
+        /** \brief Fill double array with current values
+         *
+         * This method filld the parameter \c data_out with the current parameter values.
+         * The conversion from ParId to indices is defined via par_ids, as usual. data_out
+         * has to be reserved for at least par_ids.size() values.
+         * 
+         * In case a value is not set, an invalid_argument exception is thrown.
+         */
+        void fill(double * data_out, const ParIds & par_ids) const{
+            size_t i=0;
+            for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
+                double val;
+                if(it->id >= values.size() || std::isnan(val = values[it->id])){
+                    fail_get(*it);
+                }
+                else{ // we don't really need the else, as fail_get does not return. But the compiler doesn't know that, so to get rid of
+                    // uninitilized warnings ...
+                    data_out[i] = val;
+                }
+            }
+        }
+        
         /** \brief Constructor initializing the values according to an existing ParValues instance, only using the given parameters
          *
          * Set the values according to rhs, but only those parameters given in \c pids.
@@ -393,6 +418,18 @@ namespace theta {
          */
         void clear(){
             std::fill(values.begin(), values.end(), NAN);
+        }
+        
+        /** \brief get all parameters for which values are set.
+         */
+        ParIds get_parameters() const{
+            ParIds result;
+            for(size_t i=0; i<values.size(); ++i){
+                if(!std::isnan(values[i])){
+                    result.insert(ParId(i));
+                }
+            }
+            return result;
         }
 
     private:

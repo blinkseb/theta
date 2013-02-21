@@ -13,7 +13,6 @@ def setup_workdir():
     if not os.path.exists(os.path.join(config.workdir, 'plots')): os.mkdir(os.path.join(config.workdir, 'plots'))
             
 def main():
-    ROOT.gROOT.SetBatch(True)
     scriptname = 'analysis.py'
     tmpdir, profile = False, False
     for arg in sys.argv[1:]:

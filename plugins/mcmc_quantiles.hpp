@@ -3,12 +3,11 @@
 
 #include "interface/decls.hpp"
 #include "interface/variables.hpp"
-#include "interface/database.hpp"
 #include "interface/producer.hpp"
-#include "interface/random-utils.hpp"
-#include "interface/matrix.hpp"
+#include "interface/mcmc.hpp"
 
 #include <string>
+#include <memory>
 
 /** \brief Construct quantiles of the marginal posterior in one parameter based on Markov-Chain Monte-Carlo
  *
@@ -23,7 +22,6 @@
  *   quantiles = [0.025, 0.16, 0.5, 0.84, 0.975];
  *   iterations = 10000;
  *   burn-in = 100; //optional. default is iterations / 10
- *   diag = true; //optional. Default is false
  *   re-init = 1; //optional. Default is 0
  * };
  *
@@ -46,9 +44,6 @@
  * \c burn-in is the number of MCMC iterations to do at the beginning and throw away. See additional comments in the
  *     documentation of \link mcmc_posterior_ratio mcmc_posterior_ratio \endlink
  *
- * \c diag is an optional boolean. If true, additional columns with some diagnostics are produced. In the moment, the only additional
- * column is "accrate" which contains the acceptance rate for the chain.
- *
  * \c re-init is an optional integer which controls re-initialisation of the jumping kernel width. The deault of 0 never re-initialises. For a value N > 0, 
  * re-initialisation is done every N toys.
  *
@@ -59,8 +54,13 @@
  * The result table contains as many columns as \c quantiles given in the configuration file. The column name
  * will be "quant" + 10000 * quantile, written with leading zeros. For example, if the quantile is 0.5,
  * the column name will be "quant05000", if the 99.9% quantile is requested (i.e., 0.999), the name will be "quant09990".
+ * 
+ * In addition to the quantiles, the products table will also have a column "accrate" with the acceptance rate for
+ * the Markov Chain. This can be used as diagnostical tool in case the performance is not as good as expected: the
+ * acceptance rate should be around 15-30%; larger acceptance rates might indicate a step size that's too small,
+ * while smaller acceptance rates might indicate a step size chi is too large.
  */
-class mcmc_quantiles: public theta::Producer, public theta::RandomConsumer{
+class mcmc_quantiles: public theta::Producer {
 public:
     /// \brief Constructor used by the plugin system to build an instance from settings in a configuration file
     mcmc_quantiles(const theta::Configuration & ctx);
@@ -81,14 +81,9 @@ private:
     
     //result columns: one per requested quantile:
     std::vector<theta::Column> columns;
-    bool diag;
     theta::Column c_accrate;
     
-    //MCMC parameters:
-    unsigned int iterations;
-    unsigned int burn_in;
-    theta::Matrix sqrt_cov;
-    std::vector<double> startvalues;
+    std::auto_ptr<theta::MCMCStrategy> mcmc_strategy;
 };
 
 #endif

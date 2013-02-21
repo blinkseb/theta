@@ -1,119 +1,8 @@
 # -*- coding: utf-8 -*-
-import ROOT, re, fnmatch, math, copy
+import re, fnmatch, math, copy
 import os, os.path
 import array
 import utils
-
-
-class rootfile:
-    # these are caching dictionaries indexing by filename
-    tfiles = {}
-    #all_templates = {}
-    
-    def __init__(self, filename):
-        assert os.path.isfile(filename), "File %s not found (cwd: %s)" % (filename, os.getcwd())
-        self.filename = filename
-        #self.cache = cache_all_templates
-        if self.filename not in rootfile.tfiles: rootfile.tfiles[self.filename] = ROOT.TFile(filename, "read")
-        self.tfile = rootfile.tfiles[self.filename]
-        
-    @staticmethod
-    def th1_to_histo(th1, include_uncertainties, include_uoflow = False):
-        xmin, xmax, nbins = th1.GetXaxis().GetXmin(), th1.GetXaxis().GetXmax(), th1.GetNbinsX()
-        if include_uoflow:
-            binwidth = (xmax - xmin) / nbins
-            xmin -= binwidth
-            xmax += binwidth
-            nbins += 2
-            values = array.array('d', [th1.GetBinContent(i) for i in range(nbins)])
-            uncertainties = array.array('d', [th1.GetBinError(i) for i in range(nbins)]) if include_uncertainties else None
-            x_low  = [xmin] + [th1.GetBinLowEdge(i) for i in range(1, nbins)]
-        else:
-            values = array.array('d', [th1.GetBinContent(i) for i in range(1, nbins+1)])
-            uncertainties = array.array('d', [th1.GetBinError(i) for i in range(1, nbins+1)]) if include_uncertainties else None
-            x_low  = [th1.GetBinLowEdge(i) for i in range(1, nbins+1)]
-        h = Histogram(xmin, xmax, values, uncertainties, th1.GetName())
-        h.set_x_low(x_low)
-        return h
-  
-    # get all templates as dictionary (histogram name) --> Histogram instance
-    # only checks type of histogram, not naming convention
-    def get_all_templates(self, include_uncertainties, warn = True, include_uoflow = False):
-        #if (self.filename, include_uncertainties) in rootfile.all_templates: return rootfile.all_templates[self.filename, include_uncertainties]
-        result = {}
-        l = self.tfile.GetListOfKeys()
-        for key in l:
-            clas = key.GetClassName()
-            if clas == 'TDirectoryFile': continue
-            if clas not in ('TH1F', 'TH1D') and warn:
-                print "WARNING: ignoring key %s in input file %s because it is of ROOT class %s, not TH1F / TH1D" % (key.GetName(), self.filename, clas)
-                continue
-            th1 = key.ReadObj()
-            result[str(key.GetName())] = rootfile.th1_to_histo(th1, include_uncertainties, include_uoflow = include_uoflow)
-        #rootfile.all_templates[self.filename, include_uncertainties] = result
-        return result
-        
-    def get_filename(self): return self.filename
-        
-    def get_histogram(self, hname, include_uncertainties, fail_with_exception = False):
-        """
-        if self.cache:
-            if (self.filename, include_uncertainties) not in rootfile.all_templates: self.get_all_templates(include_uncertainties, False)
-            if hname not in rootfile.all_templates[(self.filename, include_uncertainties)]:
-                if fail_with_exception: raise RuntimeError, "histogram '%s' in root file '%s' not found!" % (hname, self.tfile.GetName())
-                else: return None
-            return rootfile.all_templates[(self.filename, include_uncertainties)][hname].copy()
-        else:
-        """
-        h = self.tfile.Get(hname)
-        if not h.Class().InheritsFrom("TH1"):
-            if fail_with_exception: raise RuntimeError, "histogram '%s' in root file '%s' not found!" % (hname, self.tfile.GetName())
-            else: return None
-        return rootfile.th1_to_histo(h, include_uncertainties)
-
-
-
-# flatten a nested dictionary with string indices into a flat dictionary. The new key names
-# are given by <key1>__<key2>...
-#
-# note that the nesting is only flattened if the key is a str and the value is a dict.
-def _flatten_nested_dict(d, result, current_key = ''):
-    for k in d:
-        if type(k)==str and type(d[k]) == dict:
-            if current_key == '':   new_current_key = k
-            else: new_current_key = current_key + '__' + k
-            _flatten_nested_dict(d[k], result, new_current_key)
-        else:
-            if current_key == '':   new_current_key = k
-            else: new_current_key = current_key + '__' + k
-            result[new_current_key] = d[k]
-
-def write_histograms_to_rootfile(histograms, rootfilename):
-    """
-    Parameters:
-    
-    * ``histograms`` - a dictionary with strings as key name and :class:`Histogram`s as value; nested dictionaries are allowed
-    * ``rootfilename`` - the filename of the root file to create. Will be overwritten if it already exists!
-    
-    Note that the name of the TH1Ds in the output root file is constructed via the key names in the dictionary: the
-    key name is given by concatenating all key names required to retrive the histogram in the ``histograms`` parameter,
-    separated by "__". For example if histograms['channel1']['proc1'] is a Histogram, its name in the root output file
-    will be ``channel1__proc1``.
-    """
-    outfile = ROOT.TFile(rootfilename, "recreate")
-    flattened = {}
-    _flatten_nested_dict(histograms, flattened)
-    for name in flattened:
-        h = flattened[name]
-        if not isinstance(h, Histogram): raise RuntimeError, "a non-Histogram value encountered in histograms parameter (%s); this is not allowed." % str(h)
-        root_h = ROOT.TH1D(name, name, h.get_nbins(), h.get_xmin(), h.get_xmax())
-        h_values = h.get_values()
-        for i in range(h.get_nbins()):
-            root_h.SetBinContent(i+1, h_values[i])
-        root_h.Write()
-    outfile.Close()
-    
-
 
 
 # par_values is a dictionary (parameter name) --> (floating point value)
@@ -154,8 +43,6 @@ def evaluate_prediction(model, par_values, include_signal = True, observables = 
 #
 # notes:
 # * the coefficients should be chosen such that their mean / most probable value is 1.0 as this is assumed e.g. in model_summary
-
-
 class Model(utils.Copyable):
     """
     The statistical model specifies the predicted event yields *λ_ci* for all channels *c* and bins *i*, as a function of the model
@@ -164,7 +51,7 @@ class Model(utils.Copyable):
     and one :class:`HistogramFunction` object. In addition, `model.distribution` is a :class:`Distribution` instance contains information
     about the prior of the nuisance parameters.
     
-    Usually, a Model instance is not constructed directly but rather aia the methods :func:`build_model_from_rootfile`
+    Usually, a Model instance is not constructed directly but rather via the methods :func:`build_model_from_rootfile`
     or :func:`higgs_datacard.build_model`. In general, the model should be manipulated through the methods of the Model class.
     However, it can become necessary to manipulate the instance vairables directly.
     """
@@ -198,6 +85,9 @@ class Model(utils.Copyable):
         self.observables[obs] = (xmin, xmax, nbins)
     
     def rename_observable(self, current_name, new_name):
+        """
+        Rename the observables (channel) to the new name.
+        """
         assert current_name in self.observables
         self.observables[new_name] = self.observables[current_name]
         del self.observables[current_name]
@@ -484,7 +374,7 @@ class Model(utils.Copyable):
 
         
     
-    def get_parameters(self, signal_processes, include_additional_nll = False):
+    def get_parameters(self, signal_processes):
         """
         Get the set of parameters the model predictions depends on. In general, this depends on
         which processes are considered as signal, therefore this has to be specified in the
@@ -506,7 +396,7 @@ class Model(utils.Copyable):
                 for par in histo_pars: result.add(par)
                 for par in coeff_pars: result.add(par)
         if len(signal_processes) > 0: result.add('beta_signal')
-        if include_additional_nll and self.additional_nll_term is not None:
+        if self.additional_nll_term is not None:
             result.update(self.additional_nll_term.get_parameters())
         return result
     
@@ -524,7 +414,7 @@ class Model(utils.Copyable):
     # options supported: use_llvm (default: False)
     #
     # signal_prior_cfg is the theta config dictionary
-    def get_cfg2(self, signal_processes, signal_prior_cfg, options):
+    def get_cfg(self, signal_processes, signal_prior_cfg, options):
         result = {}
         if options.getboolean('model', 'use_llvm'): result['type'] = 'llvm_model'
         for sp in signal_processes:
@@ -547,23 +437,7 @@ class Model(utils.Copyable):
         if len(rvobservables) > 0:
             result['rvobs-distribution'] = self.rvobs_distribution.get_cfg(rvobservables)
         if self.bb_uncertainties: result['bb_uncertainties'] = True
-        return result
-        
-        
-    def get_cfg(self, signal_processes = [], **options):
-        result = {}
-        if options.get('use_llvm', False): result['type'] = 'llvm_model'
-        for sp in signal_processes:
-            assert sp in self.signal_processes
-        for o in self.observable_to_pred:
-            result[o] = {}
-            for proc in self.observable_to_pred[o]:
-                if proc in self.signal_processes and proc not in signal_processes: continue
-                result[o][proc] = {'histogram': self.observable_to_pred[o][proc]['histogram'].get_cfg(),
-                     'coefficient-function': self.observable_to_pred[o][proc]['coefficient-function'].get_cfg()}
-                if proc in signal_processes:
-                    result[o][proc]['coefficient-function']['factors'].append('beta_signal')
-        if self.bb_uncertainties: result['bb_uncertainties'] = True
+        if self.additional_nll_term: result['additional_nll_term'] = self.additional_nll_term.get_cfg()
         return result
 
 
@@ -581,8 +455,7 @@ class Function:
        
     where ``p`` are parameters.
     """
-    
-    
+        
     def __init__(self):
         self.value = 1.0
         self.factors = {} # map par_name -> theta cfg dictionary
@@ -670,22 +543,7 @@ class Function:
     def get_parameters(self):
         return self.factors.keys()
 
-# modifies l(!)
-def rebin_hlist(l, factor):
-    assert len(l) % factor == 0
-    new_len = len(l) / factor
-    new_l = [sum(l[factor*i:factor*(i+1)]) for i in range(new_len)]
-    while len(l) > new_len: del l[new_len]
-    l[0:new_len] = new_l
-
-def close_to(x1, x2):
-    # if one is zero, both should be:
-    if x1*x2 == 0: return x1==0.0 and x2==0.0
-    # otherwise: relative difference small:
-    return abs(x1-x2) / max(abs(x1), abs(x2)) < 1e-10
-
-
-class Histogram(object):
+class Histogram(object, utils.Copyable):
     """
     This class stores the x range and 1D data, and optionallt the (MC stat.) uncertainties. Its main
     use is in :class:`HistogramFunction` and as data histograms in :class:`Model`.
@@ -693,15 +551,43 @@ class Histogram(object):
     Histograms are immutable: methods such as `scale` return the new Histogram instead of modifying
     the present instance.
     """
-    def __init__(self, xmin, xmax, values, uncertainties = None, name = None):
+    
+    def __init__(self, xmin, xmax, values, uncertainties = None, name = None, x_low = None):
+        """
+        Constructor.
+        
+        If given, x_low is an array of lower bin borders in case of non-equidistant binning. It overrides
+        the value of xmin.
+        """
         self.xmin = xmin
         self.xmax = xmax
         self.values = values
         self.name = name
         # in case of non-equidistant binning:
         self.x_low = None
-        if uncertainties is not None: assert len(values) == len(uncertainties)
-        self.uncertainties = uncertainties
+        if uncertainties is not None:
+            assert len(values) == len(uncertainties)
+            self.uncertainties = uncertainties
+        else:
+            self.uncertainties = None
+        if x_low is not None:
+            assert len(x_low) == len(self.values)
+            assert max(x_low) < self.xmax
+            self.xmin = min(x_low)
+            self.x_low = x_low
+            
+            
+    def is_compatible(self, other):
+        """
+        Returns whether or not this histogram has the same range and binning as other.
+        """
+        res = xmin, xmax, len(values) == other.xmin, other.xmax, len(other.values)
+        if not res: return False
+        if x_low is not None:
+            if other.x_low is None: return False
+            for xl1, xl2 in zip(x_low, other.x_low):
+                if xl1 != xl2: return False
+        return True
         
     def get_uncertainties(self):
         """
@@ -734,13 +620,7 @@ class Histogram(object):
     
     def get_x_low(self, ibin):
         if self.x_low is not None: return self.x_low[ibin]
-        else: return self.xmin + (self.xmax - self.xmin) / len(self.values) * ibin
-        
-    def set_x_low(self, x_low):
-        assert len(x_low) == len(self.values)
-        assert max(x_low) < self.xmax
-        self.xmin = min(x_low)
-        self.x_low = x_low
+        else: return self.xmin + (self.xmax - self.xmin) / len(self.values) * ibin        
     
     def get_cfg(self, include_error = True):
         result = {'type': 'direct_data_histo', 'range': [self.xmin, self.xmax], 'nbins': len(self.values), 'data': self.values}
@@ -749,28 +629,19 @@ class Histogram(object):
     
     def get_name(self): return self.name
     
-    def copy(self):
-        uncs = None if self.uncertainties is None else self.uncertainties[:]
-        h = Histogram(self.xmin, self.xmax, self.values[:], uncs, self.name)
-        if self.x_low is not None:
-            h.set_x_low(self.x_low[:])
-        return h
-    
     def strip_uncertainties(self):
-        h = Histogram(self.xmin, self.xmax, self.values, None, self.name)
-        if self.x_low is not None: h.set_x_low(self.x_low)
+        h = Histogram(self.xmin, self.xmax, self.values, None, self.name, x_low = self.x_low)
         return h
     
     def scale(self, factor, new_name = None):
         uncs = None if self.uncertainties is None else array.array('d', [v * abs(factor) for v in self.uncertainties])
-        h = Histogram(self.xmin, self.xmax, array.array('d', [v * factor for v in self.values]), uncs, new_name)
-        if self.x_low is not None: h.set_x_low(self.x_low)
+        h = Histogram(self.xmin, self.xmax, array.array('d', [v * factor for v in self.values]), uncs, new_name, x_low = self.x_low)
         return h
         
     # calculate self + coeff * other_h and return the result as new Histogram (does not modify self).
     def add(self, coeff, other_h):
-        assert (self.xmin, self.xmax, len(self.values)) == (other_h.xmin, other_h.xmax, len(other_h.values))
-        result = Histogram(self.xmin, self.xmax, self.values[:])
+        assert self.is_compatible(other_h)
+        result = Histogram(self.xmin, self.xmax, self.values[:], x_low = self.x_low)
         for i in range(len(self.values)):
             result.values[i] += coeff * other_h.values[i]
         if self.uncertainties is None:
@@ -779,7 +650,6 @@ class Histogram(object):
         else:
             if other_h.uncertainties is None: result.uncertainties = self.uncertainties[:]
             else: result.uncertainties = array.array('d', [math.sqrt(u**2 + v**2 * coeff**2) for u,v in zip(self.uncertainties, other_h.uncertainties)])
-        if self.x_low is not None: result.set_x_low(self.x_low)
         return result
         
 
@@ -844,6 +714,12 @@ class HistogramFunction:
     def get_plus_histo(self, par): return self.syst_histos[par][0]
     def get_minus_histo(self, par): return self.syst_histos[par][1]
     def get_factor(self, par): return self.factors[par]
+    
+    def remove_parameter(self, par_name):
+        assert par_name in self.parameters
+        self.parameters.discard(par_name)
+        del self.factors[par_name]
+        del self.syst_histos[par_name]
         
     def rename_parameter(self, current_name, new_name):
         """
@@ -937,6 +813,9 @@ class HistogramFunction:
     
 
 class GaussDistribution:
+    """
+    A multivariate Gauss distribution with known mean and covariance.
+    """
     def __init__(self, parameters, mu, covariance, ranges = None):
         n = len(parameters)
         assert n== len(mu) and n==len(covariance)
@@ -963,8 +842,8 @@ class GaussDistribution:
         
     def rename_parameter(self, old_name, new_name):
         if old_name not in self.parameters: return
-        self.parameters[self.parameters.index(old_name)] = new_name 
-    
+        self.parameters[self.parameters.index(old_name)] = new_name
+
 # product of 1d distributions
 class Distribution:
     def __init__(self):
@@ -1057,140 +936,27 @@ class Distribution:
         return result
 
 
-# return a Distribution object in which all parameters are fixed to their default values, using the Distribution
-# template_dist.
+
 def get_fixed_dist(template_dist):
+    """
+    return a Distribution object in which all parameters are fixed to their default values, using the Distribution template_dist.
+    """
     result = Distribution()
     for p in template_dist.get_parameters():
         val = template_dist.get_distribution(p)['mean']
         result.set_distribution(p, 'gauss', val, 0.0, [val, val])
     return result
 
-# return a Distribution in which all parameters are fixed to the value given in par_values; par_values
-# is a dictionary (parameter name) -> (parameter value)
+
 def get_fixed_dist_at_values(par_values):
+    """
+    return a Distribution object in which all parameters are fixed to the value given in par_values; par_values
+    is a dictionary (parameter name) -> (parameter value)
+    """
     result = Distribution()
     for p in par_values:
         val = par_values[p]
         result.set_distribution(p, 'gauss', val, 0.0, [val, val])
     return result
 
-
-def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root_hname_to_convention = lambda s: s, transform_histo = lambda h: h, include_mc_uncertainties = False):
-    """
-    Build a multi-channel model based on template morphing from histograms in a root file
-    
-    This root file is expected to contain all the templates of the model adhering to a certain naming scheme:
-      ``<observable>__<process>``     for the "nominal" templates (=not affect by any uncertainty) and
-      ``<observable>__<process>__<uncertainty>__(plus,minus)``  for the "shifted" templates to be used for template morphing.
-
-    
-    ``<observable>``, ``<process>``, and ``<uncertainty>`` are names you can choose at will as long as it does not contain '__'. You are encouraged
-    to choose sensible names as these names are used in the output a lot.
-
-    For example, if you want to make a combined statistical evaluation of a muon+jets and an electron+jets ttbar cross section measurement,
-    you can name the observables "mu" and "ele"; the processes might be "ttbar", "w", "nonw", the uncertainties "jes", "q2". Provided
-    all uncertainties affect all template shapes, you would supply 6 nominal and 24 "uncertainty" templates:
-    The 6 nominal would be: mu__ttbar, mu__w, mu__nonw, ele__ttbar, ele__w, ele__nonw
-    Some of the 24 "uncertainty" histograms would be: mu__ttbar__jes__plus, mu__ttbar__jes__minus, ..., ele__nonw__q2__minus
-    
-    All templates of one observable must have the same range and binning. All templates should be normalized
-    to the same luminosity (although normalization can be changed from the analysis python script later, this is generally not recommended, unless
-    scaling everything to a different lumi).
-
-    It is possible to omit some of the systematic templates completely. In this case, it is assumed
-    that the presence of that uncertainty has no influence on this process in this observable.
-
-    Observed data has the special process name "DATA" (all capitals!), so for each observable, there should be exactly one ``<observable>_DATA``
-    histogram, if you have data at all. If you do not have data, just omit this; the methods will be limited to calculating the expected
-    result.
-
-    To identify which process should be considered as signal, call :meth:`Model.set_signal_processes` after constructing the Model.
-        
-
-    The model built is based on the given templates where the systematic uncertainties are fully correlated across different
-    observables and processes, i.e., the same parameter is used to interpolate between the nominal and shifted templates
-    if the name of the uncertainty is the same. Two different systematic uncertainties (=with different names) are assumed to be uncorrelated.
-    Each parameter has a Gaussian prior with width 1.0 and mean 0.0 and has the same name as the uncertainty. You can use
-    the functions in Distribution (e.g., via model.distribution) to override this prior. This is useful if the "plus" and "minus" templates
-    are not the +-1sigma deviations, but, say, the +-2sigma in which case you can use a prior with width 0.5.
-
-    Parameters:
-    
-    * ``filenames`` is either a single string or a list of strings speficiying the root file names to read the histograms from.
-    * ``histogram_filter`` is a function which -- given a histogram name as in the root file --
-      returns either ``True`` to keep histogram or ``False`` to ignore the histogram. The default is to keep all histograms.
-      This is useful if you want to consider only a subset of channels or uncertainties.
-    * ``root_hname_to_convention`` is a function which get the "original" histogram name (as in the root file) to histogram names as expected by the
-       naming convention as described above. The default is to not modify the names.
-    * ``transform_histo`` is a function which takes one parameter, the :class:`Histogram` instance as read from the root file (but the name already transformed
-       using ``root_hname_to_convention``). This method should return a :class:`Histogram` instance which should be used. This is useful e.g. for re-binning or scaling
-       Histograms "on the fly", without having to re-create the root input file. Note that the name of the returned Histogram must be the same as the input Histogram(!)
-    * ``include_mc_uncertainties`` is a boolean which specifies whether or not to use the Histogram uncertainties as Monte-Carlo statistical uncertainties and include
-      their treatment in the statistical methods using the "barlow-Beeston light" method (see also :ref:`model_intro`).
-      
-    """
-    if type(filenames)==str: filenames = [filenames]
-    result = Model()
-    histos = {}
-    observables, processes, uncertainties = set(), set(), set()
-
-    for fname in filenames:
-        rf = rootfile(fname)
-        templates = rf.get_all_templates(include_mc_uncertainties)
-        for hexternal in templates:
-            if not histogram_filter(hexternal): continue
-            hname_theta = root_hname_to_convention(hexternal)
-            h_rootfile = templates[hexternal]
-            h_mine = h_rootfile.copy()
-            h_mine.name = hname_theta
-            h_mine = transform_histo(h_mine)
-            assert h_mine.get_name() == hname_theta, "transform_histo changed the name. This is not allowed; use root_hname_to_convention!"
-            l = hname_theta.split('__')
-            observable, process, uncertainty, direction = [None]*4
-            if len(l)==2:
-                observable, process = map(utils.transform_name_to_theta, l)
-                observables.add(observable)
-                processes.add(process)
-            elif len(l)==4:
-                observable, process, uncertainty, direction = l
-                observable, process = map(utils.transform_name_to_theta, [observable, process])
-            else:
-                print "Warning: ignoring template %s (was: %s) which does not obey naming convention!" % (hname_theta, hexternal)
-                continue
-            if direction not in (None, 'plus', 'minus', 'up', 'down'):
-                print "Warning: ignoring template %s (was: %s) which does not obey naming convention!" % (hname_theta, hexternal)
-                continue
-            if process == 'DATA':
-                assert len(l)==2
-                result.set_data_histogram(observable, h_mine.strip_uncertainties())
-                continue
-            if uncertainty is not None: uncertainties.add(uncertainty)
-            if direction=='up': direction='plus'
-            if direction=='down': direction='minus'
-            if uncertainty is not None: h_new = '%s__%s__%s__%s' % (observable, process, uncertainty, direction)
-            else: h_new = '%s__%s' % (observable, process)
-            histos[h_new] = h_mine
-
-    # build histogram functions from templates, and make some sanity checks:
-    for o in observables:
-        for p in processes:
-            hname_nominal = '%s__%s' % (o, p)
-            if hname_nominal not in histos: continue
-            hf = HistogramFunction()
-            h = histos[hname_nominal]
-            if not include_mc_uncertainties: h =  h.strip_uncertainties()
-            hf.set_nominal_histo(h)
-            for u in uncertainties:
-                n_syst = 0
-                if ('%s__%s__%s__plus' % (o, p, u)) in histos: n_syst += 1
-                if ('%s__%s__%s__minus' % (o, p, u)) in histos: n_syst += 1
-                if n_syst == 0: continue
-                if n_syst != 2: raise RuntimeError, "only one direction given for (observable, process, uncertainty) = (%s, %s, %s)" % (o, p, u)
-                hf.set_syst_histos('%s' % u, histos['%s__%s__%s__plus' % (o, p, u)], histos['%s__%s__%s__minus' % (o, p, u)])
-            result.set_histogram_function(o, p, hf)
-    for u in uncertainties:
-        result.distribution.set_distribution('%s' % u, 'gauss', mean = 0.0, width = 1.0, range = (-float("inf"), float("inf")))
-    result.bb_uncertainties = include_mc_uncertainties
-    return result
 

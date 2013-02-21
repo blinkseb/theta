@@ -1,6 +1,7 @@
 #include "plugins/textout_database.hpp"
 #include "interface/plugin.hpp"
 #include "interface/histogram.hpp"
+#include "interface/redirect_stdio.hpp"
 
 #include <iostream>
 
@@ -70,26 +71,26 @@ ostream & operator<<(ostream & out, const theta::Histogram1D & h){
 }
 
 void textout_database::textout_table::add_row(const Row & row){
-    cout << endl << "Table '" << name << "', row " << ++irow << ":" << endl;
+    theta::out << endl << "Table '" << name << "', row " << ++irow << ":" << endl;
     for(int i=0; i<next_colid; ++i){
         Column c(i);
-        cout << column_infos[c].name << "=";
+        theta::out << column_infos[c].name << "=";
         data_type type = column_infos[c].type;
         switch(type){
             case typeInt:
-                cout << row.get_column_int(c);
+                theta::out << row.get_column_int(c);
                 break;
             case typeDouble:
-                cout << row.get_column_double(c);
+                theta::out << row.get_column_double(c);
                 break;
             case typeString:
-                cout << row.get_column_string(c);
+                theta::out << row.get_column_string(c);
                 break;
             case typeHisto:
-                cout << row.get_column_histogram(c);
+                theta::out << row.get_column_histogram(c);
                 break;
         }
-        cout << endl;
+        theta::out << endl;
     }
 }
 

@@ -5,6 +5,7 @@
 #include "interface/variables.hpp"
 #include "interface/phys.hpp"
 #include "interface/model.hpp"
+#include "interface/distribution.hpp"
 
 #include <sstream>
 
@@ -25,7 +26,7 @@ class ReducedNLL{
          */
         ReducedNLL(const theta::NLLikelihood & nll_, const theta::ParId & pid_, const theta::ParValues & pars_at_min_,
                 theta::Minimizer * min_, const theta::ParValues & start_, const theta::ParValues & step_,
-                const std::map<theta::ParId, std::pair<double, double> > & ranges_):
+                const theta::Ranges & ranges_):
            nll(nll_), pid(pid_), pars_at_min(pars_at_min_), min(min_), start(start_), step(step_), ranges(ranges_){
             step.set(pid, 0);
         }
@@ -49,7 +50,7 @@ class ReducedNLL{
         double operator()(double x) const{
             if(min){
                 start.set(pid, x);
-                ranges[pid].first = ranges[pid].second = x;
+                ranges.set(pid, std::make_pair(x,x));
                 theta::MinimizationResult minres = min->minimize(nll, start, step, ranges);
                 return minres.fval - offset_nll;
             }
@@ -67,7 +68,9 @@ class ReducedNLL{
         theta::Minimizer * min;
         mutable theta::ParValues start;
         theta::ParValues step;
-        mutable std::map<theta::ParId, std::pair<double, double> > ranges;
+        mutable theta::Ranges ranges;
+
+
 };
 
 

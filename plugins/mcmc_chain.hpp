@@ -26,7 +26,7 @@
  *   re-init = 1; //optional. Default is 0
  *
  *   // option 1: write into text files
- *   oufile_prefix = "chain";
+ *   outfile_prefix = "chain";
  *
  *   // option 2: write into a database
  *   output_database = {
@@ -69,7 +69,7 @@
  * text files/the additional database file; (ii) thread safety when using \c main.type="run_mt" is not guaranteed for this producer, as the creation of output will lead
  * to a race condition.
  */
-class mcmc_chain: public theta::Producer, public theta::RandomConsumer{
+class mcmc_chain: public theta::Producer {
 public:
     mcmc_chain(const theta::Configuration & ctx);
     virtual void produce(const theta::Data & data, const theta::Model & model);
@@ -93,10 +93,7 @@ private:
     boost::shared_ptr<theta::Database> database;
     
     //MCMC parameters:
-    unsigned int iterations;
-    unsigned int burn_in;
-    theta::Matrix sqrt_cov;
-    std::vector<double> startvalues;
+    std::auto_ptr<theta::MCMCStrategy> mcmc_strategy;
 };
 
 #endif

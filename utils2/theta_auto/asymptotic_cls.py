@@ -63,6 +63,15 @@ class asymptotic_ts_dist:
         if tsval==0.0: result = phi((self.truth - beta_signal) / self.sigma)
         return result + float(binwidth) / sample * sum([self._pdf(beta_signal, tsval + i * 1.0 * binwidth / sample) for i in range(sample)])
         
+    # returns a vector of y values appropriate for displaying a histogram with the test statistic binborders
+    # as given in x_binborders. Note that len(x_binborders) == nbins+1, as the lower end of the first bin and the
+    # upper end of the last bin are assumed to be included(!)
+    # Note that the first bin should start exactly at 0.0.
+    def histo_yvalues(self, beta_signal, x_binborders):
+        binranges = zip(x_binborders[:-1], x_binborders[1:])
+        result = map(lambda r: self.cdf(beta_signal, r[1]) - self.cdf(beta_signal, r[0]), binranges)
+        result[0] += phi((self.truth - beta_signal) / self.sigma)
+        return result
 
     def cdf(self, beta_signal, tsval):
         if tsval <= beta_signal**2 / self.sigma**2 : return phi(math.sqrt(tsval) - (beta_signal - self.truth) / self.sigma)

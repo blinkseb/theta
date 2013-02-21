@@ -4,7 +4,7 @@ from theta_auto.test_model import *
 import unittest
 import time
 
-config.suppress_info = True
+#config.suppress_info = True
 one_sigma = 0.6827
 
 class TestKSCHI2(unittest.TestCase):
