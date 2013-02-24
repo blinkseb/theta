@@ -97,6 +97,10 @@ public:
         else return 0.0;
     }
     
+    double * get_data(){
+        return values.get_data();
+    }
+
     const DoubleVector & get_values() const{
         return values;
     }

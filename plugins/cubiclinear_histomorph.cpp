@@ -21,7 +21,7 @@ template<typename HT>
 void cubiclinear_histomorph::add_morph_terms(HT & t, const ParValues & values) const{
     const size_t n_sys = hplus_diff.size();
     for (size_t isys = 0; isys < n_sys; isys++) {
-        const double delta = values.get(vid[isys]) * parameter_factors[isys];
+        const double delta = values.get_unchecked(vid[isys]) * parameter_factors[isys];
         if(delta==0.0) continue;
         //linear extrapolation beyond 1 sigma:
         if(fabs(delta) > 1){
@@ -36,7 +36,9 @@ void cubiclinear_histomorph::add_morph_terms(HT & t, const ParValues & values) c
         }
     }
     double h_sum = 0.0;
-    for(size_t i=0; i < t.get_nbins(); ++i){
+    const size_t n = t.get_nbins();
+#ifndef __SSE2__
+    for(size_t i=0; i < n; ++i){
         double val = t.get(i);
         if(val < 0.0){
             t.set(i, 0.0);
@@ -45,6 +47,20 @@ void cubiclinear_histomorph::add_morph_terms(HT & t, const ParValues & values) c
             h_sum += val;
         }
     }
+#else
+    double * hdata = t.get_data();
+    const __m128d zero = _mm_setzero_pd();
+    __m128d sum = zero;
+    for(size_t i=0; i < n; i+=2){
+        __m128d data = _mm_load_pd(hdata + i);
+        __m128d truncated = _mm_max_pd(data, zero);
+        _mm_store_pd(hdata + i, truncated);
+        sum = _mm_add_pd(sum, truncated);
+    }
+    double sa[2];
+    _mm_storeu_pd(sa, sum);
+    h_sum = sa[0] + sa[1];
+#endif
     if(normalize_to_nominal && h_sum > 0.0){
        t *= h0_sum / h_sum;
     }
@@ -59,11 +75,7 @@ void cubiclinear_histomorph::apply_functor(const functor<Histogram1DWithUncertai
 void cubiclinear_histomorph::apply_functor(const functor<Histogram1D> & f, const ParValues & values) const{
     h = h0;
     add_morph_terms(h, values);
-#if CXX11
-    f(std::move(h));
-#else
     f(h);
-#endif
 }
 
 void cubiclinear_histomorph::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{

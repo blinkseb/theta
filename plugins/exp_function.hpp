@@ -28,7 +28,7 @@
 class exp_function: public theta::Function{
 private:
     std::vector<theta::ParId> v_pids;
-    std::vector<double> lambdas_plus, lambdas_minus;
+    std::vector<double> lambdas_plusminus;
     size_t n;
 
 public:

@@ -6,21 +6,12 @@
 #include "interface/histogram-with-uncertainties.hpp"
 #include "interface/variables.hpp"
 
-#if __GXX_EXPERIMENTAL_CXX0X__
-#define CXX11 1
-#endif
-
 namespace theta {
     
     template<typename T>
     class functor{
     public:
         virtual void operator()(const T&) const = 0;
-#if CXX11
-        virtual void operator()(T && t) const{
-        	operator()((T&)t);
-        }
-#endif
         virtual ~functor(){}
     };
     
@@ -33,11 +24,7 @@ namespace theta {
         virtual void operator()(const T& t) const {
             into = t;
         }
-#if CXX11
-        virtual void operator()(T && t) const{
-        	into.swap(t);
-        }
-#endif
+        virtual ~copy_to(){}
     };
     
     template<typename T>
@@ -51,6 +38,7 @@ namespace theta {
             theta_assert(h0.get_nbins() == t.get_nbins());
             h0.add_with_coeff(coeff, t);
         }
+        virtual ~add_with_coeff_to(){}
     };
 
 
