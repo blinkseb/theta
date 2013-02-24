@@ -29,7 +29,7 @@ def noncentral_chi2_pdf(x, k, lmbda):
     if type(x) == float: return result[0]
     return result
 
-phi = lambda x: scipy.stats.norm.cdf(0.0, x)
+phi = lambda x: scipy.stats.norm.cdf(x)
 phi_inverse = scipy.stats.norm.ppf
 
 # represents an asymptotic/approximate test statistic distribution of the 'lhclike' test statistic.
@@ -44,37 +44,36 @@ class asymptotic_ts_dist:
         self.truth = float(beta_signal_toy)
         self.sigma = float(sigma)
 
+    # beta_signal here is the signal scale factor used in the TS definition (the "mu" in "t_mu" in the Ref.)
     def _pdf(self, beta_signal, tsval):
-        if tsval==0.0: return 0.0
+        if tsval<=0.0: return 0.0
         if tsval <= beta_signal**2 / self.sigma**2:
             return 0.5  / math.sqrt(2 * math.pi) / math.sqrt(tsval) * math.exp(-0.5 * (math.sqrt(tsval) - (beta_signal - self.truth) / self.sigma)**2)
         else:
             return 0.5  / math.sqrt(2 * math.pi) * self.sigma / beta_signal * \
                math.exp(-0.5 * (tsval - (beta_signal**2 - 2 * self.truth * beta_signal) / self.sigma**2)**2  /  (2 * beta_signal / self.sigma)**2)
-
-
-    # beta_signal here is the signal scale factor used in the TS definition (the "mu" in "t_mu" in the Ref.)
-    #
-    # the bin content for a pdf histogram in the bin starting with tsval and width binwidth. Calculated
-    # by integrating the actual pdf over the bin using "sample" pdf evaluations
-    # make sure to include the point tsval==0.
-    def pdf(self, beta_signal, tsval, binwidth, sample = 10):
-        result = 0.0
-        if tsval==0.0: result = phi((self.truth - beta_signal) / self.sigma)
-        return result + float(binwidth) / sample * sum([self._pdf(beta_signal, tsval + i * 1.0 * binwidth / sample) for i in range(sample)])
         
-    # returns a vector of y values appropriate for displaying a histogram with the test statistic binborders
-    # as given in x_binborders. Note that len(x_binborders) == nbins+1, as the lower end of the first bin and the
-    # upper end of the last bin are assumed to be included(!)
+    # returns a vector of y values appropriate for displaying a histogram with nbins bins. x_binborders should contains
+    # all bin borders, i.e., it is of length nbins+1.
     # Note that the first bin should start exactly at 0.0.
     def histo_yvalues(self, beta_signal, x_binborders):
+        assert x_binborders[0] == 0.0
         binranges = zip(x_binborders[:-1], x_binborders[1:])
         result = map(lambda r: self.cdf(beta_signal, r[1]) - self.cdf(beta_signal, r[0]), binranges)
         result[0] += phi((self.truth - beta_signal) / self.sigma)
         return result
 
     def cdf(self, beta_signal, tsval):
-        if tsval <= beta_signal**2 / self.sigma**2 : return phi(math.sqrt(tsval) - (beta_signal - self.truth) / self.sigma)
-        return phi((tsval + beta_signal**2 / self.sigma**2) / (2 * beta_signal / self.sigma))
+        if tsval <= beta_signal**2 / self.sigma**2:
+            return phi(math.sqrt(tsval) - (beta_signal - self.truth) / self.sigma)
+        else:
+            return phi((tsval - (beta_signal**2 - 2*beta_signal * self.truth) / self.sigma**2) / (2 * beta_signal / self.sigma))
 
+    def icdf(self, beta_signal, F):
+        assert F > 0 and F < 1
+        F_flip = phi(self.truth / self.sigma)
+        if F < F_flip:
+            return max([phi_inverse(F) + (beta_signal - self.truth) / self.sigma, 0.0])**2
+        else: return 2 * phi_inverse(F) * beta_signal / self.sigma + (beta_signal**2 - 2 * beta_signal * self.truth) / self.sigma**2
+        
 

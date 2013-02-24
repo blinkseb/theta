@@ -10,10 +10,6 @@ testobjects := $(patsubst %.cpp,.bin/%.o,$(testsources))
 libtestsources := $(wildcard test*.cxx)
 libtestobjects := $(patsubst %.cxx,.bin/%.o,$(libtestsources))
 
-# build the plugins again for direct linking:
-#plugin_directlink_sources = $(wildcard ../plugins/*.cpp)
-#plugin_directlink_objects = $(patsubst ../plugins/%.cpp,.bin/%.o,$(plugin_directlink_sources))
-
 deps := $(patsubst %.o,%.d,$(libtestobjects) $(testobjects))
 
 include ../Makefile.rules

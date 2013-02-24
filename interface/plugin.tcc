@@ -65,14 +65,14 @@ std::auto_ptr<product_type> PluginManager<product_type>::build(const Configurati
                result = pm.factories[i]->build(ctx);
            }catch (theta::Exception & ex) {
                std::stringstream ss;
-               ss << "Error while constructing plugin according to configuration path '" << ctx.setting.get_path()
-                   << "' (type='" << type << "'): " << ex.message;
+               ss << "Error while constructing plugin in path '" << ctx.setting.get_path()
+                   << "' (type='" << type << "', base_type = '" << demangle(typeid(product_type).name()) << "'): " << ex.message;
                throw ConfigurationException(ss.str());
            }
            catch (std::logic_error & ex) {
                std::stringstream ss;
-               ss << "Error while constructing plugin according to configuration path '" << ctx.setting.get_path()
-                   << "' (type='" << type << "') logic error: " << ex.what();
+               ss << "Error while constructing plugin in path '" << ctx.setting.get_path()
+                   << "' (type='" << type << "', base_type = '" << demangle(typeid(product_type).name()) << "') logic error: " << ex.what();
                throw ConfigurationException(ss.str());
            }
        }

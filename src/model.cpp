@@ -28,51 +28,49 @@ const ObsIds & Model::get_observables() const{
 void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs_, boost::ptr_vector<HistogramFunction> & histos_){
     observables.insert(obs_id);
     const size_t n = coeffs_.size();
-    if(n!=histos_.size()) throw invalid_argument("number of histograms and coefficients do not match");
-    if(histos[obs_id].size()>0 || coeffs[obs_id].size()>0){
-        throw invalid_argument("prediction already set for this observable");
+    theta_assert(n > 0);
+    theta_assert(n==histos_.size());
+    for(std::vector<std::pair<ObsId, size_t> >::const_iterator it=last_indices.begin(); it!=last_indices.end(); ++it){
+        theta_assert(it->first != obs_id);
     }
-    if(n==0) throw invalid_argument("empty prediction set");
-    coeffs[obs_id].transfer(coeffs[obs_id].end(), coeffs_.begin(), coeffs_.end(), coeffs_);
-    histos[obs_id].transfer(histos[obs_id].end(), histos_.begin(), histos_.end(), histos_);
-    for(boost::ptr_vector<Function>::const_iterator it=coeffs[obs_id].begin(); it!=coeffs[obs_id].end(); ++it){
-        parameters.insert_all(it->get_parameters());
-    }
+    const size_t imin = hfs.size();
+    coeffs.transfer(coeffs.end(), coeffs_.begin(), coeffs_.end(), coeffs_);
+    hfs.transfer(hfs.end(), histos_.begin(), histos_.end(), histos_);
+    last_indices.push_back(make_pair(obs_id, hfs.size()));
+    const size_t imax = hfs.size();
     size_t nbins = 0;
     double xmin = NAN, xmax = NAN;
     bool first = true;
-    for(boost::ptr_vector<HistogramFunction>::const_iterator it=histos[obs_id].begin(); it!=histos[obs_id].end(); ++it){
+    for(size_t i = imin; i < imax; ++i){
         if(first){
-            it->get_histogram_dimensions(nbins, xmin, xmax);
+            hfs[i].get_histogram_dimensions(nbins, xmin, xmax);
             first = false;
         }
         else{
             size_t nbins_tmp = 0;
             double xmin_tmp = NAN, xmax_tmp = NAN;
-            it->get_histogram_dimensions(nbins_tmp, xmin_tmp, xmax_tmp);
+            hfs[i].get_histogram_dimensions(nbins_tmp, xmin_tmp, xmax_tmp);
             if(nbins!=nbins_tmp || xmin!=xmin_tmp || xmax!=xmax_tmp){
                 throw invalid_argument("default_model::set_prediction: histogram dimensions mismatch");
             }
         }
-        parameters.insert_all(it->get_parameters());
+        parameters.insert_all(hfs[i].get_parameters());
+        parameters.insert_all(coeffs[i].get_parameters());
     }
 }
 
 template<typename HT>
 void default_model::get_prediction_impl(DataT<HT> & result, const ParValues & parameters) const{
-    histos_type::const_iterator h_it = histos.begin();
-    coeffs_type::const_iterator c_it = coeffs.begin();
-    for(; h_it != histos.end(); ++h_it, ++c_it){
-        const ObsId & oid = h_it->first;
-        histos_type::const_mapped_reference hfs = *(h_it->second);
-        coeffs_type::const_mapped_reference h_coeffs = *(c_it->second);
-        // overwrite result[oid] with first term:
-        hfs[0].apply_functor(copy_to<HT>(result[oid]), parameters);
-        result[oid] *= h_coeffs[0](parameters);
-        // add the rest:
-        for (size_t i = 1; i < hfs.size(); i++) {
-            hfs[i].apply_functor(add_with_coeff_to<HT>(result[oid], h_coeffs[i](parameters)), parameters);
+    size_t imin = 0;
+    std::vector<std::pair<ObsId, size_t> >::const_iterator it_end = last_indices.end();
+    for(std::vector<std::pair<ObsId, size_t> >::const_iterator it=last_indices.begin(); it!=it_end; ++it){
+        hfs[imin].apply_functor(copy_to<HT>(result[it->first]), parameters);
+        result[it->first] *= coeffs[imin](parameters);
+        ++imin;
+        for(; imin < it->second; ++imin) {
+            hfs[imin].apply_functor(add_with_coeff_to<HT>(result[it->first], coeffs[imin](parameters)), parameters);
         }
+        theta_assert(imin == it->second);
     }
 }
 
@@ -192,6 +190,7 @@ double default_model_nll::operator()(const ParValues & values) const{
     else{
         result += model.get_parameter_distribution().eval_nl(values);
     }
+    if(std::isinf(result)) return result;
     //2. get the prediction of the model:
     model.get_prediction(predictions, values);
     //3. the template likelihood    
@@ -201,6 +200,7 @@ double default_model_nll::operator()(const ParValues & values) const{
         const double * data_data = data[*obsit].get_data();
         result += template_nllikelihood(data_data, pred_data, data[*obsit].get_nbins());
     }
+    if(std::isinf(result)) return result;
     //4. the likelihood part for the real-valued observables, if set:
     const Distribution * rvobs_dist = model.get_rvobservable_distribution();
     if(rvobs_dist){

@@ -6,7 +6,7 @@
 using namespace theta;
 using namespace std;
 
-BOOST_AUTO_TEST_SUITE(variables_tests)
+BOOST_AUTO_TEST_SUITE(variables)
 
 struct varidtest{
     VarIdManager vm;
@@ -166,6 +166,122 @@ BOOST_AUTO_TEST_CASE(parvalues_many){
             BOOST_CHECK(values.get(parameters[i]) == values_sparse.get(parameters[i]));
         }
     }
+}
+
+BOOST_AUTO_TEST_CASE(par_ids){
+    VarIdManager vm;
+    vector<ParId> vpids;
+    for(int i=0; i<200; ++i){
+        stringstream ss;
+        ss << "p" << i;
+        vpids.push_back(vm.create_par_id(ss.str()));
+    }
+    ParIds pids;
+    BOOST_CHECK(pids.size() == 0);
+    BOOST_CHECK(pids.begin() == pids.end());
+
+    // 1 low id:
+    pids.insert(vpids[0]);
+    BOOST_CHECK(pids.size()==1);
+    BOOST_CHECK(*pids.begin() == vpids[0]);
+    ParIds::const_iterator it = pids.begin();
+    ++it;
+    BOOST_CHECK(it == pids.end());
+
+    // two low ids:
+    pids = ParIds();
+    pids.insert(vpids[10]);
+    pids.insert(vpids[20]);
+    BOOST_CHECK(pids.size()==2);
+    it = pids.begin();
+    BOOST_CHECK(it!=pids.end());
+    BOOST_CHECK(*it == vpids[10]);
+    ++it;
+    BOOST_CHECK(it!=pids.end());
+    BOOST_CHECK(*it == vpids[20]);
+    ++it;
+    BOOST_CHECK(it == pids.end());
+    // an additional large one:
+    pids.insert(vpids[101]);
+    BOOST_CHECK(pids.size()==3);
+    it = pids.begin();
+    BOOST_CHECK(it!=pids.end());
+    BOOST_CHECK(*it == vpids[10]);
+    ++it;
+    BOOST_CHECK(it!=pids.end());
+    BOOST_CHECK(*it == vpids[20]);
+    ++it;
+    BOOST_CHECK(it!=pids.end());
+    BOOST_CHECK(*it == vpids[101]);
+    ++it;
+    BOOST_CHECK(it == pids.end());
+
+
+
+    // 1 large id:
+    pids = ParIds();
+    pids.insert(vpids[100]);
+    BOOST_CHECK(pids.size()==1);
+    //ParId id = *pids.begin();
+    //cout << "100: " << id << endl;
+    BOOST_CHECK(*pids.begin() == vpids[100]);
+    it = pids.begin();
+    BOOST_CHECK(it!=pids.end());
+    ++it;
+    BOOST_CHECK(it == pids.end());
+    // double insert:
+    pids.insert(vpids[100]);
+    BOOST_CHECK(pids.size()==1);
+
+
+    // border ids:
+    pids = ParIds();
+    pids.insert(vpids[63]);
+    BOOST_CHECK(pids.size()==1);
+    it = pids.begin();
+    BOOST_CHECK(it!=pids.end());
+    BOOST_CHECK(*it == vpids[63]);
+    ++it;
+    BOOST_CHECK(it==pids.end());
+
+    pids = ParIds();
+    pids.insert(vpids[64]);
+    BOOST_CHECK(pids.size()==1);
+    it = pids.begin();
+    BOOST_CHECK(it!=pids.end());
+    BOOST_CHECK(*it == vpids[64]);
+    ++it;
+    BOOST_CHECK(it==pids.end());
+
+    // almost all ids:
+    for(int i=0; i<200; ++i){
+        if(i!=10 && i!=102 && i!=198)
+            pids.insert(vpids[i]);
+    }
+    BOOST_CHECK(pids.size()==197);
+    int i=0;
+    for(it=pids.begin(); it!=pids.end(); ++it){
+        if(i!=10 && i!=102 && i!=198){
+            BOOST_CHECK(*it == vpids[i]);
+            ++i;
+        }
+    }
+    BOOST_CHECK(it==pids.end());
+
+    ParIds pids2;
+    pids2.insert_all(pids);
+    BOOST_CHECK(pids2.size()==197);
+    i=0;
+    for(it=pids2.begin(); it!=pids2.end(); ++it){
+        if(i!=10 && i!=102 && i!=198){
+            BOOST_CHECK(*it == vpids[i]);
+            ++i;
+        }
+    }
+    BOOST_CHECK(pids == pids2);
+
+
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()

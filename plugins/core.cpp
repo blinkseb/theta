@@ -373,8 +373,8 @@ void gauss1d::sample(ParValues & result, Random & rnd) const{
 
 
 double gauss1d::eval_nl(const ParValues & values) const{
-    double mean = mu_pid ? values.get(*mu_pid) : mu;
-    double value = values.get_unchecked(*par_ids.begin());
+    const double mean = mu_pid ? values.get(*mu_pid) : mu;
+    const double value = values.get_unchecked(pid);
     if(value > range.second || value < range.first){
         return std::numeric_limits<double>::infinity();
     }
@@ -382,10 +382,9 @@ double gauss1d::eval_nl(const ParValues & values) const{
     return 0.5 * delta * delta;
 }
 
-gauss1d::gauss1d(const Configuration & cfg){
+gauss1d::gauss1d(const Configuration & cfg): pid(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])){
    boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
-   string par_name = cfg.setting["parameter"];
-   par_ids.insert(vm->get_par_id(par_name));
+   par_ids.insert(pid);
    Setting::Type typ = cfg.setting["mean"].get_type();
    mu = NAN;
    if(typ==Setting::TypeFloat){
@@ -560,7 +559,7 @@ void model_source::fill(Data & dat){
     
     //3. (maybe) sample poisson
     if(dice_poisson){
-        ObsIds observables = dat.get_observables();
+        const ObsIds & observables = model->get_observables();
         for (ObsIds::const_iterator it = observables.begin(); it != observables.end(); it++) {
              randomize_poisson(dat[*it], rnd);
         }

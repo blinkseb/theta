@@ -157,14 +157,12 @@ namespace theta {
      */
     class default_model: public Model{
     private:
-        //The problem of std::map<ObsId, ptr_vector<Function> > is that
-        // this requires ptr_vector to be copy-constructible which in turn
-        // requires Function to have a new_clone function ...
-        //in order to save rewrite, typedef the coeffs and histos map types ...
-        typedef boost::ptr_map<ObsId, boost::ptr_vector<HistogramFunction> > histos_type;
-        typedef boost::ptr_map<ObsId, boost::ptr_vector<Function> > coeffs_type;
-        histos_type histos;
-        coeffs_type coeffs;
+        // flattened histogramfunctions and coeffs:
+        boost::ptr_vector<HistogramFunction> hfs;
+        boost::ptr_vector<Function> coeffs;
+        // for each observable, save the last index into hfs / coeffs:
+        std::vector<std::pair<ObsId, size_t> > last_indices;
+
         std::auto_ptr<Distribution> parameter_distribution;
         std::auto_ptr<Distribution> rvobservable_distribution;
         std::auto_ptr<Function> additional_nll_term;

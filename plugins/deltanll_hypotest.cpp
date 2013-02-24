@@ -67,7 +67,7 @@ void deltanll_hypotest::produce(const theta::Data & data, const theta::Model & m
     products_sink->set_product(c_nll_b, nll_b);
     products_sink->set_product(c_nll_diff, nll_b - nll_sb);
     if(write_pchi2){
-        const ObsIds & obs = data.get_observables();
+        const ObsIds & obs = model.get_observables();
         Data pred;
         model.get_prediction(pred, sb_values);
         double pchi2 = 0.0;

@@ -308,6 +308,7 @@ class gauss1d: public theta::Distribution{
         double mu;
         double sigma;
         boost::optional<theta::ParId> mu_pid;
+        theta::ParId pid;
         std::pair<double, double> range;
 };
 

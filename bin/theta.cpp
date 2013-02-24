@@ -303,7 +303,9 @@ int main(int argc, char** argv) {
             main->run();
             #ifdef USE_TIMER
             if(print_time){
-                theta::out << timer->format(4, "Time to run main:                                 %w sec real, %t sec CPU") << endl;
+                std::string timestr = timer->format(4, "Time to run main:                                 %w sec real, %t sec CPU");
+                main.reset(); // to destroy progress listener, which outputs newline
+                theta::out << timestr  << endl;
             }
             #endif
             if(stop_execution) break;

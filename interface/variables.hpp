@@ -13,7 +13,6 @@
 #include <cmath>
 
 #include <boost/utility.hpp>
-//#include <boost/container/flat_set.hpp>
 
 namespace theta {
     
@@ -34,6 +33,7 @@ namespace theta {
     friend class VarIdManager;
     friend class ParValues;
     template<typename T>  friend class DataT;
+    template<typename T>  friend class VarIds;
     friend std::ostream & operator<<(std::ostream & out, const VarId & vid){
         return out << vid.id;
     }
@@ -53,15 +53,16 @@ namespace theta {
         //@}
         
     private:
-        size_t id;
-        explicit VarId(size_t i): id(i){}
+        typedef unsigned int id_type;
+        id_type id;
+        explicit VarId(id_type i): id(i){}
     };
     
     // An alternative to tag structs would be using common inheritance from
     // a (instantiable) VarId base class.
     //
-    // However, using typedefs with tags instead will create truely new C++ types
-    // and will make comparion of ObsId and VarId objects impossible, as it should
+    // However, using typedefs with tags instead will create truly new C++ types
+    // and will make comparison of ObsId and VarId objects impossible, as it should
     // be (CCS, Item 14).
     /// \brief Empty tag struct to create ParId from the VarId template.
     struct ParIdTag{};
@@ -77,7 +78,7 @@ namespace theta {
      */    
     typedef VarId<ParIdTag> ParId;
     
-    /** \brief Identification object for model observables.
+    /** \brief Identification object for model observables (channels).
      * 
      * ObsId objects are typically managed via a VarIdManager instance, where 
      * additional information about each observable is stored.
@@ -86,6 +87,8 @@ namespace theta {
      */    
     typedef VarId<ObsIdTag> ObsId;
     
+
+#ifndef USE_SMALLINTSET
     /** A container for \c ParId or \c ObsId values. Set the template parameter id_type
      * to either \c ParId or \c ObsId
      *
@@ -157,6 +160,8 @@ namespace theta {
     private:
         set_type vars;
     };
+#endif
+
     
     /** \brief Manager class for parameter and observable information
      *
@@ -232,16 +237,16 @@ namespace theta {
 
     private:
         //ParIds:
-        std::map<size_t, std::string> pid_to_name;
-        std::map<size_t, std::string> pid_to_type;
-        std::map<std::string, size_t> name_to_pid;
-        size_t next_pid_id;
+        std::map<ParId, std::string> pid_to_name;
+        std::map<ParId, std::string> pid_to_type;
+        std::map<std::string, ParId> name_to_pid;
+        ParId::id_type next_pid_id;
         //ObsIds:
-        std::map<size_t, std::string> oid_to_name;
-        std::map<std::string, size_t> name_to_oid;
-        std::map<size_t, std::pair<double, double> > oid_to_range;
-        std::map<size_t, size_t> oid_to_nbins;
-        size_t next_oid_id;
+        std::map<ObsId, std::string> oid_to_name;
+        std::map<std::string, ObsId> name_to_oid;
+        std::map<ObsId, std::pair<double, double> > oid_to_range;
+        std::map<ObsId, size_t> oid_to_nbins;
+        ObsId::id_type next_oid_id;
     };
 
     /** \brief A mapping-like class storing parameter values.
@@ -280,20 +285,20 @@ namespace theta {
          */
         ParValues(const double * data, const ParIds & par_ids){
            //to reallocate only once, find the maximum id:
-           size_t s = 1;
+           ParId::id_type s = 1;
            for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it){
-               s = std::max<size_t>(s, it->id + 1);
+               s = std::max<ParId::id_type>(s, (*it).id + 1);
            }
            values.resize(s, NAN);
-           size_t i = 0;
+           ParId::id_type i = 0;
            for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
-               values[it->id] = data[i];
+               values[(*it).id] = data[i];
            }
         }
         
         /** \brief Fill double array with current values
          *
-         * This method filld the parameter \c data_out with the current parameter values.
+         * This method filled the parameter \c data_out with the current parameter values.
          * The conversion from ParId to indices is defined via par_ids, as usual. data_out
          * has to be reserved for at least par_ids.size() values.
          * 
@@ -303,11 +308,11 @@ namespace theta {
             size_t i=0;
             for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
                 double val;
-                if(it->id >= values.size() || std::isnan(val = values[it->id])){
+                if((*it).id >= values.size() || std::isnan(val = values[(*it).id])){
                     fail_get(*it);
                 }
                 else{ // we don't really need the else, as fail_get does not return. But the compiler doesn't know that, so to get rid of
-                    // uninitilized warnings ...
+                    // uninitialized warnings ...
                     data_out[i] = val;
                 }
             }
@@ -319,7 +324,7 @@ namespace theta {
          */
         ParValues(const ParValues & rhs, const ParIds & pids): values(rhs.values.size(), NAN){
             for(ParIds::const_iterator it = pids.begin(); it!=pids.end(); ++it){
-                values[it->id] = rhs.values[it->id];
+                values[(*it).id] = rhs.values[(*it).id];
             }
         }
         
@@ -383,7 +388,7 @@ namespace theta {
          *  Returns the current value for the parameter \c pid, or the \c default_value if no value for \c pid is available.
          */
         double get(const ParId & pid, double default_value) const{
-            const size_t id = pid.id;
+            const ParId::id_type id = pid.id;
             if(id < values.size() && !std::isnan(values[id])){
                 return values[id];
             }
@@ -400,7 +405,7 @@ namespace theta {
         /** \brief Returns whether there is a value for \c pid.
          */
         bool contains(const ParId & pid) const{
-            const size_t id = pid.id;
+            const ParId::id_type id = pid.id;
             return id < values.size() && !std::isnan(values[id]);
         }
         
@@ -408,7 +413,7 @@ namespace theta {
          */
         bool contains_all(const ParIds & pids) const{
             for(ParIds::const_iterator it=pids.begin(); it!=pids.end(); ++it){
-                const size_t id = it->id;
+                const size_t id = (*it).id;
                 if(id > values.size() || std::isnan(values[id])) return false;
             }
             return true;

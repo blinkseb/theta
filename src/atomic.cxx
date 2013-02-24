@@ -16,26 +16,20 @@ namespace{
 
 void atomic_add(theta::atomic_int * a, uint64_t addend){
     boost::unique_lock<boost::mutex>(m);
-    volatile uint64_t & value = a->value;
-    value += addend;
+    a->value += addend;
 }
 
 void atomic_inc(theta::atomic_int * a){
     boost::unique_lock<boost::mutex>(m);
-    volatile uint64_t & value = a->value;
-    ++value;
+    ++a->value;
 }
 
 uint64_t atomic_get(const theta::atomic_int * a){
     boost::unique_lock<boost::mutex>(m);
-    volatile const uint64_t & value = a->value;
-    return value;
+    return a->value;
 }
 
 void atomic_set(theta::atomic_int * a, uint64_t newval){
     boost::unique_lock<boost::mutex>(m);
-    volatile uint64_t & value = a->value;
-    value = newval;
+    a->value = newval;
 }
-
-

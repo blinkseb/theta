@@ -59,7 +59,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
        products_sink->set_product(c_covariance, h);
     }
     if(write_ks_ts){
-        const ObsIds & obs = data.get_observables();
+        const ObsIds & obs = model.get_observables();
         DataWithUncertainties pred;
         model.get_prediction(pred, minres.values);
         double ks_ts = 0.0;
@@ -77,7 +77,7 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
         products_sink->set_product(c_ks_ts, ks_ts);
     }
     if(write_pchi2){
-        const ObsIds & obs = data.get_observables();
+        const ObsIds & obs = model.get_observables();
         Data pred;
         model.get_prediction(pred, minres.values);
         double pchi2 = 0.0;
