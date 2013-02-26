@@ -286,41 +286,46 @@ def test_as_ts_dist(model, betas):
 
 
 # determine the observed and expected cls limit for the given model (assumed to be "frequentized") using asymptotics
-def cls_limit_asymptotic(model, bs_hint = 1.0, expected_beta_signal = 0.0, sigma = None):
-    
+def cls_limit_asymptotic(model, bs_hint = 1.0, expected_beta_signal = 0.0, outfile = None):
     res = pl_interval(model, 'toys-asimov:0.0', 1, signal_prior = 'flat:[-inf,inf]', cls = [0.68])
-    beta_fit = res[res.keys()[0]][0.0][0]
-    
     spid = res.keys()[0]
-    
+    beta_fit = res[spid][0.0][0]
+    interval = res[res.keys()[0]][0.68][0]
+    error = (interval[1] - interval[0]) / 2.
+    #print "error from pl: ", error
+    sigma0 = error
+
+    """
     if sigma is None:
-        interval = res[res.keys()[0]][0.68][0]
-        error = (interval[1] - interval[0]) / 2.
-        print "error from pl: ", error
-        sigma = error
+        
+        
+    """
     
     # for expected limits, clb = 0.5. Find median ts values, i.e. ts values as a function of beta_signal s.t.
     #  dist(0, sigma).cdf(beta_signal, sigma2(beta_signal))
-    
+    """
     # q is the quantile of the expected_beta_signal ensemble
     def expected_cls(beta_signal, q):
-        d = -2 * deltanll(model, 'toys-asimov:0.0', 1, lhclike_beta_signal = beta_signal)['s']['dnll'][0]
-        sigma = beta_signal / math.sqrt(d)
+        #d = -2 * deltanll(model, 'toys-asimov:0.0', 1, lhclike_beta_signal = beta_signal)[spid]['dnll'][0]
+        #assert d > 0
+        #sigma = beta_signal / math.sqrt(d)
         #print "sigma: ", beta_signal, sigma
-        d_expected = asymptotic_ts_dist(expected_beta_signal, sigma)
-        d_b = asymptotic_ts_dist(0.0, sigma)
-        d_sb = asymptotic_ts_dist(beta_signal, sigma)
+        d_expected = asymptotic_ts_dist(expected_beta_signal, sigma0) #TODO: other sigma for expected != 0.0 ...
+        d_b = asymptotic_ts_dist(0.0, sigma0)
+        #d_sb = asymptotic_ts_dist(beta_signal, sigma)
+        d_sb = half_chi2_dist()
         ts_expected = d_expected.icdf(beta_signal, q)
-        clsb = 1 - d_sb.cdf(beta_signal, ts_expected)
+        #clsb = 1 - d_sb.cdf(beta_signal, ts_expected)
+        clsb = 1 - d_sb.cdf(ts_expected)
         clb = 1 - d_b.cdf(beta_signal, ts_expected)
-        #print "clsb, clb: ", clsb, clb
+        print "clsb, clb: ", beta_signal, clsb, clb
         #if clb < 1e-3:
         #    print "***", q, beta_signal, ts_expected, sigma
         #print beta_signal, clb, 1-q
         return clsb / clb
 
     expected_limits = []
-    for q in [0.975, 0.84, 0.5, 0.16, 0.025]:
+    for q, name in zip([0.975, 0.84, 0.5, 0.16, 0.025], ['exp_m2', 'exp_m1', 'exp', 'exp_1', 'exp_2']):
         # find beta_signal s.t. cls = 0.05.
         # 1. bracket value:
         bs_low, bs_high = bs_hint, bs_hint
@@ -329,24 +334,28 @@ def cls_limit_asymptotic(model, bs_hint = 1.0, expected_beta_signal = 0.0, sigma
         bs = scipy.optimize.brentq(lambda bs: expected_cls(bs, q)-0.05, bs_low, bs_high, xtol = bs_hint * 1e-3)
         expected_limits.append(bs)
         print 1 - q, bs
+        if outfile: outfile.write('%s = %.3g\n' % (name, bs))
     
+    return
+    """
     # observed cls limit
     ts_trafo = lambda x: max([-2.0*x, 0.0])
     def observed_cls(beta_signal):
-        ts0 = -2 * deltanll(model, 'toys-asimov:0.0', 1, lhclike_beta_signal = beta_signal)['s']['dnll'][0]
+        ts0 = max([-2 * deltanll(model, 'toys-asimov:0.0', 1, lhclike_beta_signal = beta_signal)[spid]['dnll'][0], 0.0])
         sigma = beta_signal / math.sqrt(ts0)
-        tsdata = -2 * deltanll(model, 'data', 1, lhclike_beta_signal = beta_signal)['s']['dnll'][0]
-        d_b = asymptotic_ts_dist(0.0, sigma)
+        tsdata = max([-2 * deltanll(model, 'data', 1, lhclike_beta_signal = beta_signal)[spid]['dnll'][0], 0.0])
+        d_b = asymptotic_ts_dist(0.0, sigma0)
         d_sb = asymptotic_ts_dist(beta_signal, sigma)
         clsb = 1 - d_sb.cdf(beta_signal, tsdata)
         clb = 1 - d_b.cdf(beta_signal, tsdata)
-        print beta_signal, clsb, clb
+        #print beta_signal, clsb, clb
         return clsb / clb
     
-    bs_low, bs_high = expected_limits[0], expected_limits[-1]
+    bs_low, bs_high = bs_hint, bs_hint #expected_limits[0], expected_limits[-1]
     while observed_cls(bs_low) <= 0.05: bs_low /=2
     while observed_cls(bs_high) >= 0.05: bs_high *=2
     bs = scipy.optimize.brentq(lambda bs: observed_cls(bs)-0.05, bs_low, bs_high, xtol = bs_hint * 1e-3)
+    if outfile: outfile.write('obs = %.3g\n' % bs)
     print "observed limit:", bs
 
 
@@ -358,9 +367,44 @@ def test_cls_limits(model):
     #obs.write_txt('obs.txt')
 
 
+"""
+for f in ('datacards/10k_100_0_05.txt', ): #glob.glob('datacards/*.txt'):
+    print f
+    fname = os.path.join('as_cls-results', os.path.basename(f).replace('.txt', '-out.txt'))
+    if not os.path.exists(fname) or True:
+        model = higgs_datacard.build_model(f)
+        outfile = open(fname, 'w')
+        cls_limit_asymptotic(model, outfile = outfile)
+        outfile.close()
+    break
+    fname_combine = fname.replace('as_cls-', 'combine-')
+    theta_result, combine_result = {}, {}
+    execfile(fname, globals(), theta_result)
+    execfile(fname_combine, globals(), combine_result)
+    print theta_result, combine_result
+    for k in sorted(combine_result.keys()):
+        print k, abs(theta_result[k] - combine_result[k]) / max([theta_result[k], combine_result[k]])
+"""
+
+"""
+for b in (0.0, 1.0, 5.0):
+    for n_obs in (1, 3, 5, 10):
+        mu_s_limit = cls_limit_semianalytical(b, n_obs)
+        print "b = %.3f; n_obs = %d; mu_s limit = %.3f" % (b, n_obs, mu_s_limit)
+"""
+
+b = 10000.
+for n_obs in range(9000, 11000, 50):
+    #mu_s_limit = cls_limit_semianalytical(b, n_obs)
+    #print n_obs, mu_s_limit
+    print n_obs
+    model = multichannel_counting(signals = [100.0], n_obs = [n_obs], backgrounds = [10000.0])
+    cls_limit_asymptotic(model)
+
+
 #model = multichannel_counting(signals = [100.0], n_obs = [10050.0], backgrounds = [10000.0])
 #model = multichannel_counting(signals = [100.0], n_obs = [10050.0], backgrounds = [10000.0], b_uncertainty1 = [math.log(1.1)])
-model = multichannel_counting(signals = [100.0], n_obs = [10050.0], backgrounds = [10000.0], b_uncertainty1 = [math.log(1.01)])
+#model = multichannel_counting(signals = [100.0], n_obs = [10050.0], backgrounds = [10000.0], b_uncertainty1 = [math.log(1.01)])
 
 
 #model = frequentize_model(model)
@@ -369,7 +413,7 @@ model = multichannel_counting(signals = [100.0], n_obs = [10050.0], backgrounds 
 
 
 #test_as_ts_dist(model, [0.05, 1.0, 2.0, 3.0])
-test_cls_limits(model)
+#test_cls_limits(model)
 #cls_limits(model, cls_options = {'expected_bands': 0})
 
 """

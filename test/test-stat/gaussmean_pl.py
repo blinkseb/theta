@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # on/off problem, profile likelihood, see arXiv 0702156v4, section 5, formula (21).

@@ -544,6 +544,7 @@ class Run(ModuleBase):
         self.signal_processes = signal_processes
         self.n_events = n
         self.producers = producers
+        self.nuisance_prior_toys = nuisance_prior_toys
         for p in producers: self.add_submodule(p)
         self.seed = seed
         if input is None: self.data_source = None
@@ -572,7 +573,7 @@ class Run(ModuleBase):
         
     def set_cls_options(self, **args):
         assert self.typ == 'cls_limits'
-        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit', 'frequentist_bootstrapping', 'write_debuglog']
+        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit', 'frequentist_bootstrapping', 'write_debuglog', 'input_expected']
         for k in allowed_keys:
             if k in args:
                 self.cls_options[k] = args[k]
@@ -606,6 +607,11 @@ class Run(ModuleBase):
             if 'truth_max' in self.cls_options: main['truth_max'] = float(self.cls_options['truth_max'])
             if 'reltol_limit' in self.cls_options: main['reltol_limit'] = float(self.cls_options['reltol_limit'])
             if self.data_source is not None: main['data_source'] = self.data_source.get_cfg(options)
+            if 'input_expected' in self.cls_options:
+                print "using input = %s for expected limits" % self.cls_options['input_expected']
+                ds = DataSource(self.cls_options['input_expected'], self.model, self.signal_processes,
+                    override_distribution = self.nuisance_prior_toys)
+                main['data_source_expected'] = ds.get_cfg(options)
         result.update({'main': main, 'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]},
                   'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
         use_llvm = options.getboolean('model', 'use_llvm')

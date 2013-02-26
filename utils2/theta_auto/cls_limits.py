@@ -132,11 +132,13 @@ def cls_limits(model, use_data = True, signal_process_groups = None, signal_prio
     if options is None: options = Options()
     result = {}
     cls_options = dict(cls_options)
-    cls_options['expected_bands'] = cls_options.get('expected_bands', 2000)
+    cls_options['expected_bands'] = int(cls_options.get('expected_bands', 2000))
     cls_options['frequentist_bootstrapping'] = frequentist_bootstrapping
     cls_options['write_debuglog'] = write_debuglog
     cls_options['ts_column'] = 'dnll__nll_diff'    
     input = 'data' if use_data else None
+    
+    expected = cls_options['expected_bands']
     
     # dictionaries from spid to
     # * tuple (limit, uncertainty) for observed
@@ -157,10 +159,13 @@ def cls_limits(model, use_data = True, signal_process_groups = None, signal_prio
 
     spids = signal_process_groups.keys()
     x_to_sp = get_x_to_sp(spids)
-    pd_expected = plotdata(color = '#000000', as_function = True, legend = 'expected limit')
-    pd_expected.x = sorted(list(x_to_sp.keys()))
-    pd_expected.y  = []
-    pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
+    if expected > 0:
+        pd_expected = plotdata(color = '#000000', as_function = True, legend = 'expected limit')
+        pd_expected.x = sorted(list(x_to_sp.keys()))
+        pd_expected.y  = []
+        pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
+    else:
+        pd_expected = None
     if use_data:
         pd_observed = plotdata(color = '#000000', as_function = True, legend = 'observed limit')
         pd_observed.x = sorted(list(x_to_sp.keys()))
@@ -170,14 +175,15 @@ def cls_limits(model, use_data = True, signal_process_groups = None, signal_prio
     
     for x in sorted(x_to_sp.keys()):
         sp = x_to_sp[x]
-        limits = expected_limits[sp]
-        n = len(limits)
-        median, low_1s, high_1s, low_2s, high_2s = limits[int(0.5*n)], limits[int(0.16*n)], limits[int(0.84*n)], limits[int(0.05*n)], limits[int(0.95*n)]
-        pd_expected.y.append(median)
-        pd_expected.bands[1][0].append(low_1s)
-        pd_expected.bands[1][1].append(high_1s)
-        pd_expected.bands[0][0].append(low_2s)
-        pd_expected.bands[0][1].append(high_2s)
+        if expected > 0:
+            limits = expected_limits[sp]
+            n = len(limits)
+            median, low_1s, high_1s, low_2s, high_2s = limits[int(0.5*n)], limits[int(0.16*n)], limits[int(0.84*n)], limits[int(0.05*n)], limits[int(0.95*n)]
+            pd_expected.y.append(median)
+            pd_expected.bands[1][0].append(low_1s)
+            pd_expected.bands[1][1].append(high_1s)
+            pd_expected.bands[0][0].append(low_2s)
+            pd_expected.bands[0][1].append(high_2s)
         if use_data:
             observed, observed_unc = observed_limit[sp]
             pd_observed.y.append(observed)

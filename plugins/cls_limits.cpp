@@ -814,6 +814,9 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
             cfg.pm->set("default", sink);
             data_source->fill(data_source_data);
         }
+        if(s.exists("data_source_expected")){
+            data_source_expected = PluginManager<DataSource>::build(Configuration(cfg, s["data_source_expected"]));
+        }
         if(s.exists("reltol_limit")) reltol_limit = s["reltol_limit"];
         if(s.exists("limit_hint")){
             limit_hint.first = s["limit_hint"][0];
@@ -1169,9 +1172,14 @@ void cls_limits::run_set_limits(){
                 current_data = data_source_data;
             }
             else{
-                // make a background-only toy:
-                source->set_truth_value(beta_signal_expected);
-                source->fill(current_data);
+                // make a toy for the expected limit:
+                if(data_source_expected.get()){
+                    data_source_expected->fill(current_data);
+                }
+                else{
+                    source->set_truth_value(beta_signal_expected);
+                    source->fill(current_data);
+                }
             }
             map<double, double> truth_to_ts;
             // run an update, to get the ts values at the truth points from previous idata iterations:
@@ -1244,7 +1252,7 @@ void cls_limits::run_set_limits(){
                 debug_out << idata << "." << i << ": fitted limit on range " << truth_low << "--" << truth_high << " using " << (i_high - i_low + 1) << " points:\n";
                 debug_out << "       limit = " << latest_res.limit << " +- " << latest_res.limit_error << "\n";
                 //accept result if truth=0 not included and error is small enough:
-                if(latest_res.limit_error / latest_res.limit < reltol_limit && latest_res.limit >= truth_low && latest_res.limit <= truth_high){
+                if(latest_res.limit_error / latest_res.limit < reltol_limit && latest_res.limit >= truth_low && latest_res.limit <= truth_high && (i_high - i_low + 1) > 2){
                     debug_out << "       limit accepted.\n";
                     break;
                 }
@@ -1267,17 +1275,19 @@ void cls_limits::run_set_limits(){
                 debug_out << "next truth for toys: " << next_truth << "\n";
                 flush(debug_out);
                 // "round" to a neighboring value if within the target reltol_limit:
-                double min_diff = numeric_limits<double>::infinity();
-                for(size_t m=0; m < data.truth_values().size(); ++m){
-                    double t = data.truth_values()[m];
-                    if(fabs(t - next_truth0) < min_diff && fabs(t - next_truth0) / max(t, next_truth0) < reltol_limit){
-                        next_truth = t;
-                        min_diff = fabs(t - next_truth0);
+                if((i_high - i_low + 1) > 2){
+                    double min_diff = numeric_limits<double>::infinity();
+                    for(size_t m=0; m < data.truth_values().size(); ++m){
+                        double t = data.truth_values()[m];
+                        if(fabs(t - next_truth0) < min_diff && fabs(t - next_truth0) / max(t, next_truth0) < reltol_limit){
+                            next_truth = t;
+                            min_diff = fabs(t - next_truth0);
+                        }
                     }
-                }
-                if(!std::isinf(min_diff)){
-                    debug_out << "rounded next truth value to existing point " << next_truth << "\n";
-                    flush(debug_out);
+                    if(!std::isinf(min_diff)){
+                        debug_out << "rounded next truth value to existing point " << next_truth << "\n";
+                        flush(debug_out);
+                    }
                 }
                 run_single_truth_adaptive(truth_to_ts, ts_epsilon, next_truth, idata, M_MORE);
                 if(stop_execution) return;

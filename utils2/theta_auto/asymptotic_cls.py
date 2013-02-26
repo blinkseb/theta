@@ -32,6 +32,15 @@ def noncentral_chi2_pdf(x, k, lmbda):
 phi = lambda x: scipy.stats.norm.cdf(x)
 phi_inverse = scipy.stats.norm.ppf
 
+class half_chi2_dist: # delta(0) + 1/2 chi2
+    def cdf(self, tsval):
+        return 0.5 + 0.5 * scipy.stats.chi2.cdf(tsval, 1)
+    
+    def icdf(self, q):
+        if q <= 0.5: return 0
+        return scipy.stats.chi2.ppf(2 * q - 1, 1)
+
+
 # represents an asymptotic/approximate test statistic distribution of the 'lhclike' test statistic.
 # objects of this class are immutable; all parameters are fixed at the time of construction.
 #

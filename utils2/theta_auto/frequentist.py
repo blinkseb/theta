@@ -15,7 +15,7 @@ import bisect
 #   all constraints come from the real-valued observables, not from the priors.
 # * add the default value according to model.distribution to the real-valued observables in data
 def frequentize_model(model):
-    result = copy.deepcopy(model)
+    result = model.copy()
     for p in model.distribution.get_parameters():
         prior_nuisance = model.distribution.get_distribution(p)
         # have to use the conjugate distribution here. gauss is self-conjugate, so no problem here in most cases:

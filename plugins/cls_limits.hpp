@@ -62,6 +62,7 @@ class truth_ts_values;
  *   cl = 0.90; // optional; default is 0.95
  *   expected_bands = 500; //optional; default is 1000
  *   beta_signal_expected = 1.0; // optional; default is 0.0
+ *   data_source_expected = { ... }; // optional. DataSource specification for expected limits.
  *
  *   reltol_limit = 0.001; // optional; default is 0.05
  *   tol_cls = 0.015; //optional; default; is 0.02
@@ -165,7 +166,8 @@ private:
     boost::shared_ptr<theta::ProductsTable> products_table;
     boost::shared_ptr<SaveDoubleColumn> sdc;
 
-    std::auto_ptr<data_filler> source;
+    std::auto_ptr<data_filler> source; // source for s+b and b-only toys to make limits
+    std::auto_ptr<theta::DataSource> data_source_expected; // source for expected limits. Can be 0; in this case, source is used.
     
     theta::ParId truth_parameter;
     int runid;
@@ -186,7 +188,7 @@ private:
     std::auto_ptr<truth_ts_values> tts;
     
     int expected_bands;
-    std::auto_ptr<theta::DataSource> data_source;
+    std::auto_ptr<theta::DataSource> data_source; // source for observed data
     
     std::pair<double, double> limit_hint;
     double reltol_limit, tol_cls;
