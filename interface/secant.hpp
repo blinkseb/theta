@@ -66,4 +66,62 @@ double secant(double x_low, double x_high, double x_accuracy, double f_x_low, do
     }
 }
 
+// use brent's algorithm for root finding of the 1D function f.
+// f_x_low * f_x_high < 0.0 or f_x_low==0.0 or f_x_high==0.0 must hold.
+//
+// f_accuracy is the estimated (machine / other) accuracy to which f(x) can be evaluated. Any
+// absolute value of f equal to or below that -- or any function value difference below that -- will be considered as zero.
+// Setting to 0.0 should work for well-behaved functions ...
+template<typename FT>
+double brent(const FT & f, double a, double b, double xtol, double fa, double fb, double f_accuracy = 1e-7, unsigned int limit = 10000){
+    if(fabs(fa) <= f_accuracy) return a;
+    if(fabs(fb) <= f_accuracy) return b;
+    theta_assert(fa * fb < 0.0);
+    if(fabs(fa) < fabs(fb)){
+        std::swap(fa, fb);
+        std::swap(a, b);
+    }
+    double d = 0.0;
+    double c = a;
+    double fc = fa;
+    bool mflag = true;
+    for(unsigned int i=0; i < limit; ++i){
+        if(fabs(a-b) <= xtol){
+            return (a + b) / 2;
+        }
+        double s;
+        if(fabs(fa - fc) < f_accuracy && fabs(fb - fc) < f_accuracy){
+            s = a * fb * fc / (fa - fb) / (fa - fc) + b * fa * fc / (fb - fa) / (fb - fc) + c * fa * fb / (fc - fa) / (fc - fb);
+        }
+        else{
+            s = b - fb * (b - a) / (fb - fa);
+        }
+        double tmp2 = (3 * a + b) / 4;
+        if (!(s > tmp2 && s < b || s < tmp2 && s > b)
+             || (mflag && fabs(s - b) >= fabs(b - c) / 2)
+             || (!mflag && fabs(s - b) >= fabs(c - d) / 2)
+             || (mflag && fabs(b - c) < xtol)
+             || (!mflag && (fabs(c - d) < xtol))
+           ){
+            s = (a + b) / 2;
+            mflag = true;
+        }
+        else{
+            mflag = false;
+        }
+        double fs = f(s);
+        d = c;
+        c = b;
+        fc = fb;
+        if (fa * fs < 0) { b = s; fb = fs; }
+        else { a = s; fa = fs; }
+        if(fabs(fa) < fabs(fb)){
+            std::swap(fa, fb);
+            std::swap(a, b);
+        }
+    }
+    throw theta::Exception("brent: Too many iterations");
+}
+
 #endif
+

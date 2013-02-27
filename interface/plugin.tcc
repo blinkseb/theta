@@ -20,17 +20,17 @@
 // Ubuntu distributions, but e.g. Mac OS X.
 #define REGISTER_PLUGIN_BASETYPE(type) template class theta::PluginManager<type>;
 
-using namespace theta;
-
 namespace{
     //to increase the plugin_build_depth in an exception-safe manner, use the build_depth_sentinel,
-    // which automatically decreaes depth count at destruction:
+    // which decrements depth count at destruction:
     struct plugin_build_depth_sentinel{
         int & i;
         plugin_build_depth_sentinel(int & i_):i(i_){ ++i; }
         ~plugin_build_depth_sentinel(){ --i; }
     };
 }
+
+namespace theta{
 
 template<typename product_type>
 PluginManager<product_type> & PluginManager<product_type>::instance(){
@@ -42,21 +42,25 @@ template<typename product_type>
 PluginManager<product_type>::PluginManager(): plugin_build_depth(0) {}
 
 template<typename product_type>
-std::auto_ptr<product_type> PluginManager<product_type>::build(const Configuration & ctx, const std::string & type_){
+std::auto_ptr<product_type> PluginManager<product_type>::build(const Configuration & ctx){
+	std::string type;
+    if(!ctx.setting.exists("type")) type = "default";
+    else type = static_cast<std::string>(ctx.setting["type"]);
+    if(type=="") throw ConfigurationException("Error while constructing plugin: empty 'type' setting given in path '" + ctx.setting.get_path() + "'");
+    return build_type(ctx, type);    
+}
+
+template<typename product_type>
+std::auto_ptr<product_type> PluginManager<product_type>::build_type(const Configuration & ctx, const std::string & type){
     PluginManager & pm = instance();
     std::auto_ptr<product_type> result;
     plugin_build_depth_sentinel b(pm.plugin_build_depth);
     if(pm.plugin_build_depth > 15){
         throw std::overflow_error("PluginManager::build: detected too deep plugin building (circular reference?)");
     }
-    std::string type = type_;
-    if(type==""){
-        if(!ctx.setting.exists("type")) type = "default";
-        else type = static_cast<std::string>(ctx.setting["type"]);
-        if(type=="") throw ConfigurationException("Error while constructing plugin: empty 'type' setting given in path '" + ctx.setting.get_path() + "'");
-        if(pm.pb.get()){
-            result = pm.pb->build(ctx, type);
-        }
+    if(type=="") throw std::invalid_argument("empty type");
+    if(pm.pb.get()){
+        result = pm.pb->build(ctx, type);
     }
     if(result.get()==0){
        for (size_t i = 0; i < pm.factories.size(); ++i) {
@@ -113,6 +117,7 @@ void PluginManager<product_type>::register_factory(factory_type * new_factory) {
     pm.factories.push_back(new_factory);
 }
 
+}
 
 #endif
 

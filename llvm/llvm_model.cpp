@@ -108,7 +108,7 @@ public:
     virtual std::auto_ptr<theta::Function> build(const Configuration & cfg, const std::string & type){
         string new_type = type;
         if(type=="exp_function" || type == "multiply") new_type = "llvm_" + type;
-        return PluginManager<theta::Function>::build(cfg, new_type);
+        return PluginManager<theta::Function>::build_type(cfg, new_type);
     }
 };
 
@@ -117,7 +117,7 @@ public:
     virtual std::auto_ptr<theta::HistogramFunction> build(const Configuration & cfg, const std::string & type){
         string new_type = type;
         if(type == "cubiclinear_histomorph") new_type = "llvm_" + type;
-        return PluginManager<theta::HistogramFunction>::build(cfg, new_type);
+        return PluginManager<theta::HistogramFunction>::build_type(cfg, new_type);
     }
 };
 

@@ -66,6 +66,11 @@ namespace theta {
      public:
          /// build an instance from a Configuration object
          virtual std::auto_ptr<base_type> build(const Configuration & cfg) = 0;
+         
+         /// build an instance from the configuration, using the setting at setting_path
+         std::auto_ptr<base_type> build(const Configuration & cfg, const std::string & setting_path){
+             return build(Configuration(cfg, cfg.setting[setting_path]));
+         }
 
          /// the type of the object this factory is responsible for; it corresponds to the type="..." configuration file setting
          virtual std::string get_typename() = 0;
@@ -127,8 +132,9 @@ namespace theta {
          *
          * The default PluginBuilder just uses the typename as determined in 2. to lookup the plugin.
          */
-        static std::auto_ptr<product_type> build(const Configuration & cfg, const std::string & type = "");
-        
+        static std::auto_ptr<product_type> build(const Configuration & cfg);
+        static std::auto_ptr<product_type> build_type(const Configuration & cfg, const std::string & type);
+
         static void set_plugin_builder(std::auto_ptr<PluginBuilder<product_type> > & b);
         
         // revert to default builder
