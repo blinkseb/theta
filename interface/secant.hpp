@@ -97,7 +97,7 @@ double brent(const FT & f, double a, double b, double xtol, double fa, double fb
             s = b - fb * (b - a) / (fb - fa);
         }
         double tmp2 = (3 * a + b) / 4;
-        if (!(s > tmp2 && s < b || s < tmp2 && s > b)
+        if (!((s > tmp2 && s < b) || (s < tmp2 && s > b))
              || (mflag && fabs(s - b) >= fabs(b - c) / 2)
              || (!mflag && fabs(s - b) >= fabs(c - d) / 2)
              || (mflag && fabs(b - c) < xtol)

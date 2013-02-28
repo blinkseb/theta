@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import math, bisect
-
 import scipy.special
 
 from theta_interface import *
+import frequentist
 
 
 # container for toys made for the CLs construction
@@ -114,20 +114,65 @@ def debug_cls_plots(dbfile, ts_column = 'lr__nll_diff'):
     return pds
         
 
+def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, beta_signal_expected = 0.0, options = None):
+    """
+    Calculate CLs limits using asymptotic formulae.
+    
+    TODO: document options.
+
+    Note that the common options `signal_prior`, `nuisance_prior` are missing on purpose as the asymptotic method implemented
+    in theta only works for flat priors.
+    
+    Just like `cls_limits`, the return value is a two-tuple (pd_expected, pd_observed) of plotutil.plotdata instances that contain the
+    expected and observed limits.
+    """
+    model = frequentist.frequentize_model(model)
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    input = 'data' if use_data else None
+    limits = {}
+    for spid, signal_processes in signal_process_groups.iteritems():
+        r = AsymptoticClsMain(model, signal_processes, input, beta_signal_expected)
+        r.run_theta(options)
+        limits[spid] = r.get_results('limits', ['limit'], 'index')['limit']
+    # convert to plotdata:
+    spids = signal_process_groups.keys()
+    x_to_sp = get_x_to_sp(spids)
+    pd_expected, pd_observed = None, None
+    pd_expected = plotdata(color = '#000000', as_function = True, legend = 'expected limit')
+    pd_expected.x = sorted(list(x_to_sp.keys()))
+    pd_expected.y  = []
+    pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
+    if use_data:
+        pd_observed = plotdata(color = '#000000', as_function = True, legend = 'observed limit')
+        pd_observed.x = sorted(list(x_to_sp.keys()))
+        pd_observed.y = []
+    for x in sorted(x_to_sp.keys()):
+        sp = x_to_sp[x]
+        pd_expected.bands[0][0].append(limits[sp][0])
+        pd_expected.bands[1][0].append(limits[sp][1])
+        pd_expected.y.append(limits[sp][2])
+        pd_expected.bands[1][1].append(limits[sp][3])
+        pd_expected.bands[0][1].append(limits[sp][4])
+    if use_data:
+        pd_observed.y.append(limits[sp][5])
+    return pd_expected, pd_observed
+
+
 ## \brief Calculate CLs limits.
 #
 # Calculate expected and/or observed CLs limits for a given model. 'nuisance_prior' controls the nuisance
-# prior to be used in the likelihood function definition and 'signal_prior' is the constraint for signal in the alternative hypothesis
-# (use 'flat', unless you know exactly what you are doing).
+# prior to be used in the likelihood definition.
 #
-# cls_options are the ones understood by theta_interface.Run. Note, however, that some are overwritten by other options. In particular:
+# cls_options are the ones understood by theta_interface.ClsMain. Note, however, that some are overwritten by other options. In particular:
 # * expected_bands: number of toys to perform for the expected limits. Can be overridden by cls_options; default is 2000 in case expected limits are
 #   requested via 'what', otherwise 0 (ignoring cls_options).
 # * frequentist_bootstrapping is overwritten by the direct option
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
-def cls_limits(model, use_data = True, signal_process_groups = None, signal_prior = 'flat', nuisance_prior = None, write_debuglog = True, frequentist_bootstrapping = False, cls_options = {}, seed = None, options = None):
+def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_prior = None, write_debuglog = True, frequentist_bootstrapping = False,
+ cls_options = {}, seed = None, options = None):
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     result = {}
@@ -138,16 +183,18 @@ def cls_limits(model, use_data = True, signal_process_groups = None, signal_prio
     cls_options['ts_column'] = 'dnll__nll_diff'    
     input = 'data' if use_data else None
     
-    expected = cls_options['expected_bands']
+    # Be sure to use the frequentist model. Note that frequentize_model is idempotent, so if
+    # this was already done for the parameter 'model', it does not really harm doing it again here.
+    if frequentist_bootstrapping: model = frequentist.frequentize_model(model)
     
     # dictionaries from spid to
     # * tuple (limit, uncertainty) for observed
     # * list of limit for expected
     observed_limit, expected_limits = {}, {}
     for spid, signal_processes in signal_process_groups.iteritems():
-        r = Run(model, signal_processes, signal_prior, 'data', 1,
-            [DeltaNllHypotest(model, signal_processes, nuisance_prior, restrict_poi = 'beta_signal', signal_prior_sb = 'flat', signal_prior_b = 'flat')],
-            typ = 'cls_limits', seed = seed)
+        r = ClsMain(model, signal_processes, signal_prior = 'flat', input = input,
+            producers = [DeltaNllHypotest(model, signal_processes, nuisance_prior, restrict_poi = 'beta_signal', signal_prior_sb = 'flat', signal_prior_b = 'flat')],
+            seed = seed)
         r.set_cls_options(**cls_options)
         r.run_theta(options)
         data = r.get_results('cls_limits', ['index', 'limit', 'limit_uncertainty'])
@@ -159,23 +206,21 @@ def cls_limits(model, use_data = True, signal_process_groups = None, signal_prio
 
     spids = signal_process_groups.keys()
     x_to_sp = get_x_to_sp(spids)
-    if expected > 0:
+    pd_expected, pd_observed = None, None
+    if len(expected_limits) > 0:
         pd_expected = plotdata(color = '#000000', as_function = True, legend = 'expected limit')
         pd_expected.x = sorted(list(x_to_sp.keys()))
         pd_expected.y  = []
         pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
-    else:
-        pd_expected = None
     if use_data:
         pd_observed = plotdata(color = '#000000', as_function = True, legend = 'observed limit')
         pd_observed.x = sorted(list(x_to_sp.keys()))
         pd_observed.y = []
         pd_observed.yerrors = []
-    else: pd_observed = None
     
     for x in sorted(x_to_sp.keys()):
         sp = x_to_sp[x]
-        if expected > 0:
+        if pd_expected:
             limits = expected_limits[sp]
             n = len(limits)
             median, low_1s, high_1s, low_2s, high_2s = limits[int(0.5*n)], limits[int(0.16*n)], limits[int(0.84*n)], limits[int(0.05*n)], limits[int(0.95*n)]

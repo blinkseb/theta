@@ -5,6 +5,7 @@
 #include "interface/phys.hpp"
 #include "interface/asimov-utils.hpp"
 #include "interface/plugin.hpp"
+#include "interface/database.hpp"
 #include "interface/redirect_stdio.hpp"
 
 #include <cmath>
@@ -22,8 +23,9 @@ double phi(double x){
     return boost::math::cdf(norm, x);
 }
 
-// calculate sigma from the likelihood ratio from asimov data. This is the method called "sigma_A" in the paper.
-// It is encapsulated into a class here to do the setup of parameter start values, ranges, etc. for the minimizer only
+// Calculate sigma from the likelihood ratio from asimov data (this is the method called "sigma_A" in the paper).
+// Also calculate the likelihood ratio for data.
+// These calculations are encapsulated into a class here to do the setup of parameter start values, ranges, etc. for the minimizer only
 // once.
 class SigmaCalculator{
 public:
@@ -172,11 +174,11 @@ public:
     double operator()(double beta_q)const{
         double ts_data = sc.data_tsvalue(beta_q);
         // the test statistic as defined here is expected to be >= 0.0 always by definition.
-        // However, because of numerical inaccuracies, it can be < 0.0, expecially, if beta_q is close to
+        // However, because of numerical inaccuracies, it can be < 0.0, especially if beta_q is close to
         // the minimum found for data. In this case, cls is 1.0. The cutoff of 1e-2
         // is reached at a value of beta_q only a little above the best fit value, which will be well
-        // below the limit.
-        if(ts_data < 1e-2) return 1.0;
+        // below the limit. Note that this assumes confidence levels > 50%.
+        if(ts_data < 1e-2) return 1.0 - target_cls;
         double sigma0 = sc.sigma(0.0, beta_q);
         double clb = asymptotic_ts_dist::sf(0.0, beta_q, sigma0, ts_data);
         double clsb = asymptotic_ts_dist::sf(beta_q, beta_q, sigma0, ts_data);
@@ -198,9 +200,9 @@ ParId getpar(const Configuration & cfg, std:: string cfg_name){
 
 // find the CLs limit by finding the root of the function f on the interval [0, inf)
 // width should be the "typical scale" of the parameter.
-// xtol_rel is the requested precision of the limit, relative to width.
+// xtol_rel is the requested precision of the limit, relative to the width.
 template<typename FT>
-double find_limit(double width, const FT & f, double xtol_rel = 1e-3){
+double find_limit(double width, const FT & f, double xtol_rel){
     double beta_low = 0.0;
     double beta_high = width;
     double cls_low = 1.0;
@@ -211,7 +213,6 @@ double find_limit(double width, const FT & f, double xtol_rel = 1e-3){
         beta_high += width;
         cls_high = f(beta_high);
     }
-    //return secant(beta_low, beta_high, xtol_rel * width, cls_low, cls_high, 0.0, f);
     return brent(f, beta_low, beta_high, xtol_rel * width, cls_low, cls_high, 1e-5);
 }
 
@@ -237,21 +238,41 @@ void asymptotic_cls::run(){
     SigmaCalculator calc(*model, *minimizer, parameter, data_nll);
 
     // the expected limits:
+    Column c_index = limits_table->add_column("index", typeInt);
+    Column c_q = limits_table->add_column("q", typeDouble);
+    Column c_limit = limits_table->add_column("limit", typeDouble);
     for(size_t i=0; i<quantiles_expected.size(); ++i){
         cls_expected ex(parameter_value_expected, 1 - cl, 1 - quantiles_expected[i], calc);
-        double limit = find_limit(calc.get_poi_width(), ex);
-        theta::out << quantiles_expected[i] << " " << limit << endl;
+        double limit = find_limit(calc.get_poi_width(), ex, limit_reltol);
+        Row r;
+        r.set_column(c_index, static_cast<int>(i));
+        r.set_column(c_q, quantiles_expected[i]);
+        r.set_column(c_limit, limit);
+        limits_table->add_row(r);
     }
     // the observed limit:
     if(data.get()){
         cls_observed obs(calc, 1 - cl);
-        double limit = find_limit(calc.get_poi_width(), obs);
-        theta::out << "data " << limit << endl;
+        double limit = find_limit(calc.get_poi_width(), obs, limit_reltol);
+        Row r;
+        r.set_column(c_q, 0.0);
+        r.set_column(c_index, static_cast<int>(quantiles_expected.size()));
+        r.set_column(c_limit, limit);
+        limits_table->add_row(r);
     }
 }
 
-asymptotic_cls::asymptotic_cls(const Configuration & cfg):
- parameter(getpar(cfg, "parameter")), cl(0.95), parameter_value_expected(0.0){
+asymptotic_cls::asymptotic_cls(const Configuration & cfg): 
+  parameter(getpar(cfg, "parameter")), cl(0.95), parameter_value_expected(0.0), limit_reltol(1e-3){
+    // add some config for submodules:
+    cfg.pm->set("runid", boost::shared_ptr<int>(new int(1)));
+    output_database = PluginManager<Database>::build(Configuration(cfg, cfg.setting["output_database"]));
+    std::auto_ptr<Table> rnd_table = output_database->create_table("rndinfo");
+    boost::shared_ptr<RndInfoTable> rnd_info(new RndInfoTable(rnd_table));
+    cfg.pm->set("default", rnd_info);
+    cfg.pm->set("default", boost::shared_ptr<ProductsSink>(new NullProductsSink()));
+    limits_table = output_database->create_table("limits");
+    
     Setting s = cfg.setting;
     if(s.exists("cl")) cl = s["cl"];
     // we assume cl > 0.5 at some places, but sometimes, we need a small margin, so test for 0.6 here:
@@ -261,6 +282,10 @@ asymptotic_cls::asymptotic_cls(const Configuration & cfg):
     model = PluginManager<Model>::build(Configuration(cfg, cfg.setting["model"]));
     minimizer = PluginManager<Minimizer>::build(Configuration(cfg, cfg.setting["minimizer"]));
     if(s.exists("data")) data = PluginManager<DataSource>::build(Configuration(cfg, cfg.setting["data"]));
+    if(s.exists("limit_reltol")) limit_reltol = s["limit_reltol"];
+    if(limit_reltol <= 1e2 * numeric_limits<double>::epsilon()){
+        throw ConfigurationException("limit_reltol is too small");
+    }
     if(s.exists("quantiles_expected")){
         Setting se = s["quantiles_expected"];
         const unsigned int n = se.size();

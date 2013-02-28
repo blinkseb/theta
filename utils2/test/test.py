@@ -62,7 +62,19 @@ class TestMle(unittest.TestCase):
         res = pl_interval(model_termonly, 'toys:0', n=1, cls = [one_sigma], signal_process_groups = {'': []})
         self.assertAlmostEqual(res[''][one_sigma][0][0], 0.80, places = 4)
         self.assertAlmostEqual(res[''][one_sigma][0][1], 1.20, places = 4)
+
+
+class TestCls(unittest.TestCase):
+    def setUp(self):
+        self.model = simple_counting(s = 100, n_obs = 10100, b = 10000)
+    
+    def test_cls(self):
+        exp, obs = cls_limits(self.model)
         
+        
+    def test_asymptotic_cls(self):
+        exp, obs = asymptotic_cls_limits(self.model)
+        print exp, obs
 
 class TestBB(unittest.TestCase):
     # test the Barlow-Beeston treatment of MC uncertainties: using a simple counting, no-background experiment, the relative uncertainties
@@ -225,13 +237,14 @@ class MCMCHighdimtest(unittest.TestCase):
         self.assertTrue(abs(m) / w * math.sqrt(len(res[''])) < 4.0)
         
 
-
 suite1 = unittest.TestLoader().loadTestsFromTestCase(TestMle)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(TestBB)
 suite3 = unittest.TestLoader().loadTestsFromTestCase(TestRootModel)
 suite4 = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
 mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
-alltests = unittest.TestSuite([suite1, suite2, suite3, suite4, mcmc])
+cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
+#alltests = unittest.TestSuite([cls])
+alltests = unittest.TestSuite([suite1, suite2, suite3, suite4, mcmc, cls])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)

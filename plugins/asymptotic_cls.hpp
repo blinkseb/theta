@@ -20,6 +20,7 @@
  *   cl = 0.9; // optional, default is 0.95
  *   model = "@model";
  *   minimizer = { ... };
+ *   limit_reltol = 1e-5; // optional, default is 1e-3
  * 
  *   //options for observed limits:
  *   data = {...}; // optional
@@ -38,6 +39,10 @@
  * 
  * \c minimizer is a Minimizer specification for the minimizer to use for the profile likelihood ratio test statistic calculation
  * 
+ * \c limit_reltol is a tolerance parameter used in the search of the CLs limit calculation: The CLs limit is searched for by
+ *   a 1D root finding algorithm (Brent's algorithm). The search is stopped if the interval containing the true CLs limit is smaller
+ *   than \c limit_reltol * \c width, where \c width is the expected uncertainty of the parameter of interest.
+ * 
  * \c data is a DataSource specification for the observed data. If missing, no "observed" limit will be calculated.
  * 
  * \c quantiles_expected are the quantiles of the expected limit distribution to calculate. The default setting given above corresponds to computing
@@ -47,8 +52,10 @@
  * \c parameter_value_expected is the value of the \c parameter to be used for the expected limit calculation. The default of 0.0
  *   means to compute the expected limit without any signal.
  * 
- * The products table will contain the columns "q" and "limit", both of \c typeDouble. "q" is set to the quantile for the expected limit, using 0.0 for observed data.
- * The "limit" is set to the calculated asymptotic limit.
+ * The database will contain two tables: a rndinfo table, and a table containing the actual limits,
+ * "limits". This table contains three columns: "q" is the quantile as configured in \c quantiles_expected or 0.0 for the observed limit;
+ * "limit" is the asymptotic limit; "index" is the 0-based index for \c quantiles_expected. The observed limit is the last, so its
+ * index will be 5 for the default \c quantiles_expected.
  */
 class asymptotic_cls: public theta::Main{
 public:
@@ -65,6 +72,10 @@ private:
     
     std::vector<double> quantiles_expected;
     double parameter_value_expected;
+    double limit_reltol;
+    
+    boost::shared_ptr<theta::Database> output_database;
+    std::auto_ptr<theta::Table> limits_table;
 };
 
 

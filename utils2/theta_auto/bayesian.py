@@ -5,22 +5,26 @@ import Report
 from utils import *
 
 
-## \brief Compute bayesian posterior quantiles for a given ensemble
-#
-# Uses the theta plugin mcmc_quantiles.
-#
-# 
-# Report: Writes a table containing the quantiles for each signal process to the report. For data, it will contain
-# the best estimate and uncertainty of the determined limit (the uncertainty is only available for n > 1). For input!='data',
-# the +-1sigma and +-2sigma (i.e., the centrgl 68% and central 84%) are given.
-#
-# Returns a dictionary (spid) --> (q) --> (list of results)
-# where q is one element of quantiles (a float value). The list of results are the quantiles 
-#
-# q can also be the special string "accrate" to return the acceptance rate, if the parameter \c accrate was set to
-# \c True
+
 def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat',
    options = None, parameter = 'beta_signal', iterations = 10000, seed = 0):
+    """
+    Compute bayesian posterior quantiles for a given ensemble
+    
+    For a documentation of the parameters, see :ref:`common_parameters`. The parameters specific to the method are:
+    
+    * ``quantiles``: a list a quantiles to compute.
+    * ``iterations``: the number of iterations to use in the Markov-Chain Monte-Carlo algorithm
+    * ``seed``: the random seed for the MCMC
+    
+    Returns a dictionary (spid) --> (q) --> (list of results)
+    where ``q`` is one element of ``quantiles`` (i.e., a float value). The list of results are the quantiles.
+    
+    ``q`` can also be the special string "accrate" to return the acceptance rate of the Markov Chain. This is
+    a useful diagnotical tool: acceptance rates below 10% or above 35% are usually suspicious.
+    """
+       
+       
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     colnames = ['quant__quant%05d' % int(q*10000 + 0.5) for q in quantiles] + ['quant__accrate']
@@ -37,16 +41,15 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
     return result
     
     
-## \brief Compute bayesian posterior ratio
-#
-# Uses the theta plugin mcmc_posterior_ratio.
-#
-# beta_signal_values are the values for beta_signal to use in the nominator / denominator of the ratio.
-#
-# Returns a dictionary (spid) --> (list of results)
-# The list of results are the ratios
+
 def bayesian_nl_posterior_ratio(model, input, n, signal_prior_sb = 'fix:1.0', signal_prior_b = 'fix:0.0', signal_process_groups = None, nuisance_constraint = None,
    nuisance_prior_toys = None, options = None, iterations = 10000):
+    """
+    Compute the negative logarithm of the Bayesian posterior ratio at different values of beta_signal.
+
+    Returns a dictionary (spid) --> (list of results)
+    The list of results are the ratios
+    """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     result = {}
@@ -59,24 +62,28 @@ def bayesian_nl_posterior_ratio(model, input, n, signal_prior_sb = 'fix:1.0', si
         result[spid] = map(lambda r: r[1] - r[0], zip(res['mcmcratio__nl_posterior_sb'], res['mcmcratio__nl_posterior_b']))
     return result
 
-## \brief Calculate Bayesian limits.
-#
-# This is a high-level interface to calculate expected and observed limits and make a limit band plot:
-# it will calculate expected and observed limits (using \ref bayesian_quantiles), make a "limit vs. mass" band plot
-# (using \ref limit_band_plot) and write the result to the report (using \ref report_limit_band_plot).
-#
-# The 'what' parameter controls which limits are computed. Valid vaues are:
-# * 'observed': compute observed limit on data only
-# * 'expected': compute +-1sigma, +-2sigma limit bands for background only
-# * 'all': both 'data' and 'expected'
-#
-# options are as for bayesian_quantiles, with the modification that
-# * there should be n_toy, n_obs  instead of n;  'n' will be ignored
-# * 'input' will be ignored
-#
-# returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit.
-# If 'what' is not 'all', one of the tuple entries is None.
+
 def bayesian_limits(model, what = 'all', **options):
+    """
+    Calculate Bayesian limits.
+ 
+    This is a high-level interface to calculate expected and observed limits and make a limit band plot:
+    it will calculate expected and observed limits (using :func:`bayesian_quantiles` ), make a "limit vs. mass" band plot
+    and write the result to the global `report` object.
+
+    The ``what`` parameter controls which limits are computed. Valid vaues are:
+     * 'observed': compute observed limit on data only
+     * 'expected': compute +-1sigma, +-2sigma limit bands for background only
+     * 'all': both 'data' and 'expected'
+ 
+    Further ``options`` are passed through to :func:`bayesian_quantiles` with the special case that
+     * there should be n_toy, n_obs  instead of n;  'n' will be ignored
+     * 'input' will be ignored
+    
+    The return value is a two-tuple of ``plotutil.plotdata`` instances. The first contains expected
+    limit (including the 1sigma and 2sigma bands), the second the 'observed' limit.
+    If ``what`` is different from 'all', the one of these tuple entries isset to `` None``.
+    """
     if 'n' in options: del options['n']
     if 'input' in options: del options['input']
     n = options.get('n_toy', 1000)
@@ -95,15 +102,19 @@ def bayesian_limits(model, what = 'all', **options):
 
 
 
-## \brief Calculate the marginal posterior of the given parameters
-#
-# histogram_specs is a dictionary of (parameter name) -> tuple(int nbins, float xmin, float max) and determines for which
-# parameters the posterior is computed on which range and binning. Note that the computational complexity is roughly
-# proportional to nbins * mcmc_iterations. Therefore, use large values only if you have to / for the final result. It is suggested
-# to use 30 bins as a start and mcmc_iterations = 10000.
-#
-# returns a dictionary (spid) --> (parameter name) -> (list of Histogram)
+
 def bayesian_posteriors(model, input, n, histogram_specs, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None, smooth = True, iterations = 10000):
+    """
+    Calculate the marginal posterior of the given parameters
+
+    * ``histogram_specs`` is a dictionary of (parameter name) -> tuple(int nbins, float xmin, float max) and determines for which
+      parameters the posterior is computed on which range and binning. A typical choice is ``histogram_specs = {'beta_signal': (100, 0.0, 3.0)}``. Note that the minimum and
+      maximum range given should include the whole region where the posterior does not vanish.
+    * ``smooth``: if ``True``, a whole histogram will be computed at each iterations, instead of just binning the chain elements. This results in a smooth
+      posterior histogram, but has a runtime of nbins * iterations instead of just iterations.
+
+    Returns a dictionary (spid) --> (parameter name) -> (list of Histograms)
+    """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     result = {}

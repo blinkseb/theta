@@ -496,6 +496,7 @@ def _settingvalue_to_cfg(value, indent=0, current_path = [], value_is_toplevel_d
 
 
 
+
 # return a config dictionary for the signal prior. s can be a string
 # such as "flat", "fix:XXX", etc., or a dictionary in which case
 # it is returned unmodified
@@ -524,118 +525,107 @@ def _signal_prior_dict(spec):
         signal_prior_dict = spec
     return signal_prior_dict
 
-class Run(ModuleBase):
-    """
-    Class which manages the configuration and execution of a single :program:`theta` execution.
-    
-    It corresponds to the "run" class in theta.
-    """
-    
-    # signal_prior can be a string or a dictionary.
-    # input is a string (toys:XXX, toy-asimov:XXX, ...), see DataSource for documentation
-    #
-    # typ can be 'default' or 'cls_limits'. For 'cls_limits', you have to specify
-    # exactly one producer which produces the test statistic
-    def __init__(self, model, signal_processes, signal_prior, input, n, producers, nuisance_prior_toys = None, typ = 'default', seed = None):
-        ModuleBase.__init__(self)
-        assert typ in ('default', 'cls_limits')
-        self.typ = typ
-        self.model = model
-        self.signal_processes = signal_processes
-        self.n_events = n
-        self.producers = producers
-        self.nuisance_prior_toys = nuisance_prior_toys
-        for p in producers: self.add_submodule(p)
-        self.seed = seed
-        if input is None: self.data_source = None
-        else:
-            if type(input) == str:
-                self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
-            else:
-                assert type(input) in (RootNtupleSource, DataSource), "unexpected type for 'input' argument: %s" % type(input)
-                self.data_source = input
-        self.input_id = self.data_source.get_id()
-        self.signal_prior_cfg = _signal_prior_dict(signal_prior)
+
+class DbResult(object):
+    def __init__(self, theta_db_fname = None):
+        self.theta_db_fname = theta_db_fname
+
+    # get the content of a table in the output database of theta.
+    def get_results(self, table_name, columns, order_by = None):
+        if self.theta_db_fname is None: return None
+        if type(columns)!=str:
+            columns = '"' + '", "'.join(columns) + '"'
+        else: assert columns == '*'
+        if order_by is not None:
+            order_by = ' order by "%s"' % order_by
+        else: order_by = ''
+        data, columns = sql_singlefile(self.theta_db_fname, 'select %s from "%s"%s' % (columns, table_name, order_by), True)
+        result = {}
+        for i in range(len(columns)):
+            result[columns[i][0]] = [row[i] for row in data]
+        return result
         
+    def get_products(self, columns = '*', fail_if_empty = True):
+        """
+        get the result (in the products table) of this invocation of theta as dictionary::
+        
+           column_name --> list of values
+           
+        Which columns are returned can be controlled by the `columns` argument which is either a list of column names
+        or as special case the string '*'. The default is '*' which will return all columns.
+    
+        If `fail_if_empty` is `True` and no rows are found, some information from the log table is printed and a `RuntimeError` is raised.
+        This can happen e.g. in case there was one attempt to fit on data which failed due to a minimizer which failed.
+        """
+        res = self.get_results('products', columns)
+        if fail_if_empty and len(res[res.keys()[0]])==0:
+            self.print_logtable_errors()
+            raise RuntimeError, "No result is available, see errors above"
+        return res
+        
+    def print_logtable_errors(self, limit = 10):
+        if not self.theta_db_fname: return
+        data = sql_singlefile(self.theta_db_fname, 'select "eventid", "message" from "log" where "severity"=0 limit %d' % int(limit))
+        if len(data)==0: return
+        print "There have been errors for some toys: eventid, message"
+        for i in range(len(data)):
+            print data[i][0], data[i][1]
+        
+    def get_products_nevents(self):
+        data = sql_singlefile(self.theta_db_fname, 'select count(*) from products')
+        return data[0][0]
+    
+    def get_db_fname(self):
+        """
+        Return the path to the db file created by theta. Is `None` if not available
+        """
+        return self.theta_db_fname
+
+
+class MainBase(ModuleBase, DbResult):
+    """
+    Base class corresponding to a theta `Main` plugin. One instance of this class corresponds to
+    one theta .cfg file and one execution of theta, and one db result file. This class contains management
+    code for config file creation, theta execution, and (via `DbResult`) reading the resulting db file. It
+    also takes care of the theta-auto cache management.
+    
+    Derived classes must implement a method `get_cfg(self, options)`.
+    """
+    
+    def __init__(self, fname_fragment):
+        """
+        `name` is used in the created cnofiguration file name
+        """
+        ModuleBase.__init__(self)
+        DbResult.__init__(self)
         self.result_available = False
         # full path + filename of theta configuration file, if created:
         self.theta_cfg_fname = None
-        self.theta_db_fname = None
         self.thread = None
+        self.cfg_fname_fragment = fname_fragment
         
-        # cls_limits specifics:
-        if typ=='cls_limits':
-            assert len(producers)==1
-            self.cls_options = {'ts_column': self.producers[0].name + '__nll_diff'}
-            self.minimizer = Minimizer(need_error = True)
-            self.add_submodule(self.minimizer)
-        
-        
-    def set_cls_options(self, **args):
-        assert self.typ == 'cls_limits'
-        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit', 'frequentist_bootstrapping', 'write_debuglog', 'input_expected']
-        for k in allowed_keys:
-            if k in args:
-                self.cls_options[k] = args[k]
-                del args[k]
-        if len(args) > 0: raise RuntimeError, "unrecognized cls options: %s" % str(args.keys())
     
-    def _get_cfg(self, options):
+    # return a dictionary with settings for the theta configuration for the plugins, parameters, rvobservables, and observables.
+    def common_main_cfg(self, model, signal_processes, options):
         plugins = self.get_required_plugins(options)
-        result = {}
-        if self.typ!='cls_limits':
-            main = {'n-events': self.n_events, 'producers': [], 'log-report': False, 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
-                'model': "@model", 'data_source': self.data_source.get_cfg(options)}
-            n_threads = options.getint('main', 'n_threads')
-            if n_threads > 1:
-                main['type'] = 'run_mt'
-                main['n_threads'] = n_threads
-            for p in self.producers:
-                result['p%s' % p.name] = p.get_cfg(options)
-                main['producers'].append('@p%s' % p.name)
-        else:
-            assert 'ts_column' in self.cls_options
-            seed = self.seed
-            if seed is None: seed = -1
-            main = {'type': 'cls_limits', 'producer': self.producers[0].get_cfg(options), 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
-                'truth_parameter': 'beta_signal', 'tol_cls': self.cls_options.get('tol_cls', 0.025),
-                'clb_cutoff': self.cls_options.get('clb_cutoff', 0.02), 'model': '@model',
-                'debuglog': '@debuglog_name', 'rnd_gen': {'seed': seed }, 'ts_column': self.cls_options['ts_column'],
-                'minimizer': self.minimizer.get_cfg(options), 'expected_bands': self.cls_options.get('expected_bands', 2000)}
-            if not self.cls_options.get('write_debuglog', True): del main['debuglog']
-            if self.cls_options.get('frequentist_bootstrapping', False):  main['nuisancevalues-for-toys'] = 'datafit'
-            if 'truth_max' in self.cls_options: main['truth_max'] = float(self.cls_options['truth_max'])
-            if 'reltol_limit' in self.cls_options: main['reltol_limit'] = float(self.cls_options['reltol_limit'])
-            if self.data_source is not None: main['data_source'] = self.data_source.get_cfg(options)
-            if 'input_expected' in self.cls_options:
-                print "using input = %s for expected limits" % self.cls_options['input_expected']
-                ds = DataSource(self.cls_options['input_expected'], self.model, self.signal_processes,
-                    override_distribution = self.nuisance_prior_toys)
-                main['data_source_expected'] = ds.get_cfg(options)
-        result.update({'main': main, 'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]},
-                  'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
-        use_llvm = options.getboolean('model', 'use_llvm')
-        if use_llvm:
-            print "using llvm. This is EXPERIMENTAL. Use at your own risk"
-            result['model']['type'] = 'llvm_model'
-            result['options']['plugin_files'].append('$THETA_DIR/lib/llvm-plugins.so')
-        result['parameters'] = sorted(list(self.model.get_parameters(self.signal_processes)))
-        rvobservables = sorted(list(self.model.rvobs_distribution.get_parameters()))
+        result = {'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]}}
+        result['parameters'] = sorted(list(model.get_parameters(signal_processes)))
+        rvobservables = sorted(list(model.rvobs_distribution.get_parameters()))
         if len(rvobservables) > 0:
             result['rvobservables'] = rvobservables
         result['observables'] = {}
-        for obs in sorted(list(self.model.get_observables())):
-            xmin, xmax, nbins = self.model.observables[obs]
+        for obs in sorted(list(model.get_observables())):
+            xmin, xmax, nbins = model.observables[obs]
             result['observables'][obs] = {'range': [xmin, xmax], 'nbins': nbins}
         return result
     
     
-    def check_cache(self, options):
+    def _check_cache(self, options):
         """
-        check in the cache directory whether result is already available there
+        Check in the cache directory whether result is already available there
         returns True if it is, false otherwise.
-        Note that get_result_available will return True if the result is in the cache
-        only after calling check_cache
+        Note that get_result_available will return `True` if the result is in the cache
+        only after calling check_cache.
         """
         workdir = options.get_workdir()
         cache_dir = os.path.join(workdir, 'cache')
@@ -651,18 +641,13 @@ class Run(ModuleBase):
     
     def get_configfile(self, options):
         """
-        Returns the name of the config file created, including the full path.
-        It will create the theta configuration file, if not done already.
+        Returns the path to the theta config file, creating it if necessary.
         """
         if self.theta_cfg_fname is not None: return self.theta_cfg_fname
-        cfg_dict = self._get_cfg(options)
-        cfg_string = _settingvalue_to_cfg(cfg_dict, value_is_toplevel_dict = True)
-        if self.typ == 'cls_limits':
-            firstpart = 'cls'
-        else:
-            firstpart = ''.join([p.name for p in self.producers])
-        output_name =  firstpart + '-' + self.input_id + '-' + ''.join(self.signal_processes) + '-' + hashlib.md5(cfg_string).hexdigest()[:10]
-        cfg_string += "output_name = \"%s.db\";\n" % output_name
+        cfg_dict = self.get_cfg(options)
+        cfg_string = _settingvalue_to_cfg(cfg_dict, value_is_toplevel_dict = True)            
+        output_name =  self.cfg_fname_fragment + '-' + hashlib.md5(cfg_string).hexdigest()[:10]
+        if '@output_name' in cfg_string: cfg_string += "output_name = \"%s.db\";\n" % output_name
         if '@debuglog_name' in cfg_string: cfg_string += 'debuglog_name = "%s-debuglog.txt";\n' % output_name
         workdir = options.get_workdir()
         assert os.path.exists(workdir)
@@ -706,7 +691,7 @@ class Run(ModuleBase):
             
     def run_theta(self, options, in_background_thread = False):
         """
-        Execute the :program:`theta` program on the current .cfg file.
+        Execute the :program:`theta` program on the current .cfg file, creating the .cfg file if necessary.
         
         Parameters:
         
@@ -715,10 +700,10 @@ class Run(ModuleBase):
         
         Executing multiple instances of the theta program in parallel is usually done like this::
            
-           run = [] # the list of Run instances
+           mains = [] # the list of MainBase instances
            ...
-           for r in runs: r.run_theta(options, in_background_thread = True)
-           for r in runs: r.wait_for_result_available()
+           for m in mains: m.run_theta(options, in_background_thread = True)
+           for m in mains: m.wait_for_result_available()
         
         The first for-loop spawns the threads which execute theta, so theta is executed in parallel. The second loop waits for all theta executions
         to terminate (either normally or abnormally).
@@ -728,7 +713,7 @@ class Run(ModuleBase):
         will be raised in :meth:`Run.wait_for_result_availble`.
         """
         check_cache = options.getboolean('global', 'check_cache')
-        if check_cache: self.check_cache(options)
+        if check_cache: self._check_cache(options)
         cfgfile = self.get_configfile(options)
         self.debug = options.getboolean('global', 'debug')
         if self.result_available: return
@@ -747,8 +732,6 @@ class Run(ModuleBase):
             to_execute()
             self._cleanup_exec()
 
-    
-    
     def get_result_available(self):
         """
         return whether the result is available, either after check_cache, or after run_theta in a background thread.
@@ -775,59 +758,134 @@ class Run(ModuleBase):
         self.thread = None
         self._cleanup_exec()
     
-    
-    def get_db_fname(self):
+class Run(MainBase):
+    def __init__(self, model, signal_processes, signal_prior, input, n, producers, nuisance_prior_toys = None, seed = None):
         """
-        once the result is available, this is the path to the database filename
+        signal_prior can be a string or a dictionary.
+        `input` is a string (toys:XXX, toy-asimov:XXX, ...), see DataSource for documentation
         """
-        return self.theta_db_fname
-    
-    # get the content of a table in the output database of theta.
-    def get_results(self, table_name, columns):
-        if not self.result_available: return None
-        assert self.theta_db_fname is not None
-        if type(columns)!=str:
-            columns = '"' + '", "'.join(columns) + '"'
-        else: assert columns == '*'
-        data, columns = sql_singlefile(self.theta_db_fname, 'select %s from "%s"' % (columns, table_name), True)
-        result = {}
-        for i in range(len(columns)):
-            result[columns[i][0]] = [row[i] for row in data]
+        fragment = ''.join([p.name for p in producers]) + '-' + input + ''.join(signal_processes)
+        MainBase.__init__(self, fragment)
+        self.model = model
+        self.signal_processes = signal_processes
+        self.n_events = n
+        self.producers = producers
+        self.nuisance_prior_toys = nuisance_prior_toys
+        for p in producers: self.add_submodule(p)
+        self.seed = seed
+        if input is None: self.data_source = None
+        else:
+            if type(input) == str:
+                self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
+            else:
+                assert type(input) in (RootNtupleSource, DataSource), "unexpected type for 'input' argument: %s" % type(input)
+                self.data_source = input
+        self.signal_prior_cfg = _signal_prior_dict(signal_prior)
+        
+    def get_cfg(self, options):
+        result = self.common_main_cfg(self.model, self.signal_processes, options)
+        main = {'n-events': self.n_events, 'producers': [], 'log-report': False, 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
+            'model': "@model", 'data_source': self.data_source.get_cfg(options)}
+        n_threads = options.getint('main', 'n_threads')
+        if n_threads > 1:
+            main['type'] = 'run_mt'
+            main['n_threads'] = n_threads
+        for p in self.producers:
+            result['p%s' % p.name] = p.get_cfg(options)
+            main['producers'].append('@p%s' % p.name)
+        result.update({'main': main, 'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
+        use_llvm = options.getboolean('model', 'use_llvm')
+        if use_llvm:
+            print "using llvm. This is EXPERIMENTAL. Use at your own risk"
+            result['model']['type'] = 'llvm_model'
+            result['options']['plugin_files'].append('$THETA_DIR/lib/llvm-plugins.so')
         return result
-        
-    
-    
-    def get_products(self, columns = '*', fail_if_empty = True):
+
+class ClsMain(MainBase):
+    def __init__(self, model, signal_processes, signal_prior, input, producers, nuisance_prior_toys = None, seed = None):
         """
-        get the result (in the products table) of this invocation of theta as dictionary::
-        
-           column_name --> list of values
-           
-        Which columns are returned can be controlled by the `columns` argument which is either a list of column names
-        or as special case the string '*'. The default is '*' which will return all columns.
-    
-        If `fail_if_empty` is `True` and no rows are found, some information from the log table is printed and a `RuntimeError` is raised.
-        This can happen e.g. in case there was one attempt to fit on data which failed due to a minimizer which failed.
+        Note that `input` is used for the "observed" cls limit; only the first (pseudo-)dataset of this DataSource will be used.
         """
-        res = self.get_results('products', columns)
-        if fail_if_empty and len(res[res.keys()[0]])==0:
-            self.print_logtable_errors()
-            raise RuntimeError, "No result is available, see errors above"
-        return res
+        MainBase.__init__(self, 'cls')
+        assert len(producers)==1
+        self.model = model
+        self.signal_processes = signal_processes
+        self.producers = producers
+        self.nuisance_prior_toys = nuisance_prior_toys
+        for p in producers: self.add_submodule(p)
+        self.seed = seed
+        if input is None: self.data_source = None
+        else:
+            if type(input) == str:
+                self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
+            else:
+                assert type(input) in (RootNtupleSource, DataSource), "unexpected type for 'input' argument: %s" % type(input)
+                self.data_source = input
+        self.signal_prior_cfg = _signal_prior_dict(signal_prior)
+        self.cls_options = {'ts_column': self.producers[0].name + '__nll_diff'}
+        self.minimizer = Minimizer(need_error = True)
+        self.add_submodule(self.minimizer)
         
-    def print_logtable_errors(self, limit = 10):
-        if not self.result_available: return
-        assert self.theta_db_fname is not None
-        data = sql_singlefile(self.theta_db_fname, 'select "eventid", "message" from "log" where "severity"=0 limit %d' % int(limit))
-        if len(data)==0: return
-        print "There have been errors for some toys: eventid, message"
-        for i in range(len(data)):
-            print data[i][0], data[i][1]
+    def set_cls_options(self, **args):
+        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit', 'frequentist_bootstrapping', 'write_debuglog', 'input_expected']
+        for k in allowed_keys:
+            if k in args:
+                self.cls_options[k] = args[k]
+                del args[k]
+        if len(args) > 0: raise RuntimeError, "unrecognized cls options: %s" % str(args.keys())
+    
+    def get_cfg(self, options):
+        assert 'ts_column' in self.cls_options
+        result = self.common_main_cfg(self.model, self.signal_processes, options)
+        seed = self.seed
+        if seed is None: seed = -1
+        main = {'type': 'cls_limits', 'producer': self.producers[0].get_cfg(options), 'output_database': {'type': 'sqlite_database', 'filename': '@output_name'},
+            'truth_parameter': 'beta_signal', 'tol_cls': self.cls_options.get('tol_cls', 0.025),
+            'clb_cutoff': self.cls_options.get('clb_cutoff', 0.02), 'model': '@model',
+            'debuglog': '@debuglog_name', 'rnd_gen': {'seed': seed }, 'ts_column': self.cls_options['ts_column'],
+            'minimizer': self.minimizer.get_cfg(options), 'expected_bands': self.cls_options.get('expected_bands', 2000)}
+        if not self.cls_options.get('write_debuglog', True): del main['debuglog']
+        if self.cls_options.get('frequentist_bootstrapping', False):  main['nuisancevalues-for-toys'] = 'datafit'
+        if 'truth_max' in self.cls_options: main['truth_max'] = float(self.cls_options['truth_max'])
+        if 'reltol_limit' in self.cls_options: main['reltol_limit'] = float(self.cls_options['reltol_limit'])
+        if self.data_source is not None: main['data_source'] = self.data_source.get_cfg(options)
+        if 'input_expected' in self.cls_options:
+            print "using input = %s for expected limits" % self.cls_options['input_expected']
+            ds = DataSource(self.cls_options['input_expected'], self.model, self.signal_processes,
+                override_distribution = self.nuisance_prior_toys)
+            main['data_source_expected'] = ds.get_cfg(options)
+        result.update({'main': main, 'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
+        return result
+    
+    
+class AsymptoticClsMain(MainBase):
+    def __init__(self, model, signal_processes, input, beta_signal_expected = 0.0):
+        """
+        `input` should be either 'data' or None.
+        """
+        MainBase.__init__(self, 'acls')
+        self.minimizer = Minimizer(need_error = False)
+        self.add_submodule(self.minimizer)
+        self.model = model
+        self.signal_processes = signal_processes
+        self.beta_signal_expected = beta_signal_expected
+        if input is None: self.input = None
+        else:
+            if input != 'data': raise RuntimeError, "input should be either 'data' or None, but is %s" % str(input)
+            self.input = DataSource(input, self.model, self.signal_processes)
+        self.signal_prior_cfg = _signal_prior_dict('flat')
         
-    def get_products_nevents(self):
-        data = sql_singlefile(self.theta_db_fname, 'select count(*) from products')
-        return data[0][0]
-        
+    def get_cfg(self, options):
+        result = self.common_main_cfg(self.model, self.signal_processes, options)
+        main = {'type': 'asymptotic_cls', 'model': '@model', 'parameter': 'beta_signal', 'minimizer': self.minimizer.get_cfg(options),
+            'output_database': {'type': 'sqlite_database', 'filename': '@output_name'}}
+        if self.input is not None:
+            main['data'] = self.input.get_cfg(options)
+        if self.beta_signal_expected != 0.0:
+            main['parameter_value_expected'] = self.beta_signal_expected
+        result.update({'main': main, 'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
+        return result
+
 
 # create a Histogram instance from the blob data in a sqlite db
 def histogram_from_dbblob(blob_data):

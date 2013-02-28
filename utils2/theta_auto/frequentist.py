@@ -8,18 +8,21 @@ import bisect
 
 ## Returns a new model, leaves the "model" parameter unchanged.
 #
-# * for each nuisance parameter:
+# * for each nuisance parameter with a finite width:
 #   - add a real-valued observable "rvobs_<parameter name>"
 #   - add a Gaussian distribution for the rvobs with mean = nuisance parameter, parameter = rvobs_...
-# * make all nuisance parameter priors flat in the model distribution, s.t.
-#   all constraints come from the real-valued observables, not from the priors.
-# * add the default value according to model.distribution to the real-valued observables in data
+#   - make the nuisance parameter prior flat in the model distribution, s.t.
+#     all constraints come from the real-valued observables, not from the priors.
+#   - add the default value according to model.distribution to the real-valued observables in data
+#
+# Note that frequentize_model is idempotent.
 def frequentize_model(model):
     result = model.copy()
     for p in model.distribution.get_parameters():
         prior_nuisance = model.distribution.get_distribution(p)
         # have to use the conjugate distribution here. gauss is self-conjugate, so no problem here in most cases:
         if prior_nuisance['typ'] != 'gauss': raise RuntimeError, "only gaussian nuisance parameters are supported"
+        if prior_nuisance['width'] == inf: continue
         rvobs = 'rvobs_%s' % p
         result.rvobs_distribution.set_distribution(rvobs, 'gauss', mean = p, width = prior_nuisance['width'], range = prior_nuisance['range'])
         result.distribution.set_distribution_parameters(p, width = inf)

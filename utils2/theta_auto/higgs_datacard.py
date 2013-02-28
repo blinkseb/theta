@@ -327,6 +327,8 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     if kmax != len(lines):
         raise RuntimeError, "Line %d--end: wrong number of lines for systematics (expected kmax=%d, got %d)" % (lines[0][1], kmax, len(lines))
     
+    # save uncertainty names to avoid duplicates:
+    uncertainty_names = set()
     # shape systematics is a dictionary (uncertainty) --> (channel) --> (process) --> (factor)
     # factors of 0 are omitted.
     shape_systematics = {}
@@ -335,6 +337,9 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
         cmds = get_cmds(lines[i])
         assert len(cmds) >= len(processes_for_table) + 2, "Line %d: wrong number of entries for uncertainty '%s'" % (lines[i][1], cmds[0])
         if not filter_uncertainty(cmds[0]): continue
+        if cmds[0] in uncertainty_names:
+            raise RuntimeError, "Uncertainty '%s' specified more than once; this is not supported." % cmds[0]
+        uncertainty_names.add(cmds[0])
         uncertainty = transform_name_to_theta(cmds[0])
         if cmds[1] == 'gmN':
             values = cmds[3:]

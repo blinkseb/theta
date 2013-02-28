@@ -1,70 +1,23 @@
-/* this file is not for inclusion in C++ code. It is only here
- * to provide a "mainpage" block for doxygen and I didn't want to spoil some random
- * header with it.
- */
-
 /** \mainpage
  *
  *  \image html theta-medium.png
- *
- * A general, physics-focused introduction is available as pdf <a href="../files/theta.pdf">here</a>.
- * The code for this introduction can be found in \c examples/paper.
- *
- * %theta is a framework for template-based statistical modeling and inference, focussing on problems
- * in high-energy physics. It provides the possibility for the user to express a "model", i.e.,
- * the expected data distribution, as function of physical parameters. This model can be used
- * to make statistical inference about the physical parameter of interest. Modeling is "template-based"
- * in the sense that the expected data distribution is always expressed as a sum of templates.
- *
- * \section main_impatient For the impatient
- *
- * For getting started with %theta quickly, make sure to install sqlite3, boost, root and cmake on your machine
- * and run
- * \code
- *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/testing theta
- *  cd theta
- *  # Option 1: you have cmake
- *  mkdir build
- *  cd build
- *  cmake ..
- *  make
- *  cd ..
- *  # Option 2: you do not have cmake (note: this "simple make" works on fewer platforms compared to cmake)
- *  make
- *  bin/theta examples/gaussoverflat.cfg
- *  bin/histos examples/plot-gaussoverflat.cfg
- *  root gaussoverflat.root
- * \endcode
- *
- * You will see the distribution of the estimated significance in sigma of a model with Gaussian signal over
- * flat background.
+ * 
+ * This is the doxygen documentation of %theta, a program for template-based statistical modeling and inference, focussing on problems
+ * in high-energy physics.
+ * 
+ * This doxygen documentation covers the C++ code and the (closely related) configuration file format of theta.
+ * 
+ * For most users, the recommended way of using theta is via the higher-level, python-based
+ * user interface <em>theta-auto</em>, which is documented <a href="http://theta-framework.org/">here</a>.
  *
  * \section main_intro Documentation overview
  *
- * The documentation is split into several pages. If you are new to %theta, first read
- * <a href="../files/theta.pdf">theta - a framework for template-based modeling and inference</a>. Then,
- * depending on what you want to know, you can read the following pages:
  * <ol>
- *   <li>\subpage whatistheta "What theta can do" explains which kind of questions can (or cannot) be addressed with the help of %theta</li>
- *   <li>\subpage installation Installation explains how to obtain and compile %theta</li>
  *   <li>\subpage intro Introduction guides you through an example and explains the typical workflow with %theta</li>
  *   <li>\subpage cmd_interface "Command line interface" described the command line tools of %theta, namely the \c theta
  *     program and the \c merge program.</li>
  *   <li>\subpage extend "Extending theta" describes how to extend %theta using the plugin system</li>
- *   <li>\subpage theta_auto_intro "Introduction to theta-auto" gives an introduction to python scripts which can be used to automatically
- *     generate %theta configuration files and analyze %theta output.</li>
- * </ol>
- *
- * Bug tracking and feature requests are managed in the <a href="https://ekptrac.physik.uni-karlsruhe.de/trac/theta">theta trac</a>.
- * If you find a bug or miss an essential feature, you can open a ticket there.
- *
- * Some additional information not of general interest for every user, but interesting enough to be documented here:
- * <ol>
- *   <li>\subpage design "Design Goals of theta" contains some thoughts about what the code of %theta should be like.
- *       You should read that either if you want to contribute code to %theta or if you want to know what makes %theta
- *       different to other software you often deal with in high-energy physics.</li>
- *   <li>\subpage testing "Testing" describes how %theta is tested, i.e., unit tests and simple statistical cases
- *       for which the solution is known analytically (or can be otherwise be found independently).</li>
+ *   <li>\subpage test "Testing" describes how %theta is tested.</li>
  * </ol>
  *
  * \section license License
@@ -82,189 +35,16 @@
  *   <li><em>A. Gelman, G. O. Roberts, and W. R. Gilks:</em> "Efficient Metropolis Jumping Rules", Bayesian Statistics 5, 1996</li>
  * </ol>
  *
- * \section ack Acknowledgement
- *
- * I would like to thank the authors of the excellent software packages used by %theta:
+ * %theta contains software from:
  * <ul>
  * <li><a href="http://www.hyperrealm.com/libconfig/libconfig.html">libconfig</a> A
  *      well-written, well-documented C/C++ library for processing configuration files with a very simple and elegant API.</li>
  * <li><a href="http://www.chokkan.org/software/liblbfgs/">liblbfgs</a> An implementation of
  *     the Limited-memory Broyden-Fletcher-Goldfarb-Shanno minimization algorithm</li>
  * </ul>
- * These libraries are included in the distribution of %theta.
+ * These libraries are included in the %theta subversion repository.
  *
- * Furthermore, some parts of numerical algorithms have
- * been copied from the excellent <a href="http://www.gnu.org/software/gsl/">GNU Scientific Library (GSL)</a>.
- *
- * Last but not least, I want to thank Jasmin Gruschke who tested %theta from an end-user point of view, made useful
- * suggestions and bravely endured many backward-incompatible changes.
- *
- * %theta logos are available here as <a href="../logos/theta.pdf">pdf</a>, <a href="../logos/theta.eps">eps</a> and
- * <a href="../logos/theta.png">png</a>.
- */
-
-
-/** \page whatistheta What %theta can do
- *
- * %theta is about modeling and statistical inference. For %theta, "model" means
- * a specification of the probability density of one or more observables as function of
- * some parameters, including possible probability densities of the parameters.
- *
- * %theta is designed to run a large to huge numbers of pseudo-experiments by drawing pseudo data
- * from such a model and running statistical methods called "producers". These "producers" calculate
- * quantities useful for statistical methods such as maximum likelihood estimate for a model parameter (see \link mle mle\endlink) or a likelihood ratio
- * (see \link deltanll_hypotest deltanll_hypotest\endlink ) which can be used for frequentist methods such as p-values and Neyman construction.
- * Other producers directly yield statistical results such as intervals via the profile likelihood method (\link deltanll_intervals deltanll_intervals\endlink)
- * or Bayesian intervals or marginal posteriors (\link mcmc_quantiles mcmc_quantiles\endlink and \link mcmc_posterior_histo mcmc_posterior_histo\endlink).
- *
- * In %theta, models are <em>always</em> given as a linear combination of templates (i.e., histograms), where
- * both the coefficients and the templates depend in general on the parameters of the model.
- * Specifying a model is done by specifying all coefficiencts and histograms in this linear combination. The coefficients
- * are often given simply by multiplying some model parameters (see theta::mult).
- *
- * In many places, plugins are used. For example, all coefficient functions, parameter dependent histograms and producers (and more components)
- * are all constructed via a plugin system. This is great for extensibility because it allows the user to write own plugins
- * replacing this particular component. For example, if you have a coefficient function in mind (which is the predicted yield) which is not implemented
- * in %theta, you can implement it as part of the plugin system and use %theta for eveything else.
- *
- * \section whatcant What theta cannot do
- *
- * While %theta was written with a rather general use-case in mind, it is certainly not suited for all tasks, nor does it
- * do more than the core of the work. Specifically,
- * <ul>
- *  <li>%theta cannot plot. While it is not hard to get plots from the result database %theta produces, %theta itself
- *    has no plotting routines.</li>
- *  <li>%theta is not suited for cases where you have more than one observable per event, i.e., if to do multi-dimensional
- *     fits. In principle, handling multidimensional fits can be implmented in %theta via user-supplied plugins. However, it is
- *     not foreseen to suport this natively.</li>
- *  <li>%theta only supports binned distributions. While binning can
- *     also be chosen very fine, it is not foreseen to support trule 
- *     continuos distributions.</li>
- *  <li>%theta is mainly useful if only one parameter is of interest (i.e., if only one parameter in
- *      the model is not a nuisance parameter).
- *      For example, it is not implemented (or foreseen) to have confidence regions in a two-dimensional plane. This is not an
- *      architectural limitation of %theta but a limitation mainly of the current implementation of statistical
- *      methods. You are free to implement such a method as %theta plugin, using %theta as framework, though.</li>
- * </ul>
- *
- * These restrictions are intentional: by doing only a small number of tasks, these can be done efficiently and correctness
- * is easier to achieve. Also, %theta is easier to document and to understand if not bloated by additional code.
- * See \ref design for more information about this point.
- */
-
-
-/** \page installation Installation
- *
- * \section obtaining Obtaining theta
- *
- * %theta is available as source-code distribution via subversion only. The latest stable version can be obtained by running
- * <pre>
- * svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/stable theta
- * </pre>
- * there is also a testing branch available:
- * <pre>
- * svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/testing theta
- * </pre>
- * However, this is not guaranteed and well tested as the stable tag.
- *
- * You can use CMSSW software to provide the necessary dependencies. If you want to do that, make sure
- * to issue \c cmsenv before you build %theta.
- *
- * \section building Building theta
- *
- * Be sure to get the external dependencies first:
- * <ol>
- * <li><a href="http://boost.org/">Boost</a>, a bundle of general-purpose C++ libraries, which is
- *    used in %theta for filesystem interface, command line option parsing, memory management through
- *    smart pointers, etc.</li>
- * <li><a href="http://sqlite.org/">sqlite3</a>, a light-weight, SQL-based %database engine which
- *    can be used to store the results of %theta</li>
- * <li>Optional, but recommended for most users: <a href="http:root.cern.ch/">ROOT</a>, an analysis framework
- *   popular in high-energy physics. Used for reading histograms from "*.root"-files. Also, the producers for minimization
- *   can use root's MINUIT implementation.</li>
- * </ol>
- *
- * These dependencies are enough to get %theta itself work. There are additional dependencies for test and plotting scripts, namely
- * python, including python-sqlite, numpy, scipy and matplotlib.
- *
- * The recommended way to compile %theta is to use cross-platform make, <a href="http://www.cmake.org/">CMake</a>.
- * In order not to overwrite the hand-written Makefiles included in %theta, do an "out-of-source" build withing another directory, e.g. "build":
- * <pre>
- *  cd %theta
- *  mkdir build
- *  cmake ..
- *  make
- * </pre>
- *
- * It is also possible to compile %theta using Makefiles. However, note that these are quite simple Makefiles
- * which do not work on all platforms.
- *
- * \subsection build_options Build options
- *
- * There are several build-time options. Usually, you do not have to change the default settings.
- *
- * For the Makefile build, have a look at "Makefile.options" where these parameters are explained. The rest of this section
- * only applies to cmake-type builds.
- *
- * For cmake, these options are switched on or off by passing the \c cmake command
- * a define parameter. For example, to build without amdlibm, you would issue
- * <pre>
- *   cmake .. -Damdlibm:bool=OFF
- * </pre>
- * You can pass more than one \c -D option to cmake at a time. The \c -D option always specifies the parameter name,
- * the type of the parameter (always bool here) and the value (use \c ON and \c OFF for bools).
- *
- *
- * The following options are currently supported (roughly ordered by probability that you want to change these):
- * <ul>
- *   <li>\c release (default: ON) If enabled, will optimize for a release built with high optimization
- *      and without debug information. If disabled, debug information will be included; optimizations are still enabled to some level.</li>
- *   <li>\c optiontest (default: OFF) If enabled, will build test executables and shared objects.</li>
- *   <li>\c coverage (default: OFF) If enabled, switched off optimization and adds compiler options to for coverage tests
- *     with gcov. If enabled, the \c release option is ignored.</li>
- *   <li>\c amdlibm (default: ON) If enabled, uses some math functions from amdlibm (included in %theta)
- *         instead of the standard libm.</li>
- * </ul>
- *
- * \subsection with_cmssw With CMSSW
- *
- * After setting up CMSSW with \c cmsenv, go to the \c theta directory and run \c make.
- *
- * So a complete set of commands to check out, compile, test and run %theta with CMSSW
- * would be (assuming that cmssw was set up):
- * <pre>
- *  scram project CMSSW CMSSW_3_8_4
- *  cd CMSSW_3_8_4/src
- *  cmsenv
- *  cd ../..
- *  svn co https://ekptrac.physik.uni-karlsruhe.de/public/theta/tags/{stable|testing} theta
- *  cd theta
- *  make
- *  bin/theta examples/gaussoverflat.cfg
- * </pre>
- *
- * <tt>CMSSW_3_8_4</tt> is an example, you can pick another version. It is recommended to pick a recent one, and -- if you can -- a 64-bit version.
- *
- * Reports about failing builds (and of course, patches for these), are always welcome.
- *
- * \section platforms Supported Platforms / Libraries
- *
- * %theta should work with any recent linux distribution. In some cases, it is necessary to manually install
- * boost or sqlite, adapt "Makefile.options" to make the installation path known to %theta and set the
- * LD_LIBRARY_PATH environment variable.
- *
- * Successful builds on Mac OS X have been reported, last time 20th April 2011.
- * However, I cannot guarantee future versions will work as I do not
- * have a test setup for this architecture.
- *
- * It is regularly tested with
- * <ul>
- *   <li>Ubuntu Lucid (10.04), which comes with boost 1.42. The root version used is 5.28.00.</li>
- *   <li>same as before, but with a more recent boost (1.46.1)</li>
- *   <li>Scientific Linux CERN (SLC) 5.5. In this case, SLC-shipped version of boost is too old (1.33.1, released in 2006).
- *     Either setup CMSSW to use root/boost/sqlite from there (tested with CMSSW_3_8_7 on slc5_ia32_gcc434) or install boost, root and
- *     and sqlite manually.</li>
- * </ul>
+ * Furthermore, some parts of numerical algorithms have been copied from  <a href="http://www.gnu.org/software/gsl/">GNU Scientific Library (GSL)</a>.
  */
 
 /**
@@ -677,66 +457,6 @@
   *
   * The only other supported option is \c -v or \c --verbose which increases the verbosity of merge.
   */
- 
-/** \page design Design Goals of Theta
- *
- * I'm not a friend of some general statements of intention one can write about the meta-goals of a program. Still, I do raise some points here
- * because it will make some design choices clearer and because I truly believe in these principles and actually affect
- * the day-to-day work with the code, as they make me re-think all design choices I make (even after having implemented them).
- *
- * The main design goals of %theta are:
- * <ul>
- * <li>correctness</li>
- * <li>simplicity</li>
- * <li>performance</li>
- * <li>ease of use</li>
- * <li>extensibility</li>
- * <li>use best practices</li>
- * </ul>
- *
- * %theta is <b>not</b> designed to implement every method you can think because this would contradict
- * the "simplicity" and "ease of use" almost inevitably and would also make it much harder to achieve
- * "correctness" and "performance".
- *
- * <b>Correctness</b> comes first. It means that (i) methods should work as documented (and, of course, be documented). (ii) If anything at all
- * prevents the method from performing correctly, it should fail as soon as possible and not produce wrong result or cause a failure much later.
- * (iii) Each unit (class, method) should have a unit test which tests its functionality, including failure behaviour.
- *
- * <b>Simplicity</b> implies that %theta has a limited scope of application. It is not intended to be the tool for every problem you
- * can think of. As consequence, (i) there have been some fundamental design choices, e.g., only to support binned
- *  representations of pdfs and data (which, for many applications, is not a problem at all as the bin size can be made arbitrarily small),
- * (ii) any class and method has one simple, well-defined task only. This implies that classes
- *  generally have only very few public methods and that classes and methods are relatively easy to
- *  document (and very lengthy documentation is generally a sign of too much functionality pressed into one class or method).
- *
- * <b>Performance</b> has to stand back of correctness and simplicity. However, many code changes increasing performance
- * do not need a re-design of a class' public interface at all. All changes which <i>provably</i>(!) increase performance should actually be done.
- * An example of a trade-off in favour of simplicity was a re-design of the random number generator interface: if one defines
- * all functions and methods which require a random number generator as argument as template functions with the random number generator type as template
- * parameter, one can gain up to 50% performance compared to a system using an \link theta::RandomSource abstract class \endlink implementing
- * \link theta::RandomSourceTaus concrete \endlink random number \link theta::RandomSourceMersenneTwister generators \endlink
- * by implementing this interface as the latter requires additional virtual function table lookups.
- *
- * <b>Ease of use</b> means good documentation and examples. It is also closely
- * related to simplicity: simple classes are easy to document and easier to understand as they have
- * a clear and narrowly scoped functionality. There is also less to document
- * if the classes are not bloated. <em>ease of use</em> also means that it should be easy to
- * use the program/library correctly and hard to use it incorrectly. In particular, wherever possible,
- * constructs which obviously do not make sense should fail to compile or generate a runtime error
- * as soon as possible.
- *
- * <b>Extensibility</b>  means that it should be easy to re-use parts of the application and have totally different definitions of other parts.
- * For example, you might want to use the Markov-Chain Monte-Carlo functions with a completely different likelihood / posterior. Or you want to use the same
- * likelihood and statistical methods, but with a completely different model definition. This is possible in %theta via the use of a
- * <i>plugin system</i>, in which plugins are just shared objects files you write loaded at runtime. Plugins integrate seamlessly in the program in that
- * you can configure them in the exact same way as the "native" parts of %theta.
- *
- * <b>Best practices</b> beyond the points already mentioned include (mainly taken from python's zen):
- * (i) explicit is better than implicit: avoid "magic names" or "magic numbers" which trigger special behaviour or which have special meaning.
- * (ii) There should never be a need to guess how to code something, i.e., there should be as little ambiguities left of how to write working code
- * or a working config file after reading the documentation. (iii) There should be one (and preferrably only one) obvious way of getting
- * something done.
- */
 
 /** \page testing Testing
  *
@@ -994,21 +714,6 @@
  *
  * Z values obtained from deltanll_hypotest are compared to the Z values in Table 1 of the Reference. The test
  * is considered passed iff all rounded Z values agree (if rounding to 2 decimal digits).
- */
-
-
- /*
- * \section testing_counting-constraintbkg Counting experiment with background sideband fit
- *
- * As third test case, consider a counting experiment with poisson signal with true mean \f$ \Theta \ge 0 \f$ and
- * a background mean \f$ \mu \ge 0 \f$ which is assumed to be unknown a-priori. The counting is done in two channels:
- * the first channel, \f$ c_1 \f$, is a selection specifically for signal events. The model assumes that the number
- * of observed events follows a Poisson distribution around \f$ \Theta + \mu \f$. In a statistically independent
- * background channel, \f$ c_2 \f$, no signal is expected at all and the model assumes that the number of observed events
- * follows a Poisson distribution around \f$ R\times\mu \f$, where \f$ R \f$ is the acceptance ratio for background events of
- * the two channels. It is assumed that \f$ R \f$ is known.
- *
- *
  */
 
 /** \brief Common namespace for %theta
