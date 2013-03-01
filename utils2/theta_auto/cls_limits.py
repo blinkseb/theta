@@ -171,7 +171,7 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
 #
 # returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
 # if 'what' is not 'all', one of the plotdata instances is replaced with None.
-def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_prior = None, write_debuglog = True, frequentist_bootstrapping = False,
+def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_prior = None, frequentist_bootstrapping = False,
  cls_options = {}, seed = None, options = None):
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
@@ -179,7 +179,6 @@ def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_pr
     cls_options = dict(cls_options)
     cls_options['expected_bands'] = int(cls_options.get('expected_bands', 2000))
     cls_options['frequentist_bootstrapping'] = frequentist_bootstrapping
-    cls_options['write_debuglog'] = write_debuglog
     cls_options['ts_column'] = 'dnll__nll_diff'    
     input = 'data' if use_data else None
     

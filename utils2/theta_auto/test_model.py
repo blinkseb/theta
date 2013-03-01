@@ -140,5 +140,7 @@ def bernstein_model(n, n_events_total = 1000, nbins = 100):
         hf.set_nominal_histo(Histogram(0.0, 1.0, data))
         model.set_histogram_function('obs', 'proc%d' % nu, hf)
         model.add_lognormal_uncertainty('proc%d_unc' % nu, 1.0, 'proc%d' % nu)
-	model.distribution.set_distribution_parameters('proc%d_unc' % nu, width = float("inf"))
+        model.distribution.set_distribution_parameters('proc%d_unc' % nu, width = float("inf"))
+    # we do not have any signal, so create one empty signal process group:
+    model.signal_process_groups = {'': []}
     return model

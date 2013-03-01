@@ -62,12 +62,10 @@ parameter = 'beta_signal'):
     """
     Evaluate profile likelihood intervals for the given parameter. The profile liklihood function is defined by maxzimizing the "full" likelihood function w.r.t. all parameters
     but the parameter of interest (specified with ``parameter``). In the asymptotic case, Wilks' Theorem can be used to derive intervals for this parameters by finding the
-    values of the parameter where the nagetive-log of the profile likelihood function takes a certain difference (which depends on the confidence level only)
+    values of the parameter where the negative-log of the profile likelihood function takes a certain difference (which depends on the confidence level only)
     from the minimum value. This method is therefore also refered to as "Delta Log-Likelihood method" and is a generalization of the "Delta chi-square method".
     
-    For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys``, ``signal_prior`` and ``options`` refer to :ref:`common_parameters`.
-    
-    Parameters:
+    For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys``, ``signal_prior`` and ``options`` refer to :ref:`common_parameters`. Parameters specific to this method are:
     
     * ``cls`` - a list of confidence levels to calculate the interval for. The default is ``[cl_1sigma, cl_2sigma]`` which determines the 1sigma and 2sigma intervals.
     * ``parameter`` - a string which refers to the model parameter to evalaute the interval(s) for.

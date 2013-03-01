@@ -65,22 +65,22 @@ def deltanll(model, input, n, signal_process_groups = None, nuisance_constraint 
     
     For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys``, ``signal_prior`` and ``options`` refer to :ref:`common_parameters`.
     
-    Parameters:
+    More parameters:
     
-    * seed - this is the random seed to use for toy data generation. It is only relevant for ``input="toys..."``. The default value of ``None`` will use a seed which is
+    * ``seed`` - this is the random seed to use for toy data generation. It is only relevant for ``input="toys..."``. The default value of ``None`` will use a seed which is
       different in each :program:`theta` run. While this is usually a good idea, it makes the result not exactly reproducible.
-    * run_theta - if ``True``, runs :program:`theta` locally. Otherwise, Run objects are returned which can be used e.g. to access the cfg file. Note that in case of
+    * ``run_theta`` - if ``True``, runs :program:`theta` locally. Otherwise, :class:`Run` objects are returned which can be used e.g. to access the cfg file. Note that in case of
       ``run_theta=False``, the ``options`` parameter has no effect whatsoever.
     * ``lhclike_beta_signal`` - if not ``None``, it should be a floating point value for the LHC-like test statistic evalaution; it is the value of beta_signal tested; the
       beta_signal parameter is fixed to this value in the likelihood ratio calculation. If ``None``, the restrictions commonly used for a signal search are used:
       beta_signal=0 for the background-only  (null hypoythesis) case and a flat prior for beta_signal > 0.0 for the signal+background (alternative hypothesis) case.
-    * ``pchi2'': If true, also calculates and returns the pseudo-chi2 value for the s+b fit fore ach toy, using the result key
+    * ``pchi2`` - if ``True``, also calculates and returns the pseudo-chi2 value for the s+b fit for each toy
       
     The return value is a nested python dictionary. The first-level key is the signal process group id (see :ref:`what_is_signal`). The value depends on ``run_theta``:
     
     * in case ``run_theta`` is ``True``, the value is a dictionary with the keys "dnll" containing a list of delta-log-likelihood values. If
-      ``pchi2'' is true, it also contains a key ``pchi2'' with the chi2 values.
-    * if ``run_theta`` is ``False``, the value is an instance of the ``Run`` class
+      ``pchi2`` is true, it also contains a key ``"pchi2"`` with the chi2 values.
+    * if ``run_theta`` is ``False``, the value is an instance of the :class:`theta_interface.Run` class
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
@@ -116,11 +116,16 @@ def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10
     * ``n_runs`` is the number of ``Run`` instances to return
     * ``n`` is the number of toys per ``Run`` instance; so the total number of toys in the returned configuration will be ``n_runs * n``
     * ``seed_min`` is the minimum random seed to use. It is incremented by 1 for each returned ``Run``, so for ``seed_min = 1``, the random seeds used will be ``1..n_runs``.
+    * ``pchi2`` - if ``True``, configure :program:`theta` to calculate the pseudo-chi2 value for the s+b fit for each toy
     
-    Returns a dictionary with the signal process group id as key. The value is a list of ``Run`` instances. Refer to the documentation of ``Run`` for more information;
-    the most important method you probably want to use is Run.get_configfile(options) which creates the .cfg file for theta and returns the path to the created .cfg file, and
-    you can use the config file names to run :program:`theta` distributed, see :ref:`distributed_running`.
-    But you can also use Run.run_theta(options) to execute :program:`theta` locally.
+    Returns a dictionary with the signal process group id as key. The value is a list of :class:`theta_interface.Run` instances, which can be used
+    for :ref:`distributed_running`, or to execute :program:`theta` locally with more control, e.g. running multiple :program:`theta` processes
+    in parallel. See the documentation of :class:`theta_interface.Run` for more information.
+    
+    For distributed running, you have to:
+    
+    1. call ``pvalue_bkgtoys_runs``, get the config files, run :program:`theta` on all of them (maybe in a cluster) and copy the .cfg and the .db files to the "cache" directory (which is a subdirectory of the analysis workdir), see :ref:`distributed_running` for details.
+    2. call :meth:`pvalue`, using the same ``bkgtoys_*`` parameters as in step 1., as only this ensures that the same .cfg files are created and the result from the cache created in step 1. will be used
    
 .. note::
 
@@ -129,9 +134,9 @@ def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10
     
 .. important::
     
-    the seed is always set explicitly to i_run + seed_min (with i_run = 0..n_run-1)
-    You have to be careful if calling this method more than once to use a different seed_min so that no overlapping seeds are used. In general,
-    it is advisable to call this method only once per cited p-value, with n_runs set high enough. You can look at the implementation of their
+    The random seed used for toys is always set explicitly to ``i_run + seed_min`` (with ``i_run = 0..n_run-1`` ).
+    You have to be careful if calling this method more than once to use a different ``seed_min`` so that no overlapping seeds are used. In general,
+    it is advisable to call this method only once per cited p-value, with ``n_runs`` set to a high enough value. You can look at the implementation of their
     ``discovery`` method for an example of how to do that correctly.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
@@ -151,18 +156,22 @@ def pvalue(model, input, n, signal_process_groups = None, nuisance_constraint = 
     
     For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys`` and ``options`` refer to :ref:`common_parameters`.
     Specifically, to get the "observed" p-value, use ``input="data"`` and ``n=1``.
-    To get an ensemble of "expected" p-value for a signal strength ``beta_signal`` of, say, 1.5, use ``input=toys:1.5`` and e.g. ``n=1000``.
     
-    The remaining parameters ``bkgtoys_n_runs``, ``bkgtoys_n``, ``bkgtoys_seed_min`` are passed to ``pvalue_bkgtoys_runs``.
-    Note that :program:`theta` will be executed locally as required. In order to re-use the results from using ``pvalue_bkgtoys_runs``, you have to:
+    The remaining parameters ``bkgtoys_n_runs``, ``bkgtoys_n``, ``bkgtoys_seed_min`` are passed to :meth:`pvalue_bkgtoys_runs`, see the documentation
+    there.
     
-    1. call ``pvalue_bkgtoys_runs``, get the config files, run :program:`theta` on all of them and copy the .cfg and the .db files to the "cache" directory (which is a subdirectory of the analysis workdir), see :ref:`distributed_running` for details.
-    2. call ``pvalue``, using the same ``bkgtoys_*`` parameters as in step 1., as only this ensures that the same .cfg files are created and the result from the cache created in step 1. will be used
+    Note that :program:`theta` will be executed locally. Use :meth:`pvalue_bkgtoys_runs` directly if you want to run :prorgam:`theta` distributed on a cluster.
     
-    The return value is a dictionary where the key is the signal process group id. The value is a list of length ``n`` (or less, in case of failues) of
-    two-tuples ``(p0, p_error)``.
-    
+    The return value is a dictionary where the key is the signal process group id. The value is a list of two-tuples ``(p, p_error)``.
     You can use See :func:`theta_auto.p_to_Z` to convert p-values to Z-values.
+    
+    For example, To get an ensemble of 1000 "expected" p-values for a signal strength ``beta_signal`` of 1.5 use::
+    
+      pvalue(model, input = 'toys:1.5', n = 1000)
+      
+    You can then also calculate the p-value for data, re-using the bvackground-only toys just generated with::
+    
+      pvalue(model, input = 'data', n = 1)
     """
     if options is None: options = Options()
     input_deltanlls = deltanll(model, input, n, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint,
@@ -232,7 +241,7 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
     del ts_sorted
     
     if use_data:
-        res = deltanll(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint, input = 'data', n = 1, options = options)[spid]
+        res = deltanll(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint, input = 'data', n = 1, pchi2 = pchi2, options = options)[spid]
         observed = res['dnll'][0]
         if chi2_trunc > 0.0 and res['pchi2'][0] > chi2_threshold:
             raise RuntimeError, "chi2 value on data too bad. No p-value on data available."

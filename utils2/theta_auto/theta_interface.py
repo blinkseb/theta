@@ -61,8 +61,7 @@ strategy = fast
 minuit_tolerance_factor = 1
        
 [cls_limits]
-clb_cutoff = 0.01
-create_debuglog = True
+write_debuglog = True
         
 [model]
 use_llvm = False
@@ -547,14 +546,17 @@ class DbResult(object):
         
     def get_products(self, columns = '*', fail_if_empty = True):
         """
-        get the result (in the products table) of this invocation of theta as dictionary::
+        Get the result (in the products table) of this invocation of theta as dictionary::
         
-           column_name --> list of values
+           column_name -> list of values
            
-        Which columns are returned can be controlled by the `columns` argument which is either a list of column names
+        Which columns are returned can be controlled by the ``columns`` argument which is either a list of column names
         or as special case the string '*'. The default is '*' which will return all columns.
+        
+        Which columns are available depends on the producers :program:`theta` has run. Refer to the doxygen documentation
+        of the producers for the list of columns.
     
-        If `fail_if_empty` is `True` and no rows are found, some information from the log table is printed and a `RuntimeError` is raised.
+        If ``fail_if_empty`` is ``True`` and no rows are found, some information from the log table is printed and a `RuntimeError` is raised.
         This can happen e.g. in case there was one attempt to fit on data which failed due to a minimizer which failed.
         """
         res = self.get_results('products', columns)
@@ -577,7 +579,7 @@ class DbResult(object):
     
     def get_db_fname(self):
         """
-        Return the path to the db file created by theta. Is `None` if not available
+        Return the path to the db file created by theta. Is ``None`` if no db file is available (yet).
         """
         return self.theta_db_fname
 
@@ -641,7 +643,7 @@ class MainBase(ModuleBase, DbResult):
     
     def get_configfile(self, options):
         """
-        Returns the path to the theta config file, creating it if necessary.
+        Returns the path to the :program:`theta` configuration file, creating it if necessary.
         """
         if self.theta_cfg_fname is not None: return self.theta_cfg_fname
         cfg_dict = self.get_cfg(options)
@@ -691,12 +693,18 @@ class MainBase(ModuleBase, DbResult):
             
     def run_theta(self, options, in_background_thread = False):
         """
-        Execute the :program:`theta` program on the current .cfg file, creating the .cfg file if necessary.
+        Execute the :program:`theta` program on the current .cfg file locally, creating the config file if necessary.
+        If the database file is already in the cache -- and cache checking is not diabled via ``options`` -- :program:`theta`
+        is not actually executed.
         
         Parameters:
         
-        * `options` - an instance of :class:`Options` which is passed to the submodules to control some details of the configuration
-        * `in_background_thread` - if `True`, the :program:`theta` this methods returns immediately. Otherwise, theta is executed in a background thread.
+        * ``options`` - an instance of :class:`Options` which is passed to the submodules to control some details of the configuration
+        * ``in_background_thread`` - if ``True``, the :program:`theta` this methods returns immediately. Otherwise, theta is executed in a background thread.
+        
+        In case :program:`theta` exists with a failure, a RuntimeException will be thrown. This is done by
+        this method in case `in_background_thread = False`. In case of ``in_background_thread = True``, the exception
+        will be raised in :meth:``Run.wait_for_result_availble``.
         
         Executing multiple instances of the theta program in parallel is usually done like this::
            
@@ -707,10 +715,6 @@ class MainBase(ModuleBase, DbResult):
         
         The first for-loop spawns the threads which execute theta, so theta is executed in parallel. The second loop waits for all theta executions
         to terminate (either normally or abnormally).
-        
-        In case :program:`theta` exists with a failure, a RuntimeException will be thrown. This is done by
-        this method in case `in_background_thread = False`. In case of `in_background_thread = True`, the exception
-        will be raised in :meth:`Run.wait_for_result_availble`.
         """
         check_cache = options.getboolean('global', 'check_cache')
         if check_cache: self._check_cache(options)
@@ -730,27 +734,15 @@ class MainBase(ModuleBase, DbResult):
             self.thread.start()
         else:
             to_execute()
-            self._cleanup_exec()
-
-    def get_result_available(self):
-        """
-        return whether the result is available, either after check_cache, or after run_theta in a background thread.
-        
-        Will call :meth:`Run.wait_for_result_available` in case theta was executed in a in the background thread; this
-        can lead ot an exception, see :meth:`Run.wait_for_result_available`.
-        """
-        if self.thread is not None:
-            if not self.thread.is_alive():
-                # do the cleanup
-                self.wait_for_result_available()
-        return self.result_available
-    
+            self._cleanup_exec()    
     
     def wait_for_result_available(self):
         """
-        This method is only useful after calling run_theta(in_background_thread = True)
+        Waits untils :program:`theta` execution terminates.
         
-        can throw an exception in case the thread exited with an exception
+        This method is only useful after calling :meth:`run_theta` with the parameter ``in_background_thread = True``.
+        
+        Throws and exception in case :program:`theta`  exited with an error.
         """
         if self.result_available: return
         if self.thread is None: return
@@ -761,8 +753,19 @@ class MainBase(ModuleBase, DbResult):
 class Run(MainBase):
     def __init__(self, model, signal_processes, signal_prior, input, n, producers, nuisance_prior_toys = None, seed = None):
         """
-        signal_prior can be a string or a dictionary.
-        `input` is a string (toys:XXX, toy-asimov:XXX, ...), see DataSource for documentation
+        Note that you usually do not need to construct instances of this class directly. Rather, construct them via
+        methods such as :meth:`deltanll` using the parameter ``run_theta = False`` which will give you a list of properly
+        configured ``Run`` instances.
+        
+        Parameters:
+        
+         * ``model`` - the statistical model, a :class:`Model` instance
+         * ``signal_processes`` - a list of strings, the processes to be considered as signal: they will be scaled together with the parameter ``beta_signal``
+         * ``producers`` - a list of producers to run, of class :class:`ProducerBase`. This corresponds to C++ plugins of type ``Producer`` in theta.
+         * ``nuisance_prior_toy`` - the nuisance parameter prior to use for toy data generation. Either a :class:`Distribution` instance or ``None`` is use ``model.distribution``
+         * ``seed`` - the random seed for toy data generation. Set to ``None`` to use a different seed for each :program:`theta` execution
+         
+        For ``signal_prior``, ``input``, ``n``, see :ref:`common_parameters`.
         """
         fragment = ''.join([p.name for p in producers]) + '-' + input + ''.join(signal_processes)
         MainBase.__init__(self, fragment)
@@ -827,7 +830,7 @@ class ClsMain(MainBase):
         self.add_submodule(self.minimizer)
         
     def set_cls_options(self, **args):
-        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit', 'frequentist_bootstrapping', 'write_debuglog', 'input_expected']
+        allowed_keys = ['ts_column', 'expected_bands', 'clb_cutoff', 'tol_cls', 'truth_max', 'reltol_limit', 'frequentist_bootstrapping', 'input_expected']
         for k in allowed_keys:
             if k in args:
                 self.cls_options[k] = args[k]
@@ -844,7 +847,7 @@ class ClsMain(MainBase):
             'clb_cutoff': self.cls_options.get('clb_cutoff', 0.02), 'model': '@model',
             'debuglog': '@debuglog_name', 'rnd_gen': {'seed': seed }, 'ts_column': self.cls_options['ts_column'],
             'minimizer': self.minimizer.get_cfg(options), 'expected_bands': self.cls_options.get('expected_bands', 2000)}
-        if not self.cls_options.get('write_debuglog', True): del main['debuglog']
+        if not options.getboolean('cls_limits', 'write_debuglog'): del main['debuglog']
         if self.cls_options.get('frequentist_bootstrapping', False):  main['nuisancevalues-for-toys'] = 'datafit'
         if 'truth_max' in self.cls_options: main['truth_max'] = float(self.cls_options['truth_max'])
         if 'reltol_limit' in self.cls_options: main['reltol_limit'] = float(self.cls_options['reltol_limit'])
