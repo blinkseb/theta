@@ -767,7 +767,7 @@ class Run(MainBase):
          
         For ``signal_prior``, ``input``, ``n``, see :ref:`common_parameters`.
         """
-        fragment = ''.join([p.name for p in producers]) + '-' + input + ''.join(signal_processes)
+        fragment = ''.join([p.name for p in producers]) + '-' + input + '-' + ''.join(signal_processes)
         MainBase.__init__(self, fragment)
         self.model = model
         self.signal_processes = signal_processes
