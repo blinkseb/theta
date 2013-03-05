@@ -57,7 +57,7 @@ Setting::Setting(std::auto_ptr<SettingImplementation> & impl_root_, const boost:
 }
 
 Setting::operator bool() const{
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     try{
         return *impl_this;
     }
@@ -67,7 +67,7 @@ Setting::operator bool() const{
 }
 
 Setting::operator std::string() const{
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     try{
         return *impl_this;
     }
@@ -77,7 +77,7 @@ Setting::operator std::string() const{
 }
 
 Setting::operator long int() const{
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     try{
         return *impl_this;
     }
@@ -87,7 +87,7 @@ Setting::operator long int() const{
 }
 
 Setting::operator int() const{
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     try{
         long int res = static_cast<long int>(*impl_this);
         if(res > numeric_limits<long int>::max()){
@@ -101,7 +101,7 @@ Setting::operator int() const{
 }
 
 Setting::operator unsigned int() const{
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     try{
         long int res = static_cast<long int>(*impl_this);
         if(res > numeric_limits<unsigned int>::max() || res < 0){
@@ -115,7 +115,7 @@ Setting::operator unsigned int() const{
 }
 
 Setting::operator double() const{
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     try{
         return *impl_this;
     }
@@ -125,7 +125,7 @@ Setting::operator double() const{
 }
 
 double Setting::get_double_or_inf() const {
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     if(get_type()==TypeFloat) return *this;
     string infstring = *this;
     if(infstring == "inf" || infstring == "+inf") return numeric_limits<double>::infinity();
@@ -134,7 +134,7 @@ double Setting::get_double_or_inf() const {
 }
 
 size_t Setting::size() const{
-    rec->markAsUsed(get_path());
+    if(rec)rec->markAsUsed(get_path());
     return impl_this->size();
 }
 
@@ -162,7 +162,7 @@ Setting Setting::resolve_link(const SettingImplementation * setting, const Setti
             link.erase(0, 1);
             next_path = link;
             //mark any intermediate link as used:
-            rec->markAsUsed(s->get_path());
+            if(rec)rec->markAsUsed(s->get_path());
         }
     }
     catch(Exception & ex){
@@ -179,7 +179,7 @@ Setting Setting::resolve_link(const SettingImplementation * setting, const Setti
 
 Setting Setting::operator[](int i) const{
     try{
-        rec->markAsUsed(get_path());
+        if(rec)rec->markAsUsed(get_path());
         return Setting::resolve_link(&((*impl_this)[i]), impl_root, rec);
     }
     catch(const Exception & ex){
@@ -188,31 +188,31 @@ Setting Setting::operator[](int i) const{
         throw ConfigurationException(format_error(*this, ss.str(), ex.message));
     }
     catch(std::exception & ex){
-		stringstream ss;
-		ss << "[" << i << "]";
-		throw ConfigurationException(format_error(*this, ss.str(), ex.what()));
-	}
+        stringstream ss;
+        ss << "[" << i << "]";
+        throw ConfigurationException(format_error(*this, ss.str(), ex.what()));
+    }
     catch(...){
-    	stringstream ss;
-		ss << "[" << i << "]";
-		throw ConfigurationException(format_error(*this, ss.str(), "unknown exception"));
+        stringstream ss;
+        ss << "[" << i << "]";
+        throw ConfigurationException(format_error(*this, ss.str(), "unknown exception"));
     }
 }
 
 Setting Setting::operator[](const std::string & name) const{
     try{
-        rec->markAsUsed(get_path());
+        if(rec)rec->markAsUsed(get_path());
         return Setting::resolve_link(&((*impl_this)[name]), impl_root, rec);
     }
     catch(const Exception & ex){
         throw ConfigurationException(format_error(*this, name, ex.message));
     }
     catch(std::exception & ex){
-		throw ConfigurationException(format_error(*this, name, ex.what()));
-	}
-	catch(...){
-		throw ConfigurationException(format_error(*this, name, "unknown exception"));
-	}
+        throw ConfigurationException(format_error(*this, name, ex.what()));
+    }
+    catch(...){
+        throw ConfigurationException(format_error(*this, name, "unknown exception"));
+    }
 }
 
 bool Setting::exists(const std::string & path) const{

@@ -727,6 +727,7 @@ class MainBase(ModuleBase, DbResult):
         info("Running 'theta %s'" % cfgfile)
         cmd = theta + " " + cfgfile
         if self.debug: cmd += " --print-time"
+        else: cmd += " --nowarn"
         to_execute = lambda : self._exec(cmd)
         if in_background_thread:
             assert self.thread is None

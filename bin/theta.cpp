@@ -139,9 +139,9 @@ std::string read_file(const string & fname){
 
 boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_time){
     boost::optional<Setting> root;
-    boost::shared_ptr<SettingUsageRecorder> rec(new SettingUsageRecorder());
+    boost::shared_ptr<SettingUsageRecorder> rec;
+    if(not nowarn) rec.reset(new SettingUsageRecorder());
     boost::shared_ptr<Main> main;
-    bool init_complete = false;
     #ifdef USE_TIMER
     std::auto_ptr<boost::timer::cpu_timer> timer;
     #endif
@@ -200,7 +200,6 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
         apply_vm_settings(config);
         //build run:
         main = PluginManager<Main>::build(Configuration(config, (*root)["main"]));
-        init_complete = true;
         #ifdef USE_TIMER
         if(print_time){
             theta::out << timer->format(4, "Time to construct object tree from configuration: %w sec real, %t sec CPU") << endl;
@@ -210,12 +209,10 @@ boost::shared_ptr<Main> build_main(string cfg_filename, bool nowarn, bool print_
     catch (Exception & e) {
         theta::err << "Error: " << e.what() << endl;
     }
-    if(not init_complete){
-        main.reset();
+    if(not main.get()){
         return main;
-    }
-    
-    if(not nowarn){
+    }    
+    if(rec){
         vector<string> unused;
         rec->get_unused(unused, *root);
         if (unused.size() > 0) {

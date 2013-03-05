@@ -237,7 +237,7 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
         chi2s.sort()
         index = -int(len(chi2s) * chi2_trunc)
         if index == 0: chi2_threshols = float("inf")
-        else: chi2_threshold = chi2s[-index]
+        else: chi2_threshold = chi2s[index]
     if debug_method is not None: debug_method('expected', ts_sorted)
     expected = (ts_sorted[int(0.5 * len(ts_sorted))], ts_sorted[int(0.16 * len(ts_sorted))], ts_sorted[int(0.84 * len(ts_sorted))])
     del ts_sorted
