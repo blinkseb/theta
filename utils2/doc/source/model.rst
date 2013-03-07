@@ -11,7 +11,6 @@ usually used to build new :class:`Model`\ s.
 
 .. _what_is_signal:
 
-===========================
 Specifying what is 'signal'
 ===========================
 
@@ -53,7 +52,6 @@ in the return value of the method. They should not contain any spaces other othe
 
 .. module:: theta_auto
 
-
   
 Building Models
 ===============
@@ -65,17 +63,27 @@ want to use one of the two methods documented here.
 .. autofunction:: theta_auto.higgs_datacard.build_model
 
 
+Evaluating the model prediction
+===============================
+
+For displaying the result of a fit, it is useful to evaluate the model prediction at the fitted value, or -- more generally -- for
+a given set of model parameters. This can be done with the function :meth:`evaluate_prediction`. See :ref:`examples_mle_evaluate` for a
+complete example of how to use this function.
+
+.. autofunction:: evaluate_prediction
+
+
 The Model class
 ===============
 
 .. autoclass:: Model
   :members:
   
-The Distribution class
-======================
 
 The Histogram class
 ===================
+
+.. autofunction:: write_histograms_to_rootfile
 
 .. autoclass:: Histogram
    :members:
@@ -85,12 +93,4 @@ The HistogramFunction class
 
 
 .. autoclass:: HistogramFunction
-  :members:
-
-
-The Function class
-==================
-
-
-.. autoclass: Function
   :members:

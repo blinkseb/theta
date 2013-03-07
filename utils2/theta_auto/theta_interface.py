@@ -309,6 +309,18 @@ class PosteriorProducer(ProducerBase):
             result['histo_%s' % p] = {'range': [xmin, xmax], 'nbins': nbins}
         result.update(self.get_cfg_base(options))
         return result
+    
+class MCMCMeanPredictionProducer(ProducerBase):
+    def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'mp', iterations = 10000):
+        ProducerBase.__init__(self, model, signal_processes, override_distribution, name, signal_prior)
+        self.iterations = iterations
+        self.observables = sorted(list(model.get_observables()))
+        
+    def get_cfg(self, options):
+        result = {'type': 'mcmc_mean_prediction', 'iterations': self.iterations, 'observables': self.observables}
+        result.update(self.get_cfg_base(options))
+        return result
+    
 
 
 class PDWriter(ProducerBase):
@@ -892,11 +904,16 @@ class AsymptoticClsMain(MainBase):
 
 
 # create a Histogram instance from the blob data in a sqlite db
-def histogram_from_dbblob(blob_data):
+def histogram_from_dbblob(blob_data, blob_uncertainties = None):
     a = array.array('d')
     a.fromstring(blob_data)
-    return Histogram(xmin = a[0], xmax = a[1], values = a[3:-1])
-    
+    uncs = None
+    if blob_uncertainties is not None:
+        a_uncs = array.array('d')
+        a_uncs.fromstring(blob_uncertainties)
+        uncs = a_uncs[3:-1]
+    return Histogram(xmin = a[0], xmax = a[1], values = a[3:-1], uncertainties = uncs)
+
 def matrix_from_dbblob(blob_data):
     n = int(math.sqrt(len(blob_data) / 8 - 4) + 0.4)
     assert (n*n + 4) * 8 == len(blob_data)

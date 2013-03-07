@@ -155,9 +155,8 @@ public:
     }
 
     /** \brief Add weight to the bin corresponding to xvalue
-     *
-     * In case of xvalue &lt; xmin, \c weigt is added to the underflow bin 0.
-     * If xvalue &gt; xmax, \c weight is added to bin nbins+1.
+     * 
+     * filling xvalues outside of the range will have no effect.
      */
     void fill(double xvalue, double weight);
 

@@ -5,14 +5,19 @@ import array
 import utils
 
 
-# par_values is a dictionary (parameter name) --> (floating point value)
-#
-# If "beta_signal" is in par_values, it will be included as factor for all signal processes. Otherwise,
-# it is not multiplied, effectively assuming beta_signal = 1.0.
-#
-# returns a dictionary
-# (observable name) --> (process name) --> (histogram)
+
 def evaluate_prediction(model, par_values, include_signal = True, observables = None):
+    """
+    Get the model histograms, applying template morphing and scaling according to the given parameter values.
+    
+    * ``model`` is the :class:`Model` you want to evlaute
+    * ``par_values`` is a dictionary with the parameter names as key and the parameter values as dictionary values
+    * ``include_signal`` - if ``True``, all signal processes are included as well. Note that this requires a parameter value "beta_signal" in ``par_values``
+    * ``observables`` - is a list of observables (=channels) to include. The default value ``None`` includes all observables in the model.
+    
+    The return value is a nested dictionary with the observable name as first-level key, the process name as the second level key.
+    You can pass the result to :meth:`write_histograms_to_rootfile` to write these to a root file.
+    """
     result = {}
     if observables is None: observables = model.get_observables()
     for obs in observables:

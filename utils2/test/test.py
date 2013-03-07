@@ -130,6 +130,19 @@ class TestBayes(unittest.TestCase):
         quants1 = sorted(res1['s'][0.95])
         #print "real time elapsed: ", time0, time1
         #print "expected limits: ", quants0[len(quants0) / 2], quants1[len(quants1) / 2]
+        
+        
+    def test_bayesian_posterior_model_prediction(self):
+        res = bayesian_posterior_model_prediction(self.model, 'data', 10)
+        self.assertTrue(len(res)==1)
+        self.assertTrue(len(res['s']['obs'])==10)
+        values = res['s']['obs'][0].get_values()
+        uncs = res['s']['obs'][0].get_uncertainties()
+        self.assertTrue(len(values)==1)
+        self.assertTrue(len(uncs)==1)
+        self.assertTrue(values[0] < 15.0 and values[0] > 10.0)
+        self.assertTrue(uncs[0] < 5.0 and uncs[0] > 0.0)
+        
 
         
 class TestRootModel(unittest.TestCase):
@@ -236,15 +249,14 @@ class MCMCHighdimtest(unittest.TestCase):
         # less than 4sigma effect:
         self.assertTrue(abs(m) / w * math.sqrt(len(res[''])) < 4.0)
         
-
 suite1 = unittest.TestLoader().loadTestsFromTestCase(TestMle)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(TestBB)
 suite3 = unittest.TestLoader().loadTestsFromTestCase(TestRootModel)
-suite4 = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
+bayes = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
 mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
-#alltests = unittest.TestSuite([cls])
-alltests = unittest.TestSuite([suite1, suite2, suite3, suite4, mcmc, cls])
+#alltests = unittest.TestSuite([bayes])
+alltests = unittest.TestSuite([suite1, suite2, suite3, bayes, mcmc, cls])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)

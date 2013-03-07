@@ -131,3 +131,43 @@ def bayesian_posteriors(model, input, n, histogram_specs, signal_process_groups 
         for i, p in enumerate(parameters): result[spid][p] = map(histogram_from_dbblob, res[colnames[i]])
     return result
 
+
+
+def bayesian_posterior_model_prediction(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None, iterations = 10000):
+    """
+    Get the mean and standard deviation of the predicted Poisson mean in each bin while running a Markov-Chain.
+    This can be seen as the "posterior model prediction".
+    
+    While running the Markov Chain, the model prediction in each bin is eavlauted. From the complete Markov-Chain, the mean and standard deviation
+    in each bin is calculated and returned.
+    
+    See :ref:`common_parameters` for an explanation of the parameters of this method.
+    
+    The return value is a nested dictionary:
+    
+    * The first key is the signal process group id.
+    * The second key is the observable name.
+    
+    The value is a list of ``n`` :class:`Histogram` instances with the values set to the mean and the uncertainties set to the standard deviation.
+    
+    .. note:: The posterior across different bins is correlated, but this correlation is not reported. There is currently no way to get these correlations. You should therefore
+     not use the result for further statistical evaluation; it is only suitable for displaying the result.
+     
+    .. note:: The model prediction is evaluated at the current parameter values for each Markov Chain element, but without considering the minimization in the
+      extra parameters in case of using the Barlow-Beeston light method for handling Monte-Carlo statistical uncertainties.
+    """
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    result = {}
+    observables = model.get_observables()
+    colnames = ['mp__%s_mean' % s for s in observables] + ['mp__%s_width' % s for s in observables]
+    for spid, signal_processes in signal_process_groups.iteritems():
+        r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
+             producers = [MCMCMeanPredictionProducer(model, signal_processes, nuisance_constraint, signal_prior = signal_prior, iterations = iterations)],
+             nuisance_prior_toys = nuisance_prior_toys)
+        r.run_theta(options)
+        res = r.get_products(colnames)
+        result[spid] = {}
+        for o in observables:
+            result[spid][o] = [histogram_from_dbblob(v,u) for v,u in zip(res['mp__%s_mean' % o], res['mp__%s_width' % o])]
+    return result

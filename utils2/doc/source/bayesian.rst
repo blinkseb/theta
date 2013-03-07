@@ -15,3 +15,5 @@ TODO: intro
 .. autofunction:: bayesian_limits
 
 .. autofunction:: bayesian_posteriors
+
+.. autofunction:: bayesian_posterior_model_prediction

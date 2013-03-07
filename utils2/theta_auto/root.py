@@ -82,8 +82,8 @@ def write_histograms_to_rootfile(histograms, rootfilename):
     """
     Parameters:
     
-    * ``histograms`` - a dictionary with strings as key name and :class:`Histogram`s as value; nested dictionaries are allowed
-    * ``rootfilename`` - the filename of the root file to create. Will be overwritten if it already exists!
+     * ``histograms`` - a dictionary with strings as key name and :class:`Histogram` s as value; nested dictionaries are allowed
+     * ``rootfilename`` - the filename of the root file to create. Will be overwritten if it already exists.
     
     Note that the name of the TH1Ds in the output root file is constructed via the key names in the dictionary: the
     key name is given by concatenating all key names required to retrive the histogram in the ``histograms`` parameter,

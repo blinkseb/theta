@@ -36,3 +36,6 @@ OPTIONS_LDFLAGS_EXE :=
 # the value given here.
 OPTIONS_GENERIC_ARCH := no
 
+# allow inclusion of (not svn-versioned) local override:
+-include Makefile.options.local
+
