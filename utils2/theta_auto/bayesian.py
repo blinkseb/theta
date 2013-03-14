@@ -138,7 +138,7 @@ def bayesian_posterior_model_prediction(model, input, n, signal_process_groups =
     Get the mean and standard deviation of the predicted Poisson mean in each bin while running a Markov-Chain.
     This can be seen as the "posterior model prediction".
     
-    While running the Markov Chain, the model prediction in each bin is eavlauted. From the complete Markov-Chain, the mean and standard deviation
+    While running the Markov Chain, the model prediction in each bin is evaluated. From the complete Markov-Chain, the mean and standard deviation
     in each bin is calculated and returned.
     
     See :ref:`common_parameters` for an explanation of the parameters of this method.

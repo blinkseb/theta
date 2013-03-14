@@ -4,6 +4,27 @@
 Introduction
 ************
 
+
+theta architecture
+==================
+
+``theta`` consists of several components, some of which can be used independently. The most important core component is the
+:program:`theta` main program, written in C++. It implements the actual statistical methods, the model, etc. but lacks
+higher-level functions to display and interpret the result. Such functions are implemented in a set of python script
+called *theta-auto*.
+
+Consequently, ``theta`` can be used in different ways, or different *layers*:
+ #. The *plugin layer*: extending the theta functionality with plugins -- such as adding new template morphing implementation, or adding new statistical methods
+ #. The *cfg-file layer*: the main theta program written in C++ operates on text-based configuration files which specify the statistical model and the statistical methods to run. The configuration file format is relatively simple, but the configuration tends to becomes very large for more complex models.
+ #. The *theta-auto layer*: `theta-auto` is a set of python scripts which automatize the task of creating the configuration files for the *cfg-file layer* and also collect and display the result.
+
+In the order the layers were listed, the power and flexibility in general decreases, but the usability increases. 
+For most users, *theta-auto* is best suited, and it is recommended that new users start with *theta-auto*.
+
+The documentation on these pages only refer to *theta-auto*. See :ref:`doc_overview` for other sources of documentation, which cover
+the other layers.
+
+
 First example
 =============
 
@@ -171,7 +192,7 @@ value is then a list of length ``n`` which contains the result of each toy.
 Report object
 -------------
 
-As mentioed above, some methods do not just return a value, but they also write some summary into the ``report`` object. You
+As mentioned above, some methods do not just return a value, but they also write some summary into the ``report`` object. You
 can get the content of this report object as html with this line in your analysis.py script::
 
    report.write_html('htmlout')

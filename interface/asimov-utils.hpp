@@ -26,6 +26,15 @@ private:
     std::auto_ptr<NLLikelihood> nll;
 };
 
+/** \brief Get the Asimov dataset for the given model
+ * 
+ * \c values are parameter values to use to construct the dataset. The default for all parameters is to use the mode
+ *  of model.get_distribution(). Can be empty.
+ * 
+ * \c override_parameter_distribution is the alternative to model.get_distribution(). Can be a null pointer.
+ */
+Data asimov_dataset(const theta::Model & model, const ParValues & values, const boost::shared_ptr<Distribution> & override_parameter_distribution);
+
 
 /** \brief Calculate parameter widths from the asimov data for the given model
  *

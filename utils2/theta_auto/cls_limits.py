@@ -114,19 +114,26 @@ def debug_cls_plots(dbfile, ts_column = 'lr__nll_diff'):
     return pds
         
 
-def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, beta_signal_expected = 0.0, options = None):
+def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, beta_signal_expected = 0.0, bootstrap_model = True, options = None):
     """
     Calculate CLs limits using asymptotic formulae.
     
-    TODO: document options.
-
-    Note that the common options `signal_prior`, `nuisance_prior` are missing on purpose as the asymptotic method implemented
-    in theta only works for flat priors.
+    Options:
     
-    Just like `cls_limits`, the return value is a two-tuple (pd_expected, pd_observed) of plotutil.plotdata instances that contain the
+    * ``use_data`` - if ``True``, also calculate observed limit.
+    * ``beta_signal_expected`` - signal strength value to use to calculate the expected limit bands
+    * ``bootstrap_model`` - if this is set to ``True``  -- and ``use_data`` is ``True`` -- the parameter values are fitted to data first.
+
+    For ``signal_process_groups`` and ``options`` refer to :ref:`common_parameters`. Note that the common options ``signal_prior``, ``nuisance_prior``
+    are missing on purpose as the asymptotic method implemented in theta only works for flat priors.
+    
+    Just like :meth:`cls_limits`, the return value is a two-tuple (pd_expected, pd_observed) of plotutil.plotdata instances that contain the
     expected and observed limits.
     """
-    model = frequentist.frequentize_model(model)
+    if bootstrap_model and use_data:
+        model = frequentist.get_bootstrapped_model(model)
+    else:
+        model = frequentist.frequentize_model(model)
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     input = 'data' if use_data else None
@@ -158,21 +165,27 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
         pd_observed.y.append(limits[sp][5])
     return pd_expected, pd_observed
 
-
-## \brief Calculate CLs limits.
-#
-# Calculate expected and/or observed CLs limits for a given model. 'nuisance_prior' controls the nuisance
-# prior to be used in the likelihood definition.
-#
-# cls_options are the ones understood by theta_interface.ClsMain. Note, however, that some are overwritten by other options. In particular:
-# * expected_bands: number of toys to perform for the expected limits. Can be overridden by cls_options; default is 2000 in case expected limits are
-#   requested via 'what', otherwise 0 (ignoring cls_options).
-# * frequentist_bootstrapping is overwritten by the direct option
-#
-# returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the band) and the second the 'observed' limit
-# if 'what' is not 'all', one of the plotdata instances is replaced with None.
 def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_prior = None, frequentist_bootstrapping = False,
  cls_options = {}, seed = None, options = None):
+    """
+    Calculate CLs limits, based on toys.
+    
+    Options:
+    
+    * ``use_data`` - if ``True``, also calculate observed limits
+    * ``frequentist_bootstrapping`` - if ``True``, do a fit to data first and use the parameter values at the best fit for the toys.
+    * ``cls_options`` is a dictionary of CLs-specific options with the following keys:
+       * "expected_bands" - number of toys to make for the expected limit bands (default: 2000)
+       * "clb_cutoff" - the lowest allowed CLb value for the expected limit before giving up (default: 0.02)
+       * "reltol_limit" - relative accuracy for the CLs limit: More toys will be done until this accracy is reached (default: 0.05)
+       * "input_expected" - a input specification (see the discussion of the ``input`` parameter in :ref:`common_parameters`) to use for calculating the expected limit band. The default is "toys:0.0".
+    * ``seed`` is a random seed. The default value ``None`` uses a different seed each time.
+    
+    For the options ``signal_process_groups``, ``nuisance_prior`` and ``options`` refer to :ref:`common_parameters`.
+    
+    Returns a tuple of two plotutil.plotdata instances. The first contains expected limit (including the bands) and the second the 'observed' limit.
+    If ``use_data`` is ``False``, the second plotdata instance is ``None``.
+    """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     result = {}
@@ -182,10 +195,9 @@ def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_pr
     cls_options['ts_column'] = 'dnll__nll_diff'    
     input = 'data' if use_data else None
     
-    # Be sure to use the frequentist model. Note that frequentize_model is idempotent, so if
-    # this was already done for the parameter 'model', it does not really harm doing it again here.
-    if frequentist_bootstrapping: model = frequentist.frequentize_model(model)
-    
+    if frequentist_bootstrapping and use_data:
+        model = frequentist.get_bootstrapped_model(model)
+        
     # dictionaries from spid to
     # * tuple (limit, uncertainty) for observed
     # * list of limit for expected

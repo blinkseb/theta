@@ -550,7 +550,7 @@ class Function:
 
 class Histogram(object, utils.Copyable):
     """
-    This class stores the x range and 1D data, and optionallt the (MC stat.) uncertainties. Its main
+    This class stores the x range and 1D data, and optionally bin-by-bin uncertainties. Its main
     use is in :class:`HistogramFunction` and as data histograms in :class:`Model`.
     
     Histograms are immutable: methods such as `scale` return the new Histogram instead of modifying
@@ -619,32 +619,65 @@ class Histogram(object, utils.Copyable):
         if self.uncertainties is None: return None
         return math.sqrt(sum([x**2 for x in self.uncertainties]))
         
-    def get_xmin(self): return self.xmin
-    def get_xmax(self): return self.xmax
-    def get_nbins(self): return len(self.values)
+    def get_xmin(self):
+        """
+        Get the lower end of the histogram range
+        """
+        return self.xmin
+    
+    def get_xmax(self):
+        """
+        Get the upper end of the histogram range
+        """
+        return self.xmax
+    
+    def get_nbins(self):
+        """
+        Get the number of bins. Same as ``len(self.get_values())``
+        """
+        return len(self.values)
     
     def get_x_low(self, ibin):
+        """
+        Get the low end of the bin number ``ibin``. Bins are numberes from ``0`` to ``get_nbins-1``.
+        """
         if self.x_low is not None: return self.x_low[ibin]
         else: return self.xmin + (self.xmax - self.xmin) / len(self.values) * ibin        
     
     def get_cfg(self, include_error = True):
+        """
+        Get a dictionary representing a HistogramFunction configuration for theta.
+        """
         result = {'type': 'direct_data_histo', 'range': [self.xmin, self.xmax], 'nbins': len(self.values), 'data': self.values}
         if self.uncertainties is not None and include_error: result['uncertainties'] = self.uncertainties
         return result
     
-    def get_name(self): return self.name
+    def get_name(self):
+        """
+        Get the name of the histogram
+        """
+        return self.name
     
     def strip_uncertainties(self):
+        """
+        Get a copy of the Histogram without uncertainties.
+        """
         h = Histogram(self.xmin, self.xmax, self.values, None, self.name, x_low = self.x_low)
         return h
     
     def scale(self, factor, new_name = None):
+        """
+        Scale the histogram by the given factor ``factor``; optionally setting a new hitsogram name.
+        """
         uncs = None if self.uncertainties is None else array.array('d', [v * abs(factor) for v in self.uncertainties])
         h = Histogram(self.xmin, self.xmax, array.array('d', [v * factor for v in self.values]), uncs, new_name, x_low = self.x_low)
         return h
         
     # calculate self + coeff * other_h and return the result as new Histogram (does not modify self).
     def add(self, coeff, other_h):
+        """
+        Calculate ``self + coeff * other_h`` and returns the resulting histogram. Uncertainties are propagated.
+        """
         assert self.is_compatible(other_h)
         result = Histogram(self.xmin, self.xmax, self.values[:], x_low = self.x_low)
         for i in range(len(self.values)):
@@ -659,6 +692,9 @@ class Histogram(object, utils.Copyable):
         
 
     def rebin(self, rebin_factor, new_name = None):
+        """
+        Return a rebinned histogram. Assumes that the uncertainties in different bins are uncorrelated.
+        """
         if len(self.values) % rebin_factor != 0: raise RuntimeError, "tried to rebin %d bins with factor %d" % (len(self.values), rebin_factor)
         newlen = len(self.values) / rebin_factor
         new_vals = array.array('d', [0.0] * newlen)

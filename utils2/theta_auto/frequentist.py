@@ -3,6 +3,7 @@
 # This file contains statistical method connected to frequentist inference, such as p-values via toys, etc.
 
 from theta_interface import *
+from likelihood import mle
 import bisect
 
 
@@ -29,7 +30,23 @@ def frequentize_model(model):
         result.data_rvobsvalues[rvobs] = prior_nuisance['mean'] # usually 0.0
     return result
     
-    
+
+def get_bootstrapped_model(model):
+    """
+    Return a new :class:`theta_auto.Model` instance in which the data values for the global
+    observables are set to the best fit values for data.
+    """
+    model_freq = frequentize_model(model)
+    pars = model_freq.get_parameters([])
+    res = mle(model_freq, 'data', 1, signal_process_groups = {'': []})
+    par_values = {}
+    for p in pars:
+        par_values[p] = res[''][p][0][0]
+    for p in pars:
+        model_freq.distribution.set_distribution_parameters(p, mean = par_values[p])
+    return model_freq
+
+
     
 def make_data(model, input, n, signal_process_groups = None, nuisance_prior_toys = None, options = None, seed = None):
     """

@@ -6,26 +6,26 @@ from Model import *
 import plotutil
 import utils
 
-
-# model_summary is the only 'main' method of this file meant to be used from analysis.py; the other functions are just helpers.
-#
-#
-# create (in config.report) a section which summarizes the rates of the model, etc.
-# If create_plots is True, also create stack plots with nominal templates and template comparison plots.
-# If in addition to create_plots, 'all_nominal_plots' is also true, all nominal processes will be plottet separately. This is switched
-#   off by default as there usually are a lot of nominal processes.
-#
-#  lnmode is either 'sym' or '1sigma'. '1sigma' will report the yield changes at +-1sigma in the table which means that
-# a lognormal uncertainty configured via Model.ad_lognormal_uncertainty will be asymmetric. However, it actually reflects the yield
-# change if moving to +1sigma or to -1sigma.
-# Setting lnmode to 'sym' will report the uncertainty as symmetric if the lognormal is actually a plain lognormal without different lambdas
-# (lognormals are implemented as factors exp(lambda * u) where u is the nuisance parameter around 0 with sigma=1).
-# 
-#
-# Returns a dictionary containing instances of Report.table:
-# * 'rate_table' the rate table
-# * 'sysrate_tables' --> (observable name): the systematics table for the given observable
 def model_summary(model, create_plots = True, all_nominal_templates = False, shape_templates = False, lnmode = '1sigma'):
+    """
+    Write a html summary of the statistical model to the ``report`` object (see :ref:`report`).
+    
+    Parameters:
+    
+    * ``model`` - the statistical model to summarize
+    * ``create_plots`` - if ``True``, create plots. Otehrwise, only create tables.
+    * ``all_nominal_templates`` - if ``True``, create a separate plot for each process in each observable
+    * ``shape_templates`` - if ``True``, create a plot with nominal/plus/minus templates for each triple (observable, process, uncertainty)
+    * ``lnmode`` specifies how rate uncertainties are reported in the rate table. "1sigma" reports the rate change at +-1sigma of the nuisance parameter. This reports
+      asymmetric uncertainties for uncertainties created with :meth:`Model.add_lognormal_uncertainty`. The alternative option "sym" reports the coefficient
+      used in :meth:`Model.add_lognormal_uncertainty`. 
+      
+    The main result of this method is in the global report object. However, it also returns some summary tables
+    as python object: The return value is a dictionary with two entries
+    
+    * 'rate_table' the rate table
+    * 'sysrate_tables'  is a dictionary with the observable name as key. For each observable, it is a table summarizing the rate change for each process.
+    """
     result = {}
     observables = sorted(list(model.observables))
     processes = sorted(list(model.processes))

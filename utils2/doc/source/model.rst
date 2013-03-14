@@ -63,6 +63,18 @@ want to use one of the two methods documented here.
 .. autofunction:: theta_auto.higgs_datacard.build_model
 
 
+
+Inspecting the Model
+====================
+
+After building the model, it is usually a good idea to check that the model actually contains the data you expect. For
+this purpose, the ``model_summary`` method can be used.
+
+.. autofunction:: model_summary
+
+
+
+
 Evaluating the model prediction
 ===============================
 
@@ -71,6 +83,9 @@ a given set of model parameters. This can be done with the function :meth:`evalu
 complete example of how to use this function.
 
 .. autofunction:: evaluate_prediction
+
+
+
 
 
 The Model class

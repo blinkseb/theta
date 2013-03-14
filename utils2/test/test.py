@@ -71,7 +71,9 @@ class TestCls(unittest.TestCase):
     def test_cls(self):
         exp, obs = cls_limits(self.model)
         
-        
+    def test_cls_freq(self):
+        exp, obs = cls_limits(self.model, frequentist_bootstrapping = True)
+
     def test_asymptotic_cls(self):
         exp, obs = asymptotic_cls_limits(self.model)
         print exp, obs
@@ -255,7 +257,7 @@ suite3 = unittest.TestLoader().loadTestsFromTestCase(TestRootModel)
 bayes = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
 mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
-#alltests = unittest.TestSuite([bayes])
+#alltests = unittest.TestSuite([cls])
 alltests = unittest.TestSuite([suite1, suite2, suite3, bayes, mcmc, cls])
 
 # verbose version:

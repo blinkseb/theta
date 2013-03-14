@@ -43,13 +43,12 @@ public:
         return widths.get(pid);
     }
 
-    // beta_toy is the value of mu assumed for toys (if there were toys). Thus is called mu' in the paper.
+    // beta_toy is the value of mu assumed for toys (if there were toys). This is called mu' in the paper.
     // beta_q is the value of mu in the test statistic calculation of q_mu-tilde
     double sigma(double beta_toy, double beta_q) const {
         ParValues start_(start);
         start_.set(pid, beta_toy);
-        Data asimov_data;
-        model.get_prediction(asimov_data, start_);
+        Data asimov_data = asimov_dataset(model, start_, boost::shared_ptr<Distribution>());
         std::auto_ptr<NLLikelihood> nll = model.get_nllikelihood(asimov_data);
         const double nll0 = (*nll)(start_);
         // restict poi to beta_q and fit:

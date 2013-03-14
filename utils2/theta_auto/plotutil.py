@@ -301,6 +301,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
             # if histo.yerrors is set, draw with errorbars, shifted by 1/2 binwidth ...
             if histo.yerrors is not None:
                 if histo.yerrors_mode.startswith('bars'):
+                    if histo.xmax is None: raise RuntimeError, "need xmax in histogram for y errors"
                     low_x = histo.x + [histo.xmax]
                     x_centers = [0.5 * (low_x[i] + low_x[i+1]) for i in range(len(histo.x))]
                     ys = histo.y
@@ -336,8 +337,12 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                     lw = histo.lw
                     if histo.draw_line is False: lw = 0
                     ax.errorbar(histo.x, histo.y, histo.yerrors, elinewidth = histo.lw, lw=lw, label=histo.legend, color=histo.color, marker=histo.marker, markersize=histo.markersize)                    
+                elif histo.yerrors_mode == 'area':
+                    y_high = [y + yerror for (y, yerror) in zip(histo.y, histo.yerrors)]
+                    y_low = [y - yerror for (y, yerror) in zip(histo.y, histo.yerrors)]
+                    ax.fill_between(histo.x, y_high, y_low, lw = histo.lw, color = histo.color, facecolor = histo.fill_color, alpha = histo.yerrors_fill_alpha)
                 else:
-                    raise RuntimeError, "yerrors_mode!='bars' for as_function=True not supported!"
+                    raise RuntimeError, "yerrors_mode='%s' for as_function=True not supported!" % histo.yerrors_mode
             else:
                 if histo.fill_color is not None:
                     ax.fill_between(histo.x, histo.y, [histo.fill_to_y] * len(histo.y), lw=histo.lw, label=histo.legend, color=histo.color, facecolor = histo.fill_color)

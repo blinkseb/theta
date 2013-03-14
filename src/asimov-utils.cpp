@@ -11,22 +11,28 @@ using namespace theta;
 using namespace std;
 
 
-/* asimov_data_nll */
-asimov_data_nll::asimov_data_nll(const theta::Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution){
+Data theta::asimov_dataset(const theta::Model & model, const ParValues & values, const boost::shared_ptr<Distribution> & override_parameter_distribution){
+    Data asimov_data;
     const Distribution & dist = override_parameter_distribution.get()? *override_parameter_distribution: model.get_parameter_distribution();
     ParIds parameters = model.get_parameters();
-    ParValues mode;
-    dist.mode(mode);
-    model.get_prediction(asimov_data, mode);
-    
+    ParValues vals;
+    dist.mode(vals);
+    vals.set(values);
+    model.get_prediction(asimov_data, vals);
     const Distribution * rvobs_dist = model.get_rvobservable_distribution();
     if(rvobs_dist){
-        rvobs_dist->mode(mode);
-        asimov_data.set_rvobs_values(ParValues(mode, model.get_rvobservables()));
+        rvobs_dist->mode(vals);
+        asimov_data.set_rvobs_values(ParValues(vals, model.get_rvobservables()));
     }
+    return asimov_data;
+}
+
+
+/* asimov_data_nll */
+asimov_data_nll::asimov_data_nll(const theta::Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution){
+    asimov_data = asimov_dataset(model, ParValues(), override_parameter_distribution);
     nll = model.get_nllikelihood(asimov_data);
     nll->set_override_distribution(override_parameter_distribution);
-    theta_assert(dist.get_parameters() == parameters);
     par_ids = nll->get_parameters();
 }
 
