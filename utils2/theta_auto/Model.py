@@ -57,8 +57,7 @@ class Model(utils.Copyable):
     about the prior of the nuisance parameters.
     
     Usually, a Model instance is not constructed directly but rather via the methods :func:`build_model_from_rootfile`
-    or :func:`higgs_datacard.build_model`. In general, the model should be manipulated through the methods of the Model class.
-    However, it can become necessary to manipulate the instance vairables directly.
+    or :func:`higgs_datacard.build_model`.
     """
     
     def __init__(self):
@@ -403,6 +402,12 @@ class Model(utils.Copyable):
         if len(signal_processes) > 0: result.add('beta_signal')
         if self.additional_nll_term is not None:
             result.update(self.additional_nll_term.get_parameters())
+        # also include mean values of rvobs:
+        rvobs_means = self.rvobs_distribution.get_means().values()
+        for m in rvobs_means:
+            if type(m)==float: continue
+            assert type(m)==str
+            result.add(m)
         return result
     
     # returns two sets: the rate and shape changing parameters (can overlap!)
@@ -957,7 +962,7 @@ class Distribution:
         set_parameters.discard('beta_signal')
         set_self_parameters = set(self.distributions.keys())
         assert set_parameters.issubset(set_self_parameters), "Requested more parameters than distribution" + \
-             " defined for: requested %s, got %s (too much: %s)" % (set_parameters, set_self_parameters, set_parameters.difference(set_self_parameters))
+             " defined for: requested %s,\n got %s\n (too much: %s)" % (set_parameters, set_self_parameters, set_parameters.difference(set_self_parameters))
         for p in self.distributions:
             if p not in parameters: continue
             d = self.distributions[p]

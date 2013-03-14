@@ -7,10 +7,12 @@ Common Parameters
 Many python methods in ``theta-auto`` have similar arguments:
  * ``model`` is  the statistical model to use; it should be a Model instance.
  * ``input`` is a string specifying on which (toy-)data a method should be run on. This is a string which is either
-   - "data" to run on real data
-   - "toys:X" where X is a floating point value. This uses toy data as input where beta_signal is set to X. Nuisance parameters are sampled according to their priors, using ``model.distribution``, possible overridden by ``nuisance_prior_toys`` (see below)
-   - "toys-asimov:X" where X is a floating point value. This uses asimov toy data (i.e., toy data without Poisson smearing) where beta_signal is set to X. Nuisance parameters are fixed to the mean value from model.distribution (usually 0, but can be modified); this can be overridden by ``nuisance_prior_toys`` (see below)
-   - "replay-toys:P" where P is the path to a .db output file which contains pseudo data from an earlier theta run. This is usually only needed for special cases in which e.g., the model for toy data and for the actual evaluation are very different. The matching between the channels from these both models is string-based; the binning must be consistent in range and number of bins.
+ 
+   * "data" to run on real data
+   * "toys:X" where X is a floating point value. This uses toy data as input where the signal strength parameter beta_signal is set to X. Nuisance parameters are sampled according to their priors, using ``model.distribution``, possibly overridden by ``nuisance_prior_toys`` (see below)
+   * "toys-asimov:X" where X is a floating point value. This uses asimov toy data (i.e., toy data without Poisson smearing) where beta_signal is set to X. Nuisance parameters are fixed to the mean value from model.distribution (usually 0, but can be modified); this can be overridden by ``nuisance_prior_toys`` (see below)
+   * "replay-toys:P" where P is the path to a .db output file which contains pseudo data from an earlier theta run. This is usually only needed for special cases in which e.g., the model for toy data and for the actual evaluation are very different. The matching between the channels from these both models is string-based; the binning must be consistent in range and number of bins. See :meth:`theta_auto.make_data`.
+   
  * ``n`` is the number of 'toys' to perform:  :program:`theta` does ``n`` passes of (i) getting data from the data source according to ``input`` and (ii) running the statistical
    method on this toy dataset. For ``input="data"` or ``input="toys-asimov:X"`` and a deterministic statistical method, you usually want to set ``n = 1``.
    For input="toys:X" or in case the statistical method is not deterministic (e.g., Markov-Chain Monte-Carlo), it makes sense to set it

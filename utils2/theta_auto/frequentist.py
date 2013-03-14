@@ -27,15 +27,16 @@ def frequentize_model(model):
         rvobs = 'rvobs_%s' % p
         result.rvobs_distribution.set_distribution(rvobs, 'gauss', mean = p, width = prior_nuisance['width'], range = prior_nuisance['range'])
         result.distribution.set_distribution_parameters(p, width = inf)
-        result.data_rvobsvalues[rvobs] = prior_nuisance['mean'] # usually 0.0
+        result.data_rvobsvalues[rvobs] = float(prior_nuisance['mean']) # usually 0.0
     return result
     
 
 def get_bootstrapped_model(model):
     """
     Return a new :class:`theta_auto.Model` instance in which the data values for the global
-    observables are set to the best fit values for data.
+    observables are set to the best fit values from a background-only fit to data.
     """
+    print "Performing the bootstrapping"
     model_freq = frequentize_model(model)
     pars = model_freq.get_parameters([])
     res = mle(model_freq, 'data', 1, signal_process_groups = {'': []})
@@ -50,11 +51,12 @@ def get_bootstrapped_model(model):
     
 def make_data(model, input, n, signal_process_groups = None, nuisance_prior_toys = None, options = None, seed = None):
     """
-    Make toys data and save it to a file. This is useful to run different statistical models on the same data.
+    Make toys data and save it to a file. This is useful to run different statistical models on the exact same data or for completely
+    decoupling the model used for toys from the model used for statistical inference.
     
     Returns a dictionary with the signal process group id as key and the
     path to the .db file in which the toy data has been saved as value. This path
-    can be used as ``input`` argument to many methods.
+    can be used as ``input`` argument to many methods (see :ref:`common_parameters`).
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()

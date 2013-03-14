@@ -37,6 +37,7 @@ Contents
    frequentist
    cls
    bayesian
+   utility
    common-parameters
    examples
    low-level
