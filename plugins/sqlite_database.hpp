@@ -64,6 +64,8 @@ public:
     virtual std::auto_ptr<theta::Table> create_table(const std::string & table_name);
         
 private:
+    int maxcol_per_table; // maximum number of columns as supported by sqlite
+    
     /** Execute the sql string \c query.
      */
     void exec(const std::string & query);

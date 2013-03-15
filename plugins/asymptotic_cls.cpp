@@ -190,8 +190,8 @@ private:
 };
 
 
-// convenience function for
-ParId getpar(const Configuration & cfg, std:: string cfg_name){
+// convenience function for getting the ParId from the name in cfg_name in the current Setting cfg.setting
+ParId getpar(const Configuration & cfg, const std::string & cfg_name){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     return vm->get_par_id(cfg.setting[cfg_name]);
 }
@@ -219,6 +219,11 @@ double find_limit(double width, const FT & f, double xtol_rel){
 
 
 void asymptotic_cls::run(){
+    int total = quantiles_expected.size();
+    if(data.get()) ++total;
+    if(progress_listener){
+        progress_listener->progress(0, total, 0);
+    }
     // get mode, ranges and width:
     ParValues mode;
     model->get_parameter_distribution().mode(mode);
@@ -248,6 +253,9 @@ void asymptotic_cls::run(){
         r.set_column(c_q, quantiles_expected[i]);
         r.set_column(c_limit, limit);
         limits_table->add_row(r);
+        if(progress_listener){
+            progress_listener->progress(i, total, 0);
+        }
     }
     // the observed limit:
     if(data.get()){
@@ -258,6 +266,9 @@ void asymptotic_cls::run(){
         r.set_column(c_index, static_cast<int>(quantiles_expected.size()));
         r.set_column(c_limit, limit);
         limits_table->add_row(r);
+        if(progress_listener){
+            progress_listener->progress(total, total, 0);
+        }
     }
 }
 

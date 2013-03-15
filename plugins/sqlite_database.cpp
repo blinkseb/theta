@@ -49,6 +49,8 @@ sqlite_database::sqlite_database(const Configuration & cfg) :
         ss << "sqlite_database constructor failed (filename=\"" << filename << "\") with SQLITE code " << res;
         error(ss.str());//throws.
     }
+    maxcol_per_table = sqlite3_limit(db, SQLITE_LIMIT_COLUMN, -1); // default: 2000
+    maxcol_per_table = min(maxcol_per_table, sqlite3_limit(db, SQLITE_LIMIT_VARIABLE_NUMBER, -1)); // default: 999
     beginTransaction();
 }
 
@@ -152,15 +154,10 @@ Column sqlite_database::sqlite_table::add_column(const std::string & name, const
     return result;
 }
 
-namespace{
-  const int sqlite_maxcol_per_table = 999;   
-}
-
-
 void sqlite_database::sqlite_table::create_table(){
     map<Column, column_info>::const_iterator column_it = column_infos.begin();
-    int n_tables = column_infos.size() / sqlite_maxcol_per_table;
-    if(column_infos.size() % sqlite_maxcol_per_table > 0) ++n_tables;
+    int n_tables = column_infos.size() / db->maxcol_per_table;
+    if(column_infos.size() % db->maxcol_per_table > 0) ++n_tables;
     for(int itable=0; itable < n_tables; ++itable){
         stringstream ss_create_table, ss_insert;
         ss_create_table << "CREATE TABLE '" << name;
@@ -172,7 +169,7 @@ void sqlite_database::sqlite_table::create_table(){
         ss_create_table << "' (";
         ss_insert << "' (";
         int icol = 0;
-        for(; icol < sqlite_maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
+        for(; icol < db->maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
             if(icol > 0){
                 ss_create_table << ", ";
                 ss_insert << ", ";
@@ -218,7 +215,7 @@ void sqlite_database::sqlite_table::add_row(const Row & row){
     map<Column, column_info>::const_iterator column_it = column_infos.begin();
     for(size_t itable=0; itable < n_tables; ++itable){
         int icol = 0; // 0-based index of the column in the current table
-        for(; icol < sqlite_maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
+        for(; icol < db->maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
             if(column_it->second.type == typeDouble){
                 sqlite3_bind_double(insert_statements[itable], icol+1, row.get_column_double(column_it->first));
             }

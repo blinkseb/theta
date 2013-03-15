@@ -33,7 +33,8 @@
  * 
  * \c parameter is the parameter name to calculate the asymptotic CLs limits for.
  * 
- * \c cl is the confidence level of the limit to calculate
+ * \c cl is the confidence level of the limit to calculate. It has to be larger than 0.6 (the code assumes it to be larger than 0.5 at many places; 0.6
+ *    includes some safety margin.).
  * 
  * \c model is the statistical model
  * 
@@ -45,8 +46,8 @@
  * 
  * \c data is a DataSource specification for the observed data. If missing, no "observed" limit will be calculated.
  * 
- * \c quantiles_expected are the quantiles of the expected limit distribution to calculate. The default setting given above corresponds to computing
- *   the (typical) median, central 1sigma and central 2sigma intervals. All values must be &gt; 0 and &lt; 1. Can be set to an empty list
+ * \c quantiles_expected are the quantiles of the expected limit distribution to calculate. The default setting given above corresponds to the typical
+ *   configuration for the median, central 1sigma, and central 2sigma intervals. All values must be &gt; 0 and &lt; 1. Can be set to an empty list
  *   to suppress calculation of expected limits.
  * 
  * \c parameter_value_expected is the value of the \c parameter to be used for the expected limit calculation. The default of 0.0
@@ -56,6 +57,8 @@
  * "limits". This table contains three columns: "q" is the quantile as configured in \c quantiles_expected or 0.0 for the observed limit;
  * "limit" is the asymptotic limit; "index" is the 0-based index for \c quantiles_expected. The observed limit is the last, so its
  * index will be 5 for the default \c quantiles_expected.
+ * 
+ * The reported progress is the number of calculated asymptotic limits. If calculating both expected and observed limits, makes a total of 6.
  */
 class asymptotic_cls: public theta::Main{
 public:

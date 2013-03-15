@@ -31,7 +31,7 @@ def frequentize_model(model):
     return result
     
 
-def get_bootstrapped_model(model):
+def get_bootstrapped_model(model, options = None):
     """
     Return a new :class:`theta_auto.Model` instance in which the data values for the global
     observables are set to the best fit values from a background-only fit to data.
@@ -39,7 +39,7 @@ def get_bootstrapped_model(model):
     print "Performing the bootstrapping"
     model_freq = frequentize_model(model)
     pars = model_freq.get_parameters([])
-    res = mle(model_freq, 'data', 1, signal_process_groups = {'': []})
+    res = mle(model_freq, 'data', 1, with_error = False, signal_process_groups = {'': []}, options = options)
     par_values = {}
     for p in pars:
         par_values[p] = res[''][p][0][0]

@@ -130,12 +130,12 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
     Just like :meth:`cls_limits`, the return value is a two-tuple (pd_expected, pd_observed) of plotutil.plotdata instances that contain the
     expected and observed limits.
     """
-    if bootstrap_model and use_data:
-        model = frequentist.get_bootstrapped_model(model)
-    else:
-        model = frequentist.frequentize_model(model)
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
+    if bootstrap_model and use_data:
+        model = frequentist.get_bootstrapped_model(model, options = options)
+    else:
+        model = frequentist.frequentize_model(model)
     input = 'data' if use_data else None
     limits = {}
     for spid, signal_processes in signal_process_groups.iteritems():

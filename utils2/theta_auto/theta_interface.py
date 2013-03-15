@@ -584,8 +584,9 @@ class DbResult(object):
         all_tables = self._get_tables()
         tables = [table_name] + [t for t in all_tables if t.startswith(table_name + '__')]
         order_by_sql = ''
-        if len(all_tables) == 1:
-            if type(columns)!=str: column_sql = '"' + '", "'.join(columns) + '"'
+        if len(tables) == 1:
+            if type(columns)!=str:
+                columns_sql = '"' + '", "'.join(columns) + '"'
             else:
                 assert columns == '*'
                 columns_sql = '*'
@@ -596,7 +597,7 @@ class DbResult(object):
             # which is probably not worth the effort. The columns will be filtered below.
             columns_sql = '*'
             # order_by is not supported in this case:
-            if order_by: raise RuntimeError, "order_by not supported for large tables"
+            if order_by: raise RuntimeError, "order_by not supported for large tables (specified order_by='%s' for table='%s' matching actual sqlite tables %s)" %(order_by, table_name, str(tables))
         result = {}
         for table_name in tables:
             c = self._query('select %s from "%s"%s' % (columns_sql, table_name, order_by_sql))
