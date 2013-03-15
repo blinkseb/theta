@@ -138,8 +138,12 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
     if _debug:
         nominal_histogram_uoflow = rf.get_histogram(hname, include_uncertainties, include_uoflow = True)
         print "norm(%s) = %.3f;  %.3f" % (hname, nominal_histogram.get_value_sum(), nominal_histogram_uoflow.get_value_sum())
-    if utils.reldiff(old_nominal_histogram.get_value_sum(), nominal_histogram.get_value_sum()) > 0.01 and abs(old_nominal_histogram.get_value_sum() - nominal_histogram.get_value_sum()) > 1e-4:
-        raise RuntimeError, "add_shapes: histogram normalisation given in datacard and from root file differ by more than >1% (and absolute difference is > 1e-4)"
+    # check that histogram in rootfile matches definition in datacard (allow deviations up to 1% / 1e-4 absolute):
+    if old_nominal_histogram.get_value_sum() > 0.0 or nominal_histogram.get_value_sum() > 0.0:
+        if utils.reldiff(old_nominal_histogram.get_value_sum(), nominal_histogram.get_value_sum()) > 0.01 and abs(old_nominal_histogram.get_value_sum() - nominal_histogram.get_value_sum()) > 1e-4:
+            raise RuntimeError, "add_shapes: histogram normalisation given in datacard and from root file differ by more than >1% (and absolute difference is > 1e-4)"
+    else:
+        print "WARNING: channel '%s' process '%s': yield is 0." % (obs, proc)
     hf.set_nominal_histo(nominal_histogram, reset_binning = True)
     model.reset_binning(theta_obs, nominal_histogram[0], nominal_histogram[1], len(nominal_histogram[2]))
     if len(uncs) == 0: return
@@ -181,25 +185,28 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
         hf.set_syst_histos(u, histo_plus, histo_minus, uncs[u])
         hf.normalize_to_nominal = True
  
-## \brief Build a Model from a datacard as used in LHC Higgs analyses
-# 
-# See https://twiki.cern.ch/twiki/bin/viewauth/CMS/SWGuideHiggsAnalysisCombinedLimit
-#
-# Note that not the complete set of features is supported, in particular no unbinned fits.
-# Supported uncertainties are: lnN (symmetric and asymmetric), gmM, gmN, shape
-#
-# The 'shape' uncertainty uses a slightly different interpolation: the Higgs tool uses a quadratic interpolation with linear extrapolation
-# whereas theta uses a cubic interpolation and linear extrapolation. It is expected that this has negligible impact
-# on the final result, but it might play a role in extreme cases (?)
-#
-# \param fname is the filename of the datacard to process.
-#
-# \param filter_channel is a function which, for each channel name (as given in the model configuration in fname), returns
-# True if this channel should be kept and False otherwise. The default is to keep all channels.
-#
-# variables is a dictionary of additional variables used in the replacement to find histogram shapes, for example {'MASS': '125'}. Note that
-# the value should always be a string.
+
 def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = lambda unc: True, include_mc_uncertainties = False, variables = {}):
+    """
+    Build a Model from a text-based datacard as used in LHC Higgs analyses
+
+    See https://twiki.cern.ch/twiki/bin/viewauth/CMS/SWGuideHiggsAnalysisCombinedLimit
+
+    Note that not the complete set of features is supported, in particular no unbinned fits.
+    Supported uncertainties are: lnN (symmetric and asymmetric), gmN, shape
+
+    The 'shape' uncertainty uses a slightly different interpolation: the Higgs tool uses a quadratic interpolation with linear extrapolation
+    whereas theta uses a cubic interpolation and linear extrapolation. It is expected that this has negligible impact
+    on the final result, but it might play a role in extreme cases (?)
+    
+    Parameters:
+    
+    * ``fname`` is the filename of the datacard to process
+    * ``filter_channel`` is a function which, for each channel name (as given in the model configuration file), returns ``True`` if this channel should be kept and ``False`` otherwise. The default is to keep all channels.
+    * ``filter_uncertainty`` is a filter function for the uncertainties. The default is to keep all uncertainties
+    * ``include_mc_uncertainties`` if ``True`` use the histogram uncertainties of shapes given in root files for Barlow-Beeston light treatment of MC stat. uncertainties
+    * ``variables`` is a dictionary for replacing strings in the datacards. For example, use ``variables = {'MASS': '125'}`` to replace each appearance of '$MASS' in the datacard with '125'. Both key and value should be strings.
+    """
     model = Model()
     lines = [l.strip() for l in file(fname)]
     lines = [(lines[i], i+1) for i in range(len(lines)) if not lines[i].startswith('#') and lines[i]!='' and not lines[i].startswith('--')]
@@ -329,7 +336,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     
     # save uncertainty names to avoid duplicates:
     uncertainty_names = set()
-    # shape systematics is a dictionary (uncertainty) --> (channel) --> (process) --> (factor)
+    # shape systematics is a dictionary (channel) --> (process) --> (parameter) --> (factor)
     # factors of 0 are omitted.
     shape_systematics = {}
     for i in range(kmax):
@@ -436,7 +443,8 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
                     add_shapes(model, obs, 'DATA', {}, l[2], l[3], '', include_mc_uncertainties, searchpaths = searchpaths, variables = variables)
                     data_done.add(obs)
                 if l[0]!='*' and l[0]!=proc: continue
-                uncs = shape_systematics[obs].get(proc, {})
+                uncs = {}
+                if obs in shape_systematics: uncs = shape_systematics[obs].get(proc, {})
                 #print "adding shapes for channel %s, process %s, trying file %s, line %s" % (obs, proc, l[2], ' '.join(l))
                 add_shapes(model, obs, proc, uncs, l[2], l[3], l[4], include_mc_uncertainties, searchpaths = searchpaths, variables = variables)
                 found_matching_shapeline = True
