@@ -539,21 +539,75 @@ def _signal_prior_dict(spec):
 
 class DbResult(object):
     def __init__(self, theta_db_fname = None):
-        self.theta_db_fname = theta_db_fname
+        self._fname = theta_db_fname
+        self._init_conn()
+        
+    def set_db_fname(self, fname):
+        self._fname = fname
+        self._init_conn()
 
-    # get the content of a table in the output database of theta.
+    def _init_conn(self):
+        if self._fname is None: return
+        if not os.path.exists(self._fname): raise RuntimeError, "The file '%s' does not exist!" % self._fname
+        self.conn = sqlite3.connect(self._fname)
+    
+    # returns a cursor
+    def _query(self, sql):
+        c = self.conn.cursor()
+        try: c.execute(sql)
+        except Exception, ex:
+            print "exception executing %s on file %s: %s" % (sql, self._fname, str(ex))
+            raise ex
+        return c
+        
+    def _get_tables(self):
+        c = self._query("select name from sqlite_master where type='table'")
+        rows = c.fetchall()
+        c.close()
+        table_names = [r[0] for r in rows]
+        return table_names
+
     def get_results(self, table_name, columns, order_by = None):
-        if self.theta_db_fname is None: return None
-        if type(columns)!=str:
-            columns = '"' + '", "'.join(columns) + '"'
-        else: assert columns == '*'
-        if order_by is not None:
-            order_by = ' order by "%s"' % order_by
-        else: order_by = ''
-        data, columns = sql_singlefile(self.theta_db_fname, 'select %s from "%s"%s' % (columns, table_name, order_by), True)
+        """
+        Get the content of the given table
+        
+        Parameters:
+        
+        * ``table_name`` is the name of the table
+        * ``columns`` should either be a list of column names or the string "*" to select all available columns.
+        * ``order_by`` is an optional column name which will be used to sort the result.
+        
+        The return value is a dictionary. The keys are the column names; each dictionary value is a list of values
+        for this column.
+        """
+        if self._fname is None: return None
+        all_tables = self._get_tables()
+        tables = [table_name] + [t for t in all_tables if t.startswith(table_name + '__')]
+        order_by_sql = ''
+        if len(all_tables) == 1:
+            if type(columns)!=str: column_sql = '"' + '", "'.join(columns) + '"'
+            else:
+                assert columns == '*'
+                columns_sql = '*'
+            if order_by is not None:
+                order_by_sql = ' order by "%s"' % order_by
+        else:
+            # always select all columns in this case, as otherwise, we would need to make a mapping column names <-> tables,
+            # which is probably not worth the effort. The columns will be filtered below.
+            columns_sql = '*'
+            # order_by is not supported in this case:
+            if order_by: raise RuntimeError, "order_by not supported for large tables"
         result = {}
-        for i in range(len(columns)):
-            result[columns[i][0]] = [row[i] for row in data]
+        for table_name in tables:
+            c = self._query('select %s from "%s"%s' % (columns_sql, table_name, order_by_sql))
+            data = c.fetchall()
+            res_columns = c.description
+            c.close()
+            for i in range(len(res_columns)):
+                colname = res_columns[i][0]
+                if columns != '*' and colname not in columns:
+                    continue
+                result[colname] = [row[i] for row in data]
         return result
         
     def get_products(self, columns = '*', fail_if_empty = True):
@@ -578,22 +632,22 @@ class DbResult(object):
         return res
         
     def print_logtable_errors(self, limit = 10):
-        if not self.theta_db_fname: return
-        data = sql_singlefile(self.theta_db_fname, 'select "eventid", "message" from "log" where "severity"=0 limit %d' % int(limit))
+        if not self._fname: return
+        data = sql_singlefile(self._fname, 'select "eventid", "message" from "log" where "severity"=0 limit %d' % int(limit))
         if len(data)==0: return
         print "There have been errors for some toys: eventid, message"
         for i in range(len(data)):
             print data[i][0], data[i][1]
         
     def get_products_nevents(self):
-        data = sql_singlefile(self.theta_db_fname, 'select count(*) from products')
+        data = sql_singlefile(self._fname, 'select count(*) from products')
         return data[0][0]
     
     def get_db_fname(self):
         """
         Return the path to the db file created by theta. Is ``None`` if no db file is available (yet).
         """
-        return self.theta_db_fname
+        return self._fname
 
 
 class MainBase(ModuleBase, DbResult):
@@ -647,7 +701,7 @@ class MainBase(ModuleBase, DbResult):
         cfgfile_cache = os.path.join(cache_dir, os.path.basename(cfgfile_full))
         dbfile_cache = cfgfile_cache.replace('.cfg', '.db')
         if os.path.exists(cfgfile_cache) and os.path.exists(dbfile_cache) and  open(cfgfile_cache, 'r').read() == open(cfgfile_full, 'r').read():
-            self.theta_db_fname = dbfile_cache
+            self.set_db_fname(dbfile_cache)
             self.result_available = True
             return True
         return False
@@ -696,7 +750,7 @@ class MainBase(ModuleBase, DbResult):
             shutil.move(dbfile, dbfile_cache)
             shutil.copy(cfgfile, cfgfile_cache)
             self.result_available = True
-            self.theta_db_fname = dbfile_cache
+            self.set_db_fname(dbfile_cache)
         else:
             if os.path.exists(dbfile) and not self.debug: os.unlink(dbfile)
             error = self.error

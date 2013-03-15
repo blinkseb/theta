@@ -35,7 +35,17 @@
  * The types theta::typeDouble, theta::typeInt and theta::typeString are translated directly
  * to their SQL counterparts \c DOUBLE, \c INT(4) and \c TEXT, respectively. For theta::typeHisto,
  * an SQL BLOB is saved which contains the lower and upper border of the histogram and the raw histogram data,
- * including underflow and overflow bin (see theta::Histogram::getData).
+ * including one underflow bin and one overflow bin, which are always set to zero.
+ * 
+ * Note that due to limits in sqlite3, more than 999 columns per table are not supported. To allow
+ * more columns nevertheless, this plugin creates secondary (and tertiary, ...) tables in the sqlite3 database
+ * which store additional columns with the name &lt;table name&gt;__&lt;n&gt; where n is an integer starting to count at 0.
+ * (Note that these tables are only created as necessary, i.e. if all tables have less than 999 columns, each theta::Table
+ * corresponds to one sqlite3 table of the same name). The connection between corresponding rows in those tables is done with the
+ * special column "rowid" which is always implicitly created by sqlite3 for all tables. So in principle, one
+ * could quey the complete column with a statement like "select * from products left join products__0 on rowid=products__0.rowid;", although
+ * this query might hit other limits in sqlite3, and the safest choice is to query each table in a separate statement, using the "rowid"
+ * from the first query result as SQL "where" condition.
  */
 class sqlite_database: public theta::Database{
 public:
@@ -103,13 +113,11 @@ private:
         sqlite_table(const std::string & name_, const boost::shared_ptr<sqlite_database> & db_);
         
         std::string name;
-        std::stringstream column_definitions; // use by the add_column method
-        std::stringstream ss_insert_statement;
         bool table_created;
         
         int next_insert_index; // next free insert_index to use by add_column to construct an sqlite_column, starting at 1.
         
-        sqlite3_stmt * insert_statement; // this ressource is owned by sqlite_database.
+        std::vector<sqlite3_stmt*> insert_statements; // these are owned by sqlite_database.
         boost::shared_ptr<sqlite_database> db;
 
         bool save_all_columns;

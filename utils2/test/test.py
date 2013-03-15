@@ -145,7 +145,20 @@ class TestBayes(unittest.TestCase):
         self.assertTrue(values[0] < 15.0 and values[0] > 10.0)
         self.assertTrue(uncs[0] < 5.0 and uncs[0] > 0.0)
         
-
+class TestSqlite(unittest.TestCase):
+    
+    def test_many_columns(self):
+        db = DbResult('../../test_many_cols.db') # that one should have been created by bin/test
+        res = db.get_results('test_table', '*')
+        for i in range(5000):
+            colname = 'col%d' % i
+            self.assertTrue(colname in res)
+        res = db.get_results('test_table', ['col0', 'col1'])
+        self.assertEqual(len(res), 2)
+        self.assertTrue('col0' in res and 'col1' in res)
+        res = db.get_results('test_table', ['col1000', 'col2000'])
+        self.assertEqual(len(res), 2)
+        self.assertTrue('col1000' in res and 'col2000' in res)
         
 class TestRootModel(unittest.TestCase):
     
@@ -257,8 +270,9 @@ suite3 = unittest.TestLoader().loadTestsFromTestCase(TestRootModel)
 bayes = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
 mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
-#alltests = unittest.TestSuite([cls])
-alltests = unittest.TestSuite([suite1, suite2, suite3, bayes, mcmc, cls])
+sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
+#alltests = unittest.TestSuite([sqlite])
+alltests = unittest.TestSuite([suite1, suite2, suite3, bayes, mcmc, cls, sqlite])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)

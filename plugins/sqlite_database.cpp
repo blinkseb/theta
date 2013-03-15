@@ -141,50 +141,64 @@ std::auto_ptr<Table> sqlite_database::create_table(const string & table_name){
 
 
 sqlite_database::sqlite_table::sqlite_table(const string & name_, const boost::shared_ptr<sqlite_database> & db_) : Table(db_),
-    name(name_), table_created(false), next_insert_index(1), insert_statement(0), db(db_),
-    save_all_columns(true) {
+    name(name_), table_created(false), next_insert_index(1), db(db_), save_all_columns(true) {
 }
 
 Column sqlite_database::sqlite_table::add_column(const std::string & name, const data_type & type){
-    if(table_created) throw invalid_argument("sqlite_table::add_column called after table already created (via call to set_column / add_row).");
+    if(table_created) throw invalid_argument("sqlite_table::add_column called after table already created (via call to add_row).");
     if(!save_all_columns && save_columns.find(name) == save_columns.end()) return Column(-1);
-    if(column_definitions.str().size() > 0)
-        column_definitions << ", ";
-    column_definitions << "'" << name << "' ";
-    switch(type){
-        case typeDouble:
-            column_definitions << "DOUBLE";
-            break;
-        case typeInt: column_definitions << "INTEGER(4)"; break;
-        case typeString: column_definitions << "TEXT"; break;
-        case typeHisto: column_definitions << "BLOB"; break;
-        default:
-            throw invalid_argument("Table::add_column: invalid type parameter given.");
-    };
-    if(ss_insert_statement.str().size() > 0)
-        ss_insert_statement << ", ";
-    ss_insert_statement << "'" << name << "'";
     Column result(next_insert_index++);
     column_infos[result] = column_info(name, type);
     return result;
 }
 
+namespace{
+  const int sqlite_maxcol_per_table = 999;   
+}
+
 
 void sqlite_database::sqlite_table::create_table(){
-    stringstream ss;
-    string col_def = column_definitions.str();
-    ss << "CREATE TABLE '" << name << "' (" << col_def << ");";
-    db->exec(ss.str());
-    
-    ss.str("");
-    ss << "INSERT INTO '" << name << "'(" << ss_insert_statement.str() << ") VALUES (";
-    for(int i=1; i < next_insert_index; ++i){
-        if(i==1)ss << "?";
-        else ss << ", ?";
+    map<Column, column_info>::const_iterator column_it = column_infos.begin();
+    int n_tables = column_infos.size() / sqlite_maxcol_per_table;
+    if(column_infos.size() % sqlite_maxcol_per_table > 0) ++n_tables;
+    for(int itable=0; itable < n_tables; ++itable){
+        stringstream ss_create_table, ss_insert;
+        ss_create_table << "CREATE TABLE '" << name;
+        ss_insert << "INSERT INTO '" << name;
+        if(itable > 0){
+            ss_create_table << "__" << (itable - 1);
+            ss_insert << "__" << (itable - 1);
+        }
+        ss_create_table << "' (";
+        ss_insert << "' (";
+        int icol = 0;
+        for(; icol < sqlite_maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
+            if(icol > 0){
+                ss_create_table << ", ";
+                ss_insert << ", ";
+            }
+            ss_create_table << "'" << column_it->second.name << "' ";
+            ss_insert << "'" << column_it->second.name << "' ";
+            switch(column_it->second.type){
+                case typeDouble: ss_create_table << "DOUBLE"; break;
+                case typeInt: ss_create_table << "INTEGER(4)"; break;
+                case typeString: ss_create_table << "TEXT"; break;
+                case typeHisto: ss_create_table << "BLOB"; break;
+                default:  throw invalid_argument("sqlite_database::create_table: invalid type parameter given.");
+            }
+        }
+        theta_assert(icol > 0);
+        ss_create_table << ");";
+        ss_insert << ") VALUES (?";
+        for(int i=1; i<icol; ++i){
+            ss_insert << ",?";
+        }
+        ss_insert << ");";
+        db->exec(ss_create_table.str());
+        insert_statements.push_back(db->prepare(ss_insert.str()));
     }
-    ss << ");";
-    insert_statement = db->prepare(ss.str());
-    table_created = true;
+    theta_assert(column_it == column_infos.end());
+    table_created = true;    
 }
 
 //create the table if it is empty to ensure that all tables have been created
@@ -199,39 +213,42 @@ sqlite_database::sqlite_table::~sqlite_table(){
 
 void sqlite_database::sqlite_table::add_row(const Row & row){
     if(not table_created) create_table();
-    for(map<Column, column_info>::const_iterator it=column_infos.begin(); it!=column_infos.end(); ++it){
-        int index = it->first.get_id();
-        if(index <= 0) continue;
-        if(it->second.type == typeDouble){
-            sqlite3_bind_double(insert_statement, index, row.get_column_double(it->first));
+    const size_t n_tables = insert_statements.size();
+    theta_assert(n_tables > 0);
+    map<Column, column_info>::const_iterator column_it = column_infos.begin();
+    for(size_t itable=0; itable < n_tables; ++itable){
+        int icol = 0; // 0-based index of the column in the current table
+        for(; icol < sqlite_maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
+            if(column_it->second.type == typeDouble){
+                sqlite3_bind_double(insert_statements[itable], icol+1, row.get_column_double(column_it->first));
+            }
+            else if(column_it->second.type == typeInt){
+                sqlite3_bind_int(insert_statements[itable], icol+1, row.get_column_int(column_it->first));
+            }
+            else if(column_it->second.type == typeString){
+                const string & s = row.get_column_string(column_it->first);
+                sqlite3_bind_text(insert_statements[itable], icol+1, s.c_str(), s.size(), SQLITE_TRANSIENT);
+            }
+            else if(column_it->second.type == typeHisto){
+                const Histogram1D & h = row.get_column_histogram(column_it->first);
+                boost::scoped_array<double> blob_data(new double[h.get_nbins()+4]);
+                blob_data[0] = h.get_xmin();
+                blob_data[1] = h.get_xmax();
+                //set underflow to 0.0:
+                blob_data[2] = 0.0;
+                std::copy(h.get_data(), h.get_data() + h.size(), &blob_data[3]);
+                //set overflow to 0.0:
+                blob_data[h.get_nbins()+3] = 0.0;
+                size_t nbytes = sizeof(double) * (h.get_nbins() + 4);
+                sqlite3_bind_blob(insert_statements[itable], icol+1, &blob_data[0], nbytes, SQLITE_TRANSIENT);
+            }
         }
-        else if(it->second.type == typeInt){
-            sqlite3_bind_int(insert_statement, index, row.get_column_int(it->first));
+        int res = sqlite3_step(insert_statements[itable]);
+        sqlite3_reset(insert_statements[itable]);
+        sqlite3_clear_bindings(insert_statements[itable]);
+        if (res != 101) {
+            db->error(__FUNCTION__);
         }
-        else if(it->second.type == typeString){
-            const string & s = row.get_column_string(it->first);
-            sqlite3_bind_text(insert_statement, index, s.c_str(), s.size(), SQLITE_TRANSIENT);
-        }
-        else if(it->second.type == typeHisto){
-            const Histogram1D & h = row.get_column_histogram(it->first);
-            boost::scoped_array<double> blob_data(new double[h.get_nbins()+4]);
-            blob_data[0] = h.get_xmin();
-            blob_data[1] = h.get_xmax();
-            //set underflow to 0.0:
-            blob_data[2] = 0.0;
-            std::copy(h.get_data(), h.get_data() + h.size(), &blob_data[3]);
-            //set overflow to 0.0:
-            blob_data[h.get_nbins()+3] = 0.0;
-            size_t nbytes = sizeof(double) * (h.get_nbins() + 4);
-            sqlite3_bind_blob(insert_statement, index, &blob_data[0], nbytes, SQLITE_TRANSIENT);
-        }
-    }
-    int res = sqlite3_step(insert_statement);
-    sqlite3_reset(insert_statement);
-    //reset all to NULL
-    sqlite3_clear_bindings(insert_statement);
-    if (res != 101) {
-        db->error(__FUNCTION__);
     }
 }
 

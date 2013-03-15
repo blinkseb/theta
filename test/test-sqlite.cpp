@@ -13,6 +13,28 @@ using namespace theta;
 
 BOOST_AUTO_TEST_SUITE(sqlite)
 
+BOOST_AUTO_TEST_CASE(many_columns){
+   load_core_plugins();
+   string config = "type = \"sqlite_database\"; filename = \"test_many_cols.db\";";
+   boost::shared_ptr<VarIdManager> vm(new VarIdManager());
+   ConfigCreator cc(config, vm);
+   Configuration cfg = cc.get();
+   boost::shared_ptr<Database> db;
+   db = PluginManager<Database>::build(cfg);
+   std::auto_ptr<Table> table = db->create_table("test_table");
+   vector<Column> cols;
+   for(int i=0; i<5000; ++i){
+       stringstream colname;
+       colname << "col" << i;
+       cols.push_back(table->add_column(colname.str(), theta::typeDouble));
+   }
+   Row row;
+   for(size_t i=0; i<cols.size(); ++i){
+       row.set_column(cols[i], static_cast<double>(i));
+   }
+   table->add_row(row);
+}
+
 
 BOOST_AUTO_TEST_CASE(largefile){
    int argc = boost::unit_test::framework::master_test_suite().argc;
