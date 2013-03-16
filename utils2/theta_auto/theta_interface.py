@@ -65,6 +65,8 @@ write_debuglog = True
         
 [model]
 use_llvm = False
+use_tbb = False
+tbb_nthreads = 0
         
 [main]
 n_threads = 1
@@ -791,10 +793,10 @@ class MainBase(ModuleBase, DbResult):
         workdir = options.get_workdir()
         cache_dir = os.path.join(workdir, 'cache')
         theta = os.path.realpath(os.path.join(config.theta_dir, 'bin', 'theta'))
-        info("Running 'theta %s'" % cfgfile)
         cmd = theta + " " + cfgfile
         if self.debug: cmd += " --print-time"
         else: cmd += " --nowarn"
+        info("Running '%s'" % cmd)
         to_execute = lambda : self._exec(cmd)
         if in_background_thread:
             assert self.thread is None
@@ -866,10 +868,20 @@ class Run(MainBase):
             main['producers'].append('@p%s' % p.name)
         result.update({'main': main, 'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
         use_llvm = options.getboolean('model', 'use_llvm')
+        use_tbb = options.getboolean('model', 'use_tbb')
+        if use_tbb and use_llvm:
+            raise RuntimeError, "specified both options: model use_llvm and model use_tbb. This is not allowed."
         if use_llvm:
-            print "using llvm. This is EXPERIMENTAL. Use at your own risk"
+            print "Using llvm. This is EXPERIMENTAL. Use at your own risk"
             result['model']['type'] = 'llvm_model'
             result['options']['plugin_files'].append('$THETA_DIR/lib/llvm-plugins.so')
+        elif use_tbb:
+            print "Using tbb. This is EXPERIMENTAL. Use at your own risk"
+            result['model']['type'] = 'tbb_model'
+            result['options']['plugin_files'].append('$THETA_DIR/lib/tbb-plugins.so')
+            n_threads = options.getint('model', 'tbb_nthreads')
+            if n_threads > 0:
+                result['model']['n_threads'] = n_threads
         return result
 
 class ClsMain(MainBase):

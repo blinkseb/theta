@@ -66,11 +66,6 @@ namespace theta {
      public:
          /// build an instance from a Configuration object
          virtual std::auto_ptr<base_type> build(const Configuration & cfg) = 0;
-         
-         /// build an instance from the configuration, using the setting at setting_path
-         std::auto_ptr<base_type> build(const Configuration & cfg, const std::string & setting_path){
-             return build(Configuration(cfg, cfg.setting[setting_path]));
-         }
 
          /// the type of the object this factory is responsible for; it corresponds to the type="..." configuration file setting
          virtual std::string get_typename() = 0;
@@ -120,14 +115,15 @@ namespace theta {
 
         /** \brief Use the registered factories to build an instance from a configuration settings block.
          *
-         * This will go through all registered plugin and use the factory with the matching name.
+         * This will go through all registered plugin and use the factory with the matching name and use this
+         * factory to construct the instance.
          *
          * The lookup rules for finding out the name are:
          * <ol>
-         *   <li>If type is non-empty, this is used as plugin name.</li>
-         *   <li>Use the string in cfg.setting["type"], if it is set; otherwise, use the string "default". Using this string, 
-         *      call the currently set PluginBuilder. Usually, this will eventually call this build method again with a non-empty
-         *      \c type argument.</li>
+         *   <li>If using \c build_type, the name given in \c type ise used as plugin name directly.</li>
+         *   <li>If using \c build, the string in cfg.setting["type"] is used if set; otherwise, use the string "default" is used.
+         *      Using this string, the currently set PluginBuilder is called. Usually, this will eventually call \c build_type.
+         * </li>
          * </ol>
          *
          * The default PluginBuilder just uses the typename as determined in 2. to lookup the plugin.

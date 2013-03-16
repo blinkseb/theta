@@ -156,7 +156,7 @@ namespace theta {
     /** \brief The default model in theta
      */
     class default_model: public Model{
-    private:
+    protected:
         // flattened histogramfunctions and coeffs:
         boost::ptr_vector<HistogramFunction> hfs;
         boost::ptr_vector<Function> coeffs;
@@ -168,7 +168,8 @@ namespace theta {
         std::auto_ptr<Function> additional_nll_term;
         
         bool bb_uncertainties;
-        
+
+    private:
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
         template<typename HT>
         void get_prediction_impl(DataT<HT> & result, const ParValues & parameters) const;

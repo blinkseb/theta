@@ -75,12 +75,14 @@ The default options are the result of parsing this ini-file configuration:
        
  [model]
  use_llvm = False
+ use_tbb = False
+ tbb_nthreads = 0
  
  [mcmc]
  strategy = asimov_widths
  stepsize_factor = None
 
-All of these settings are discussed now, starting at tyhe top.
+All of these settings are discussed now, starting at the top.
 
 The option ``global debug`` controls how the :program:`theta` program is executed, adding some more verbosity and timing information. Future versions
 might use this flag at other places in theta-auto as well.
@@ -88,7 +90,8 @@ might use this flag at other places in theta-auto as well.
 The option ``global check_cache`` enables / disables cache checking in the method `theta_auto.Run.run_theta`: with check caching disabled, ``run_theta`` will
 always execute :program:`theta` locally, even if a matching result .db file is found in the "analysis/cache" directory.
 
-``main n_threads`` configures the number of threads used for theta. Note that this option has no effect for CLs limits.
+``main n_threads`` configures the number of threads used for theta. Note that this option has no effect for CLs limits. This multi-threading operates on the level
+of passes ``n``. Therefore, in case ``n==1``, it is not beneficial to use more than one thread.
 
 The ``minimizer`` section controls aspects of the minimizer(s) used in theta. ``strategy`` selects a minimizer algorithm. The default value "fast"
 should be a reasonable choice in most circumstances. In this setting, a chain of 4 minimizers is used: first root's minuit is tried. If it fails, a Markov Chain
@@ -105,9 +108,21 @@ If ``minimizer always_mcmc`` is set to ``True``, only the Markov Chains are used
 
 ``cls_limits write_debuglog`` controls whether or not the text file with detailed debug information is created if running cls limits.
 
-``model use_llvm`` controls whether llvm-compilation of the model is enabled. For a small set of models, this decreases execution time substantially (especially
-for models with many one-bin channels). This option requires to compile with llvm. Note that llvm is somewhat experimental; you are advised to compare the results
-without llvm.
+``model use_llvm`` controls whether llvm-compilation of the model is enabled. If enabled, machine-code is generated at runtime for evaluating the model
+prediction. If the function-call overhead is large (e.g. for models with many one-bin channels), this can increase performance by about a factor of 2.
+This option requires to compile the llvm plugins.
+
+Setting ``model use_tbb`` enables threading building blocks for parallelizing the model evaluation across different channels: as channels are independent,
+the calculation of the predicted yield in each channel can be performed in a separate thread. ``tbb_nthreads`` controls the number of threads. A value <=0
+uses tbb's automatic number of threads. The runtime speedup is beneficial only for models with a large number of channels that are "comlicated" (i.e., channels
+with many rate/shape uncertainties and/or many bins). So in contrast to ``main n_threads``, enabling tbb multi-threading can also be beneficial for ``n==1``. On the
+other hand, the overhead introduced by this multi-threading is usually much larger than for ``main n_threads``.
+
+``model use_llvm`` and ``model use_tbb`` are mutually exclusive. Setting both to ``True`` results in an exception. Using both ``main n_threads`` and ``model use_tbb``
+is valid but creates a total of ``n_threads * tbb_nthreads`` which is to be considered if using both options.
+
+.. warning:: llvm and tbb have been tested to some extent but should still be considered *experimental*; make sure to compare results with these options disabled. While
+small numerical deviations can arise for llvm (due to different floating point computations in the llvm-compiled code), the result for tbb should be 100% identical.
 
 The section ``mcmc`` controls Markov-Chain Monte-Carlo settings used by Bayesian methods (note that these settings do not affect the mcmc run in the minimizer):
 ``mcmc strategy`` controls how proposal steps in the Markov Chain are constructed. The default of "asimov_widths" uses a Gaussian proposal function with a diagonal

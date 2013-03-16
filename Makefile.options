@@ -9,12 +9,17 @@
 # If yes, build tests from the "test" subdirectory
 OPTIONS_BUILD_TESTS := yes
 
-# If yes, use amdlibm for some math functions instead of libm
+# If yes, use amdlibm for some math functions instead of libm, most notably "exp" and "log",
+# resulting in some speed gain.
 OPTIONS_USE_AMDLIBM := yes
 
 # If yes, build llvm plugins in "llvm" subdirectory. Requires working
-# llvm installation (tested with 2.7 and 2.8)
+# llvm installation (tested with 3.1)
 OPTIONS_BUILD_LLVM := no
+
+# If yes, build threading building block plugin in the "tbb" subdirectory. Requires working
+# tbb installation.
+OPTIONS_BUILD_TBB := no
 
 # If set to yes, will disable optimizations for easier debugging.
 # Note that debugging symbols are added in any case.
@@ -28,14 +33,15 @@ OPTIONS_CFLAGS :=
 OPTIONS_LDFLAGS_SO :=
 OPTIONS_LDFLAGS_EXE :=
 
-# Usually, theta assumes building for 64-bit x86 cpus (and an assembler
-# compatible with the one gcc uses).
-# Setting this flag to 'yes' disables some optimizations and replaces
-# functions with generic ones. Note that some platform-specific optimizations
-# are controlled by compiler-defined defines such as __SSE2__ and ignore
-# the value given here.
+# Usually, theta assumes building for 64-bit x86 cpus (and an gnu-compatible assembler, which gcc uses).
+#
+# Setting this flag to 'yes' disables some (assembler) optimizations and replaces
+# functions with generic ones. 
+# Note that some platform-specific optimizations are controlled by compiler-defined defines such
+# as __SSE2__ and are performed independently of the value given here.
 OPTIONS_GENERIC_ARCH := no
 
-# allow inclusion of (not svn-versioned) local override:
--include Makefile.options.local
-
+# allow overriding above values via a non-versioned file. Note that Makefile.options.local
+# is a file in THIS directory, but as this Makefile.options file is included
+# from the subdirs, use "..":
+-include ../Makefile.options.local

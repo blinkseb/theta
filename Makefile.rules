@@ -76,19 +76,14 @@ endif
 
 
 DEFINES :=
-
-ifeq ($(OPTIONS_USE_CRLIBM),yes)
-   DEFINES += -DUSE_CRLIBM
-endif
+INCLUDES := -I.. $(BOOST_INCLUDE) $(SQLITE_INCLUDE)
+EXTRA_COMPILE :=
+LIBS := -ltheta -ldl -lconfig
 
 ifeq ($(OPTIONS_GENERIC_ARCH),yes)
    DEFINES += -DGENERIC_ARCH
 endif
 
-INCLUDES := -I.. $(BOOST_INCLUDE) $(SQLITE_INCLUDE)
-EXTRA_COMPILE :=
-
-LIBS := -ltheta -ldl -lconfig
 ifeq ($(OPTIONS_USE_AMDLIBM),yes)
     LIBS += -lamdlibm
     DEFINES += -DUSE_AMDLIBM
@@ -99,10 +94,9 @@ ifeq ($(OPTIONS_TIMER),yes)
     LIBS += -lboost_timer$(BS)
 endif
 
-
-
 FLAGSC := -g -Wall -fPIC $(INCLUDES) $(DEFINES) $(OPTIONS_CFLAGS)
-FLAGSCPP := $(FLAGSC) -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo -fPIC $(INCLUDES) $(DEFINES)
+FLAGSCPP := $(FLAGSC) -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
+
 ifneq ($(OPTIONS_DEBUG),yes)
     FLAGSC += -O3
     FLAGSCPP += -O3

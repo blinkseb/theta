@@ -7,11 +7,15 @@ ifeq ($(OPTIONS_BUILD_LLVM),yes)
    DIRS += llvm
 endif
 
+ifeq ($(OPTIONS_BUILD_TBB),yes)
+   DIRS += tbb
+endif
+
 all:
-	@for d in $(DIRS); do ( cd $$d; $(MAKE) ) || break; done
+	@for d in $(DIRS); do ( $(MAKE) -C $$d ) || break; done
 
 clean:
-	@for d in $(DIRS); do ( cd $$d && $(MAKE) clean ) || true; done
+	@for d in $(DIRS); do ( $(MAKE) -C $$d clean ) || true; done
 	@cd test/test-stat; $(MAKE) clean
 
 #ok, this is not very nice, as it hardcodes the documentation copy target, but as long as I am the only
