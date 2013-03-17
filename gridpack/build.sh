@@ -27,12 +27,13 @@ cp ../bin/theta gridpack-tmp/bin/theta.exe
 cp ../lib/*.so gridpack-tmp/lib/
 
 echo "[2] copying dependencies to gridpack-tmp"
-scripts/copydeps.py gridpack-tmp/bin/theta.exe gridpack-tmp/extlib gridpack-tmp/lib
+scripts/copydeps.py gridpack-tmp/bin/theta.exe gridpack-tmp/extlib gridpack-tmp/lib || { echo "error executing copydeps"; exit 1; }
 for plugin in gridpack-tmp/lib/*.so; do
-   scripts/copydeps.py $plugin gridpack-tmp/extlib gridpack-tmp/lib gridpack-tmp/extlib
+   scripts/copydeps.py $plugin gridpack-tmp/extlib gridpack-tmp/lib gridpack-tmp/extlib || { echo "error executing copydeps"; exit 1; }
 done
 for so_file in gridpack-tmp/extlib/*.so; do
-   scripts/copydeps.py $so_file gridpack-tmp/extlib gridpack-tmp/lib gridpack-tmp/extlib
+   if [ $so_file == "gridpack-tmp/extlib/ld-linux.so" ]; then continue; fi
+   scripts/copydeps.py $so_file gridpack-tmp/extlib gridpack-tmp/lib gridpack-tmp/extlib  || { echo "error executing copydeps"; exit 1; }
 done
 
 if [ ! -f gridpack-tmp/extlib/ld-linux.so ]; then
@@ -41,9 +42,14 @@ if [ ! -f gridpack-tmp/extlib/ld-linux.so ]; then
 fi
 
 echo "[3] stripping all symbols to reduce size"
-#strip -s gridpack-tmp/bin/theta.exe gridpack-tmp/lib/* gridpack-tmp/extlib/*
+strip -s gridpack-tmp/bin/theta.exe gridpack-tmp/lib/* gridpack-tmp/extlib/*
 
 echo "[4] creating gridpack.tgz from gridpack-tmp"
 rm -f gridpack.tgz
 cd gridpack-tmp
 tar zcf ../gridpack.tgz *
+
+FILEOUT=`file ./bin/theta.exe`
+VER=`echo ${FILEOUT/, for GNU\//%} | cut -d% -f2 | cut -d, -f1`
+echo "NOTE: minimal version this will run on:" $VER
+

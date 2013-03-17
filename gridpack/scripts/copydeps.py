@@ -5,14 +5,19 @@
 # copies the shared object the binary depends on to the target path, ignoring any
 # libraries which are resolved to the given ld paths, if using these as the LD_LIBRARY_PATH.
 
-import sys, os, os.path, subprocess, shutil
+import sys, os, os.path, subprocess, shutil, stat
 
 if len(sys.argv) < 3: raise RuntimeError, "too few arguments"
 binary = os.path.realpath(sys.argv[1])
 target_path = os.path.realpath(sys.argv[2])
 ld_paths = map(os.path.realpath, sys.argv[3:])
 
-os.environ['LD_LIBRARY_PATH'] = ':'.join(ld_paths + [os.environ['LD_LIBRARY_PATH']])
+old_ld_path = os.environ.get('LD_LIBRARY_PATH', None)
+os.environ['LD_LIBRARY_PATH'] = ':'.join(ld_paths)
+
+if old_ld_path:
+    os.environ['LD_LIBRARY_PATH'] += ':' + old_ld_path
+
 out, err = '',''
 p = subprocess.Popen(['ldd', binary], stderr = subprocess.PIPE, stdout=subprocess.PIPE)
 while p.poll() is None:
@@ -21,7 +26,7 @@ while p.poll() is None:
    err += tmperr
 code = p.wait()
 if code!=0:
-   print "error from ldd: ", out, err
+   print "error from 'ldd %s': " % binary, out, err
    sys.exit(1)
 
 #print out
@@ -39,6 +44,7 @@ for line in lines:
    so_name, so_path = line.split('=>', 2)
    so_path = so_path.strip()
    so_name = so_name.strip()
+   if 'not found' in so_path: raise RuntimeError, "dependency %s not found." % so_name
    if so_path.find('(') != -1:
       so_path, dummy = so_path.split('(', 2)
       so_path = so_path.strip()
@@ -51,5 +57,8 @@ for line in lines:
        #print "Skipping %s as it resolved already to one ld path" % so_path
        continue
    #print "Copying '%s' to %s" % (so_path, target_path)
-   shutil.copy2(so_path, os.path.join(target_path, so_name))
+   target = os.path.join(target_path, so_name)
+   shutil.copy(so_path, target)
+   sres = os.stat(target)
+   os.chmod(target, sres.st_mode | stat.S_IRUSR | stat.S_IWUSR)
 

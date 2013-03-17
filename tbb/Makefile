@@ -5,7 +5,7 @@ deps := $(patsubst %.cpp,.bin/%.d,$(libsources))
 include ../Makefile.options
 include ../Makefile.rules
 
-EXTRA_COMPILE := -std=c++11
+EXTRA_COMPILE := -std=c++0x
 
 all: ../lib/tbb-plugins.so
 
