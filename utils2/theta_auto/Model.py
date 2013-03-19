@@ -380,7 +380,7 @@ class Model(utils.Copyable):
     
     def get_parameters(self, signal_processes):
         """
-        Get the set of parameters the model predictions depends on. In general, this depends on
+        Get the list of parameters the model predictions depends on. In general, this depends on
         which processes are considered as signal, therefore this has to be specified in the
         ``signal_processes`` parameter.
         
@@ -408,7 +408,7 @@ class Model(utils.Copyable):
             if type(m)==float: continue
             assert type(m)==str
             result.add(m)
-        return result
+        return sorted(list(result))
     
     # returns two sets: the rate and shape changing parameters (can overlap!)
     # does not include beta_signal

@@ -54,6 +54,25 @@ class TestMle(unittest.TestCase):
         expected_chi2 = sum(map(lambda (mu, n): (mu - n)**2 / mu, zip(s, n_obs)))
         self.assertAlmostEqual(res['s']['__chi2'][0], expected_chi2, places = 1)
         
+    def test_cov(self):
+        res = mle(self.model_bunc, 'toys-asimov:1.0', 1, with_covariance = True)
+        self.assertTrue('s' in res)
+        res = res['s']
+        self.assertTrue('__cov' in res)
+        cov = res['__cov'][0]
+        self.assertEqual(len(cov), 2)
+        self.assertEqual(len(cov[0]), 2)
+        self.assertEqual(len(cov[1]), 2)
+        self.assertEqual(cov[0][1], cov[1][0])
+        """
+        pars = self.model_bunc.get_parameters(['s'])
+        print cov
+        print res
+        for i, p in enumerate(pars):
+            error_from_cov = math.sqrt(cov[i][i])
+            error_from_fit = res[p][0][1]
+            self.assertAlmostEqual(error_from_cov, error_from_fit)
+        """
         
     def test_pl_termonly(self):
         model_termonly = Model()
@@ -264,15 +283,15 @@ class MCMCHighdimtest(unittest.TestCase):
         # less than 4sigma effect:
         self.assertTrue(abs(m) / w * math.sqrt(len(res[''])) < 4.0)
         
-suite1 = unittest.TestLoader().loadTestsFromTestCase(TestMle)
+mletests = unittest.TestLoader().loadTestsFromTestCase(TestMle)
 suite2 = unittest.TestLoader().loadTestsFromTestCase(TestBB)
 suite3 = unittest.TestLoader().loadTestsFromTestCase(TestRootModel)
 bayes = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
 mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
 sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
-#alltests = unittest.TestSuite([sqlite])
-alltests = unittest.TestSuite([suite1, suite2, suite3, bayes, mcmc, cls, sqlite])
+#alltests = unittest.TestSuite([mletests])
+alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, mcmc, cls, sqlite])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)

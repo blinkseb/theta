@@ -15,8 +15,7 @@ def mle(model, input, n, with_error = True, with_covariance = False, signal_proc
     
     * ``with_error`` if ``True``, return the uncertainty for each parameter, as determined by migrad. If you do not need the uncertainty, you can set this to ``False`` which can
       increase speed and robustness of the minimizer.
-    * ``with_covariance`` if ``True``, return the uncertainty for each parameter, as determined by migrad. If you do not need the uncertainty, you can set this to ``False`` which can
-      increase speed and robustness of the minimizer.
+    * ``with_covariance`` if ``True``, return the uncertainty for each parameter, as determined by migrad.
     * ``ks`` - calculate the Kolmogorov-Smirnov test statistic for each toy *after* the fit has run. Note that the ks test statistic will use the maximum value of all ks values
       over all channels which sometimes is not what you want. To access the ks test values, use ``key = "__ks"`` (see below).
     * ``chi2`` - calculate the chi-square test statistic for each toy *after* the fit has run; the chi-square value is generalized for Poisson statistics and is twice the logarithm
@@ -26,11 +25,19 @@ def mle(model, input, n, with_error = True, with_covariance = False, signal_proc
     The return value respects the convention described in :ref:`return_values`. Specifically, this method returns a nested python dictionary with the following keys, in this order:
     
     * ``spid`` - the signal process id, i.e., the keys of ``model.signal_process_groups``, or (if given) the keys of ``signal_process_groups`` (see :ref:`what_is_signal` for details)
-    * ``key`` - a parameter name or some special underscore names '__nll', '__ks' (only if ``ks = True``), or '__chi2' (only if (``chi2 = True``).
+    * ``key`` - a parameter name or some special underscore names '__nll', '__ks' (only if ``ks = True``), '__chi2' (only if ``chi2 = True``), or '__cov' (only if ``with_covariance=True``)
     
     Using these two keys, the value is a list of length ``n`` of results. In the case ``key`` is a parameter name, each item of this list is
     a two-tuple ``(value, uncertainty)`` which are the parameter value at the minimum and the uncertainty (from migrad) for this parameter, resp. In case ``with_error``
     is ``False``, ``uncertainty`` is always ``None``. If ``key`` is one of the special underscore names, the value is a list where each entry in the list is one floating point value.
+    
+    The covariance matrix is a n*n matrix where n is the number of parameters the model depends on. To get the parameters for this matrix use::
+    
+     parameters = model.get_parameters(signal_process_group)
+     
+    where ``signal_process_group`` is a list of names of the signal processes (see :ref:`what_is_signal` for the definition of a signal process group).
+    
+    .. warning:: The covariance matrix is passed as evaluated by the underlying minimizer. This minimizer is ROOT's MINUIT2 by default which produces completely nonsensical results in some cases.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
@@ -47,7 +54,7 @@ def mle(model, input, n, with_error = True, with_covariance = False, signal_proc
             if not with_error: result[spid][p] = list(itertools.izip_longest(res['mle__%s' % p], []))
             else: result[spid][p] = zip(res['mle__%s' % p], res['mle__%s_error' % p])
         result[spid]['__nll'] = res['mle__nll']
-        if with_covariance: result[spid]['__cov'] = res['mle__covariance']
+        if with_covariance: result[spid]['__cov'] = map(matrix_from_dbblob, res['mle__covariance'])
         if chi2: result[spid]['__chi2'] = res['mle__pchi2']
         if ks: result[spid]['__ks'] = res['mle__ks_ts']
         if all_columns:
