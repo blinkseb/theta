@@ -179,7 +179,7 @@ def pvalue(model, input, n, signal_process_groups = None, nuisance_constraint = 
     The remaining parameters ``bkgtoys_n_runs``, ``bkgtoys_n``, ``bkgtoys_seed_min`` are passed to :meth:`pvalue_bkgtoys_runs`, see the documentation
     there.
     
-    Note that :program:`theta` will be executed locally. Use :meth:`pvalue_bkgtoys_runs` directly if you want to run :prorgam:`theta` distributed on a cluster.
+    Note that :program:`theta` will be executed locally. Use :meth:`pvalue_bkgtoys_runs` directly if you want to run :program:`theta` distributed on a cluster.
     
     The return value is a dictionary where the key is the signal process group id. The value is a list of two-tuples ``(p, p_error)``.
     You can use See :func:`theta_auto.p_to_Z` to convert p-values to Z-values.

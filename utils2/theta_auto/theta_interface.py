@@ -942,7 +942,7 @@ class ClsMain(MainBase):
     
     
 class AsymptoticClsMain(MainBase):
-    def __init__(self, model, signal_processes, input, beta_signal_expected = 0.0):
+    def __init__(self, model, signal_processes, input, n = 1, beta_signal_expected = 0.0):
         """
         `input` should be either 'data' or None.
         """
@@ -950,11 +950,11 @@ class AsymptoticClsMain(MainBase):
         self.minimizer = Minimizer(need_error = False)
         self.add_submodule(self.minimizer)
         self.model = model
+        self.n = n
         self.signal_processes = signal_processes
         self.beta_signal_expected = beta_signal_expected
         if input is None: self.input = None
         else:
-            if input != 'data': raise RuntimeError, "input should be either 'data' or None, but is %s" % str(input)
             self.input = DataSource(input, self.model, self.signal_processes)
         self.signal_prior_cfg = _signal_prior_dict('flat')
         
@@ -964,7 +964,10 @@ class AsymptoticClsMain(MainBase):
             'output_database': {'type': 'sqlite_database', 'filename': '@output_name'}}
         if self.input is not None:
             main['data'] = self.input.get_cfg(options)
-        if self.beta_signal_expected != 0.0:
+            if self.n != 1: main['n'] = self.n
+        if self.beta_signal_expected is None:
+            main['quantiles_expected'] = []
+        elif self.beta_signal_expected != 0.0:
             main['parameter_value_expected'] = self.beta_signal_expected
         result.update({'main': main, 'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
         return result

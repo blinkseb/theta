@@ -114,21 +114,28 @@ def debug_cls_plots(dbfile, ts_column = 'lr__nll_diff'):
     return pds
         
 
-def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, beta_signal_expected = 0.0, bootstrap_model = True, options = None):
+def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, beta_signal_expected = 0.0, bootstrap_model = True, input = None, n = 1, options = None):
     """
     Calculate CLs limits using asymptotic formulae.
     
     Options:
     
     * ``use_data`` - if ``True``, also calculate observed limit.
-    * ``beta_signal_expected`` - signal strength value to use to calculate the expected limit bands
+    * ``beta_signal_expected`` - signal strength value to use to calculate the expected limit bands. The default of 0.0 corresponds to limits expected for background-only.
+      If set to ``None``, no expected limit will be computed.
     * ``bootstrap_model`` - if this is set to ``True``  -- and ``use_data`` is ``True`` -- the parameter values are fitted to data first.
+    
+    
+    Also note that some parameters described in :ref:`common_parameters` have a special meaning here:
+    * ``input`` - this is the data source to calculate the "observed" limit(s) for. The default of ``None`` is equivalent to "data" if ``use_data==True`` and to ``None`` (not computing any observed limit) if ``use_data=False``
+    * ``n`` is the number of "observed" limits to calculate from the ``input`` data source. Only has effect if ``input`` is not the default ``None``.
 
     For ``signal_process_groups`` and ``options`` refer to :ref:`common_parameters`. Note that the common options ``signal_prior``, ``nuisance_prior``
     are missing on purpose as the asymptotic method implemented in theta only works for flat priors.
     
-    Just like :meth:`cls_limits`, the return value is a two-tuple (pd_expected, pd_observed) of plotutil.plotdata instances that contain the
-    expected and observed limits.
+    Just like :meth:`cls_limits`, the return value is a two-tuple ``(pd_expected, pd_observed)`` of plotutil.plotdata instances that contain the
+    expected and observed limits. If more than one "observed" limit is calculated, these limits are used to calculate 1sigma and 2sigma bands
+    in ``pd_observed`` as well.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
@@ -136,33 +143,57 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
         model = frequentist.get_bootstrapped_model(model, options = options)
     else:
         model = frequentist.frequentize_model(model)
-    input = 'data' if use_data else None
-    limits = {}
+    if input is None:
+        if use_data:
+            input = 'data'
+            n = 1
+        else:
+            n = 0
+    limits_expected = {}
+    limits_observed = {}
+    n_expected = 5
+    if beta_signal_expected is None: n_expected = 0
     for spid, signal_processes in signal_process_groups.iteritems():
-        r = AsymptoticClsMain(model, signal_processes, input, beta_signal_expected)
+        r = AsymptoticClsMain(model, signal_processes, input = input, beta_signal_expected = beta_signal_expected, n = n)
         r.run_theta(options)
-        limits[spid] = r.get_results('limits', ['limit'], 'index')['limit']
+        limits = r.get_results('limits', ['limit'], 'index')['limit']
+        limits_observed[spid] = limits[n_expected:] # can be empty in case of use_data = False
+        limits_expected[spid] = limits[:n_expected]
     # convert to plotdata:
     spids = signal_process_groups.keys()
     x_to_sp = get_x_to_sp(spids)
     pd_expected, pd_observed = None, None
-    pd_expected = plotdata(color = '#000000', as_function = True, legend = 'expected limit')
-    pd_expected.x = sorted(list(x_to_sp.keys()))
-    pd_expected.y  = []
-    pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
-    if use_data:
+    if beta_signal_expected is not None:
+        pd_expected = plotdata(color = '#000000', as_function = True, legend = 'expected limit')
+        pd_expected.x = sorted(list(x_to_sp.keys()))
+        pd_expected.y  = []
+        pd_expected.bands = [([], [], '#00ff00'), ([], [], '#00aa00')]
+    if n > 0:
         pd_observed = plotdata(color = '#000000', as_function = True, legend = 'observed limit')
         pd_observed.x = sorted(list(x_to_sp.keys()))
         pd_observed.y = []
+        if n > 1:
+            pd_observed.bands = [([], [], '#0000ff'), ([], [], '#0000aa')]
     for x in sorted(x_to_sp.keys()):
         sp = x_to_sp[x]
-        pd_expected.bands[0][0].append(limits[sp][0])
-        pd_expected.bands[1][0].append(limits[sp][1])
-        pd_expected.y.append(limits[sp][2])
-        pd_expected.bands[1][1].append(limits[sp][3])
-        pd_expected.bands[0][1].append(limits[sp][4])
-    if use_data:
-        pd_observed.y.append(limits[sp][5])
+        if beta_signal_expected is not None:
+            pd_expected.bands[0][0].append(limits_expected[sp][0])
+            pd_expected.bands[1][0].append(limits_expected[sp][1])
+            pd_expected.y.append(limits_expected[sp][2])
+            pd_expected.bands[1][1].append(limits_expected[sp][3])
+            pd_expected.bands[0][1].append(limits_expected[sp][4])
+        if n > 0:
+            nobs = len(limits_observed[sp])
+            lobs = sorted(limits_observed[sp])
+            median = lobs[nobs/2]
+            pd_observed.y.append(median)
+            if nobs > 1:
+                # first band is 2sigma band:
+                pd_observed.bands[0][0].append(lobs[int(0.025 * nobs)])
+                pd_observed.bands[0][1].append(lobs[int(0.975 * nobs)])
+                # second is 1sigma:
+                pd_observed.bands[1][0].append(lobs[int(0.16 * nobs)])
+                pd_observed.bands[1][1].append(lobs[int(0.84 * nobs)])
     return pd_expected, pd_observed
 
 def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_prior = None, frequentist_bootstrapping = False,

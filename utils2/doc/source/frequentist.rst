@@ -7,6 +7,8 @@ as part of the evaluation. The most important one is p-value evaluation using th
 for the null hypothesis. The methods documented here assume that you want to test the null hypothesis ``beta_signal = 0.0`` versus the alternative
 ``beta_signal > 0.0``.
 
+.. note:: Toy-based methods often have large running times for more complicated models. In some cases, you can use asymptotic methods instead, see :ref:`likelihood`.
+
 The methods documented here are defined in ``theta_auto/frequentist.py``.
 
 To calculate p-values from toys, there are three different "levels" of the interface where you should stick to one. From "higher" to lower level:

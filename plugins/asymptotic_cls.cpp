@@ -42,6 +42,11 @@ public:
     double get_poi_width() const{
         return widths.get(pid);
     }
+    
+    void set_data_nll(const boost::shared_ptr<NLLikelihood> & data_nll_){
+        data_nll = data_nll_;
+        data_init = false;
+    }
 
     // beta_toy is the value of mu assumed for toys (if there were toys). This is called mu' in the paper.
     // beta_q is the value of mu in the test statistic calculation of q_mu-tilde
@@ -180,6 +185,7 @@ public:
         if(ts_data < 1e-2) return 1.0 - target_cls;
         double sigma0 = sc.sigma(0.0, beta_q);
         double clb = asymptotic_ts_dist::sf(0.0, beta_q, sigma0, ts_data);
+        if(clb <= 0.0) return 1.0; // actually infinity, but it does not matter as long as it is > target_cls ...
         double clsb = asymptotic_ts_dist::sf(beta_q, beta_q, sigma0, ts_data);
         return clsb / clb - target_cls;
     }
@@ -204,13 +210,18 @@ template<typename FT>
 double find_limit(double width, const FT & f, double xtol_rel){
     double beta_low = 0.0;
     double beta_high = width;
-    double cls_low = 1.0;
+    double cls_low = f(beta_low);
+    theta_assert(cls_low > 0.0);
     double cls_high = f(beta_high);
-    while(cls_high > 0.0){
-        beta_low = beta_high;
-        cls_low = cls_high;
+    theta_assert(isfinite(cls_high));
+    while(cls_high >= 0.0){
+        if(cls_high > 0){
+            beta_low = beta_high;
+            cls_low = cls_high;
+        }
         beta_high += width;
         cls_high = f(beta_high);
+        theta_assert(isfinite(cls_high));
     }
     return brent(f, beta_low, beta_high, xtol_rel * width, cls_low, cls_high, 1e-5);
 }
@@ -219,10 +230,10 @@ double find_limit(double width, const FT & f, double xtol_rel){
 
 
 void asymptotic_cls::run(){
-    int total = quantiles_expected.size();
-    if(data.get()) ++total;
+    int total = quantiles_expected.size() + n;
+    int done = 0;
     if(progress_listener){
-        progress_listener->progress(0, total, 0);
+        progress_listener->progress(done, total, 0);
     }
     // get mode, ranges and width:
     ParValues mode;
@@ -234,11 +245,6 @@ void asymptotic_cls::run(){
     }
     ParValues widths = asimov_likelihood_widths(*model, boost::shared_ptr<Distribution>());
     boost::shared_ptr<NLLikelihood> data_nll;
-    Data observed_data;
-    if(data.get()){
-        data->fill(observed_data);
-        data_nll = model->get_nllikelihood(observed_data);
-    }
     SigmaCalculator calc(*model, *minimizer, parameter, data_nll);
 
     // the expected limits:
@@ -254,26 +260,30 @@ void asymptotic_cls::run(){
         r.set_column(c_limit, limit);
         limits_table->add_row(r);
         if(progress_listener){
-            progress_listener->progress(i, total, 0);
+            progress_listener->progress(++done, total, 0);
         }
     }
-    // the observed limit:
-    if(data.get()){
+    // the "observed" limit(s):
+    Data observed_data;
+    for(int i=0; i<n; ++i){
+        data->fill(observed_data);
+        data_nll = model->get_nllikelihood(observed_data);
+        calc.set_data_nll(data_nll);
         cls_observed obs(calc, 1 - cl);
         double limit = find_limit(calc.get_poi_width(), obs, limit_reltol);
         Row r;
         r.set_column(c_q, 0.0);
-        r.set_column(c_index, static_cast<int>(quantiles_expected.size()));
+        r.set_column(c_index, static_cast<int>(quantiles_expected.size() + i));
         r.set_column(c_limit, limit);
         limits_table->add_row(r);
         if(progress_listener){
-            progress_listener->progress(total, total, 0);
+            progress_listener->progress(++done, total, 0);
         }
     }
 }
 
 asymptotic_cls::asymptotic_cls(const Configuration & cfg): 
-  parameter(getpar(cfg, "parameter")), cl(0.95), parameter_value_expected(0.0), limit_reltol(1e-3){
+  parameter(getpar(cfg, "parameter")), cl(0.95), n(1), parameter_value_expected(0.0), limit_reltol(1e-3){
     // add some config for submodules:
     cfg.pm->set("runid", boost::shared_ptr<int>(new int(1)));
     output_database = PluginManager<Database>::build(Configuration(cfg, cfg.setting["output_database"]));
@@ -291,7 +301,13 @@ asymptotic_cls::asymptotic_cls(const Configuration & cfg):
     }
     model = PluginManager<Model>::build(Configuration(cfg, cfg.setting["model"]));
     minimizer = PluginManager<Minimizer>::build(Configuration(cfg, cfg.setting["minimizer"]));
-    if(s.exists("data")) data = PluginManager<DataSource>::build(Configuration(cfg, cfg.setting["data"]));
+    if(s.exists("data")){
+        data = PluginManager<DataSource>::build(Configuration(cfg, cfg.setting["data"]));
+        if(s.exists("n")) n = s["n"];
+    }
+    else{
+        n = 0;
+    }
     if(s.exists("limit_reltol")) limit_reltol = s["limit_reltol"];
     if(limit_reltol <= 1e2 * numeric_limits<double>::epsilon()){
         throw ConfigurationException("limit_reltol is too small");

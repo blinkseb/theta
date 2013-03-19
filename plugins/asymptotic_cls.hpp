@@ -24,6 +24,7 @@
  * 
  *   //options for observed limits:
  *   data = {...}; // optional
+ *   n = 10; // optional, default is 1
  * 
  *   // options for expected limits:
  *   quantiles_expected = (0.025, 0.16, 0.5, 0.84, 0.975); // optional; this is the default
@@ -45,6 +46,9 @@
  *   than \c limit_reltol * \c width, where \c width is the expected uncertainty of the parameter of interest.
  * 
  * \c data is a DataSource specification for the observed data. If missing, no "observed" limit will be calculated.
+ * 
+ * \c n is ther number of "observed" limits to calculate. This is usually \c 1, but in case the DataSource \c data contains e.g.
+ *   many toy datasets, you can specify a larger number here.
  * 
  * \c quantiles_expected are the quantiles of the expected limit distribution to calculate. The default setting given above corresponds to the typical
  *   configuration for the median, central 1sigma, and central 2sigma intervals. All values must be &gt; 0 and &lt; 1. Can be set to an empty list
@@ -72,6 +76,7 @@ private:
     std::auto_ptr<theta::Minimizer> minimizer;
     
     std::auto_ptr<theta::DataSource> data;
+    int n;
     
     std::vector<double> quantiles_expected;
     double parameter_value_expected;

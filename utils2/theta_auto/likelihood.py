@@ -181,6 +181,10 @@ def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constr
     * "Z", "__runid", or "__eventid". The latter two are only available in case ``eventid_info = True``
     
     The value is a list of the approximate Z values calculated as decribed above.
+    
+    To convert Z-values to p-values or vice versa, use :meth:`p_to_Z` and :meth:`Z_to_p`.
+    
+    .. note:: As a result of the definition as the above square root, the Z-value is never negative, and any p-value will be larger than 0.5.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()

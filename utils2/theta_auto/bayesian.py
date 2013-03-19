@@ -65,7 +65,7 @@ def bayesian_nl_posterior_ratio(model, input, n, signal_prior_sb = 'fix:1.0', si
 
 def bayesian_limits(model, what = 'all', **options):
     """
-    Calculate Bayesian limits.
+    Calculate Bayesian limits on the cross section beta_signal.
  
     This is a high-level interface to calculate expected and observed limits and make a limit band plot:
     it will calculate expected and observed limits (using :func:`bayesian_quantiles` ), make a "limit vs. mass" band plot
@@ -77,12 +77,17 @@ def bayesian_limits(model, what = 'all', **options):
      * 'all': both 'data' and 'expected'
  
     Further ``options`` are passed through to :func:`bayesian_quantiles` with the special case that
-     * there should be n_toy, n_obs  instead of n;  'n' will be ignored
-     * 'input' will be ignored
-    
+     * there should be "n_toy", "n_data"  instead of "n";  "n" will be ignored
+     * "input" will be ignored
+     
+     
     The return value is a two-tuple of ``plotutil.plotdata`` instances. The first contains expected
     limit (including the 1sigma and 2sigma bands), the second the 'observed' limit.
-    If ``what`` is different from 'all', the one of these tuple entries isset to `` None``.
+    If ``what`` is different from 'all', the coorresponding tuple entry is `` None``.
+     
+    For example, to calculate expected limits using 2000 toys, and observed limits using 20 Markov Chains (instead of the default of 1000 / 10) use::
+    
+      expected, observed = bayesian_limits(model, 'all', n_toy = 2000, n_data = 20)
     """
     if 'n' in options: del options['n']
     if 'input' in options: del options['input']

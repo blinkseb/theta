@@ -113,9 +113,15 @@ def get_trunc_mean_width(l):
 
    
 def p_to_Z(p_value):
-   return -scipy.stats.norm.ppf(p_value)
+    """
+    Convert a p-value to a Z value (number of sigma), using the definition of a one-sided Gaussian integral.
+    """
+    return -scipy.stats.norm.ppf(p_value)
    
 def Z_to_p(z_value):
+    """
+    Convert a Z-value to a p-value; inverse of :meth:`p_to_Z`
+    """
     return scipy.stats.norm.sf(z_value)
     
 def get_p(n, n0):

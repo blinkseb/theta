@@ -17,7 +17,7 @@ import matplotlib.patches
 from scipy import interpolate
 import numpy as np
 
-import math
+import math, StringIO
 
 def add_xlabel(axes, text, *args, **kwargs):
     label = axes.set_xlabel(text, size='large', ha='right', *args, **kwargs)
@@ -29,8 +29,28 @@ def add_ylabel(axes, text, *args, **kwargs):
     label.set_position((-0.03, 1.0))
     return label
 
-# plotdata represents the data of a single curve in a plot, including drawing options, legend, etc.
 class plotdata:
+    """
+    Class holding (x,y) data and formatting information for plotting (1D-)histograms and functions.
+    
+    :ivar x: array of x values. For Histograms, these are the lower bin borders.
+    :ivar xmax: The maximum x value for Histograms.
+    :ivar y: array of y values
+    :ivar yerrors: array of errors in y or ``None`` if there are no y errors
+    :ivar xerrors: array of x errors or ``None`` if there are no x errors
+    :ivar bands: array of bands to draw. A single band is a thre-tuple ``(ymin, ymax, color)`` where ``ymin`` and ``ymax`` are arrays of y values and color is a matplotlib color directive, e.g. "#rrggbb".
+    
+    :ivar as_function: ``True`` if the data should be displayed as function. Otherwise, it will be drawn as histogram
+    :ivar color: The color used for drawing the line
+    :ivar fmt: matplotlib format string for the line. Default is "-", i.e., a solid line.
+    :ivar lw: line width for the line
+    :ivar legend: The legend string or ``None`` in case no legend should be drawn
+    :ivar fill_color: color to be used for filling. The default ``None`` does not draw a filled area
+    :ivar fill_xrange: a tuple ``(xmin, xmax)`` which should be filled with fill_color. Currently only implemented for histograms.
+    :ivar yerrors_mode: a string specifying how errors are displayed. The default "bars" will draw error bars. Currently, the only other option is "area" which draws a shaded area instead, which is useful if the errors are so small (or points so dense in x-direction) that the error bars would overlap.
+    :ivar capsize: cap size to use for y error bars (default: 1.5)
+    """
+    
     def __init__(self, color = '#000000', legend = None, as_function = False, lw = 2, legend_order = 0):
         self.x = []
         self.y = []
@@ -101,8 +121,10 @@ class plotdata:
             self.y[ibin] += 1
         
 
-    # scale all y values by factor
     def scale_y(self, factor):
+        """
+        Scale all y values by the given factor. Also scales the y-values in the bands; y errors are not scaled.
+        """
         self.y = [y*factor for y in self.y]
         if self.bands is None: return
         for band in self.bands:
@@ -110,6 +132,8 @@ class plotdata:
             band[1][:] = [y * factor for y in band[1]]
 
     def scale_x(self, factor):
+        """ Scale all x-values by the given factor, including xmax.
+        """
         self.x = [x*factor for x in self.x]
         self.xmax *= factor
 
@@ -120,13 +144,15 @@ class plotdata:
         self.y = h[2][:]
         self.xmax = h[1]
         
-    # set values from Histogram object:
     def set_histogram(self, histo):
+        """
+        Set the variables x, xmax, y, yerrors from ``histo``. ``histo`` should be an instance of :class:`theta_auto.Histogram`.
+        """
         self.xmax = histo.get_xmax()
         self.x = [histo.get_x_low(i) for i in range(histo.get_nbins())]
         self.y = histo.get_values()
         self.yerrors = histo.get_uncertainties()
-        
+        self.xerrors = None
     
     # replace x, y and bands by a smoothed version, obtained by cubic interpolation
     # evaluated n times more points than original
@@ -152,8 +178,18 @@ class plotdata:
             tck = interpolate.splrep(oldx, band[1], w = [1 / (relunc * band[1][i]) for i in range(len(oldx))], s = s)
             band[1][:] = interpolate.splev(self.x, tck)
         
-    # ofile is a string (filename) or a handle to an open file
     def write_txt(self, ofile):
+        """
+        Write the content in a text file.
+        
+        :param ofile: The output file, either as string or an open file handle
+        
+        One line is written per (x,y) point. The first line is a comment line starting with "#" explaining the fields. The general data layout is::
+        
+          x y yerror band0ymin band0ymax band1ymin band1ymax ...
+          
+        where in general some entries are missing if not available.
+        """
         if type(ofile)==str: ofile = open(ofile, 'w')
         ofile.write('# x; y')
         if self.yerrors is not None: ofile.write('; yerror')
@@ -169,10 +205,18 @@ class plotdata:
                 for k in range(len(self.bands)):
                     ofile.write("%10.5g %10.5g" % (self.bands[k][0][i], self.bands[k][1][i]))
             ofile.write("\n")
+            
+    # printing support, similar to write_txt, but in a string. Note that this might cxhange in the future; it's mainly for
+    # quick inspection in the script by the user. Use write_txt to be safe.
+    def __str__(self):
+        sio = StringIO.StringIO()
+        self.write_txt(sio)
+        return sio.getvalue()
     
-    # infile is the filename
     def read_txt(self, infile):
-        # values is a list of lines in the file; each line is a list of floats
+        """
+        Read data from a file produced by :meth:`write_txt`. This replaces the instance variables x, y, yerrors and bands.
+        """
         values = []
         for line in file(infile):
             if len(line) == 0: continue
@@ -189,6 +233,9 @@ class plotdata:
         self.y = [row[1] for row in values]
         if have_yerrors:
             self.yerrors = [row[2] for row in values]
+        else:
+            self.yerrors = None
+        self.xerrors = None
         # read bands:
         n_bands = (n_values - 2) / 2
         self.bands = []
@@ -199,27 +246,28 @@ class plotdata:
             band = ([row[2+2*i +  yerror_offset] for row in values], [row[3+2*i  + yerror_offset] for row in values], colors[i % len(colors)])
             self.bands.append(band)
         
-        
-
-## \brief Make a plot and write it to an output file
-#
-#
-# histos is a list / tuple of plotdata instances, xlabel and ylabel are lables for the axes, outname is the output filename.
-#
-# logx and logy control whether the x/y-scale should be logarithmic.
-#
-# If set, ax_modifier should be a function / callable. It will be called with the matplotlib Axes instance as only argument.
-# This can be used for arbitrary mainulation, such as adding other objects to the plot, etc.
-#
-# title_ul and title_ur are strings shown on the upper left and upper right of the plot, resp.
-#
-# extra_legend_items is a list of extra items to add to the legend, as tuple (handle, lable) where handle is a matplotlib Artist
-# and label the legend string. As special case, we also allow handle to be a string in which case it is assumed to encode a color.
-# For other cases, see matplotlib legend guide for details.
-#
-# xmin, xmax, ymin, ymax control the region shown in the plot. the default is to determine the region automatically (by matplotblib)
 def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_modifier=None, title_ul=None, title_ur = None,
  extra_legend_items = [], xmin = None, xmax=None, ymin=None, ymax=None, legend_args = {}, fig = None, figsize_cm = (15, 12), fontsize = 10, axes_creation_args = {}):
+    """
+    Plot the given :class:`plotutil.plotdata` objects. Many drawing options are controlled by those instances; see documentation there.
+    
+    :param histos: A list of :class:`plotutil.plotdata` instances
+    :param xlabel: The label for the x axis. Latex is allowed in $$-signs
+    :param ylabel: The label for the y axis. Latex is allowed in $$-signs
+    :param outname: name of the output file; the file extension will be used to guess the file type (by matplotlib); typical choices are ".pdf" and ".png".
+    :param logy: use log-scale in y direction
+    :param logx: use log scale in x direction
+    :param ax_modifier: function called with the matplotlib.Axes object as argument. Allows to perform additional manipulation in case you need to "extend" this method
+    :param title_ul: Title for the upper left corner. Can be either a string or a list of strings. A list of strings will be displayed as multiple lines.
+    :param title_ur: Title for the upper right corner. Unlike ``title_ul``, only a single string is allowed
+    :param extra_legend_items: allows to specify extra items for the legend. It is a list of two-tuples ``(handle, legend)`` where ``handle`` is a matplotlib object to use to draw the legend and ``legend`` is the string to be drawn
+    :param xmin: The minimum x value to draw
+    :param xmax: The maximum x value to draw
+    :param ymin: The minimum y value to draw
+    :param ymax: The maximum y value to draw
+    :param figsize_cm: The figure size in cm as tuple ``(width, height)``
+    :param fontsize: The font size in points
+    """
     #extra_legend_items = extra_legend_items[:]
     legend_items = []
     cm = 1.0/2.54
