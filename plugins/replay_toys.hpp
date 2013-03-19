@@ -13,7 +13,7 @@
  *      type = "sqlite_database_in";
  *      filename = "toys.db";
  *   };
- *   pdw_name = "pdw"; // optional, default is to auto-detect
+ *   pdw_name = "pdw"; // optional.
  *   observables = ("o1", "o2"); // optional, default is all observables
  * };
  * \endcode
@@ -25,10 +25,12 @@
  * \c input_database is a specification for a DatabaseInput plugin
  *
  * \c pdw_name is the name of the pseudodata_writer instance with which the input database has been created. This is used
- *  to construct the column names in the product table. If not given, it will be guessed based on the observable names and the available column
- *  names. In case of ambiguities, a ConfigurationException will be thrown at the time of construction.
+ *  to construct the column names in the product table. If no \c pdw_name is given, it will be guessed from the column names of the
+ *  input database, which usually works but might fail in some cases.
  *
  * \c observables is a list of observable names to fill. The default is to use all observables 
+ * 
+ * \c rvobservables is a list of real-values observable names. The default is to use all real-valued observables.
  *
  * replay_toys will not create any columns in the products table
  */
@@ -40,4 +42,5 @@ private:
     std::auto_ptr<theta::DatabaseInput> input_database;
     std::auto_ptr<theta::DatabaseInput::ResultIterator> res;
     std::vector<theta::ObsId> observables;
+    std::vector<theta::ParId> rvobservables;
 };
