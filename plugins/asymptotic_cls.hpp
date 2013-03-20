@@ -62,7 +62,11 @@
  * "limit" is the asymptotic limit; "index" is the 0-based index for \c quantiles_expected. The observed limit is the last, so its
  * index will be 5 for the default \c quantiles_expected.
  * 
- * The reported progress is the number of calculated asymptotic limits. If calculating both expected and observed limits, makes a total of 6.
+ * The reported progress is the number of calculated asymptotic limits. So if calculating both expected and one observed limit, the reported total is 6.
+ * 
+ * If a MinimizationException occurs during evaluating the expected limit, theta aborts, while for the observed limit(s), such a failure is allowed
+ * and the corresponding "index" is skipped. This is useful if calculating "observed" limits for a large ensemble where a failure rate of one permille
+ * or so is usually not a problem.
  */
 class asymptotic_cls: public theta::Main{
 public:

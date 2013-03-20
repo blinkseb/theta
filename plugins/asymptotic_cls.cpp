@@ -264,20 +264,26 @@ void asymptotic_cls::run(){
         }
     }
     // the "observed" limit(s):
+    int errors = 0;
     Data observed_data;
     for(int i=0; i<n; ++i){
         data->fill(observed_data);
         data_nll = model->get_nllikelihood(observed_data);
         calc.set_data_nll(data_nll);
         cls_observed obs(calc, 1 - cl);
-        double limit = find_limit(calc.get_poi_width(), obs, limit_reltol);
-        Row r;
-        r.set_column(c_q, 0.0);
-        r.set_column(c_index, static_cast<int>(quantiles_expected.size() + i));
-        r.set_column(c_limit, limit);
-        limits_table->add_row(r);
+        try{
+            double limit = find_limit(calc.get_poi_width(), obs, limit_reltol);
+            Row r;
+            r.set_column(c_q, 0.0);
+            r.set_column(c_index, static_cast<int>(quantiles_expected.size() + i));
+            r.set_column(c_limit, limit);
+            limits_table->add_row(r);
+        }
+        catch(MinimizationException & ex){
+            ++errors;
+        }
         if(progress_listener){
-            progress_listener->progress(++done, total, 0);
+            progress_listener->progress(++done, total, errors);
         }
     }
 }
