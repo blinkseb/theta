@@ -231,7 +231,10 @@ def report_limit_band_plot(expected_limits, observed_limits, name, shortname, wr
                 result_table.set_column('exp1', '%.3g--%.3g' % (expected_limits.bands[1][0][i], expected_limits.bands[1][1][i]))
                 result_table.set_column('exp2', '%.3g--%.3g' % (expected_limits.bands[0][0][i], expected_limits.bands[0][1][i]))
             if observed_limits is not None:
-                result_table.set_column('obs', '%.3g +- %.3g' % (observed_limits.y[i], observed_limits.yerrors[i]))
+                if observed_limits.yerrors is not None:
+                    result_table.set_column('obs', '%.3g +- %.3g' % (observed_limits.y[i], observed_limits.yerrors[i]))
+                else:
+                    result_table.set_column('obs', '%.3g' % observed_limits.y[i])
             result_table.add_row()
         config.report.add_html(result_table.html())
     plot(plots, 'signal process', 'upper limit', os.path.join(plotsdir, 'limit_band_plot-%s.png' % shortname), extra_legend_items=extra_legend_items)

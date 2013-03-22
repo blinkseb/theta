@@ -1,5 +1,6 @@
 #include "interface/plugin.hpp"
 #include "interface/utils.hpp"
+#include "interface/variables.hpp"
 
 #include <dlfcn.h>
 
@@ -37,6 +38,6 @@ void PluginLoader::load(const std::string & soname) {
     }
 }
 
-
-
-
+theta::ParId theta::get_parameter(const Configuration & cfg, const std::string & key){
+    return cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting[key]);
+}

@@ -9,6 +9,8 @@ for the null hypothesis. The methods documented here assume that you want to tes
 
 .. note:: Toy-based methods often have large running times for more complicated models. In some cases, you can use asymptotic methods instead, see :ref:`likelihood`.
 
+.. module:: theta_auto
+
 The methods documented here are defined in ``theta_auto/frequentist.py``.
 
 To calculate p-values from toys, there are three different "levels" of the interface where you should stick to one. From "higher" to lower level:
@@ -21,10 +23,8 @@ To calculate p-values from toys, there are three different "levels" of the inter
    run :program:`theta` distributed in a cluster. You can then call :meth:`theta_auto.pvalue` to calculate the actual p-value using
    the background-only toys. For details, refer to the :meth:`theta_auto.pvalue_bkgtoys_runs`, :meth:`theta_auto.Run`, and
    :ref:`distributed_running`.
-3. The lowest level is :meth:`theta_auto.deltanll` which calculates the likelihood ratio test statistic for a input dataset, or alternatively returns the
-   corresponding :class:`theta_auto.Run` instance. You can use this if you need full control.
-
-.. module:: theta_auto
+3. The lowest level methods are :meth:`deltanll` and :meth:`dernll` which calculates the likelihood ratio and log-likelihood derivative, respectively for an arbitrary input dataset.
+   Alterantively, they return the corresponding :class:`theta_auto.Run` instance. You can use this if you need full control about how the toys are performed.
 
 
 p-values via tail distribution of background-only toys
@@ -37,4 +37,6 @@ p-values via tail distribution of background-only toys
 .. autofunction:: pvalue
 
 .. autofunction:: deltanll
+
+.. autofunction:: derll
 

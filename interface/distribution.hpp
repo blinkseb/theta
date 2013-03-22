@@ -134,7 +134,7 @@ namespace theta{
        /// set the range
        void set(const ParId & pid, const std::pair<double, double> & range);
 
-       /// Get the range for the specified parameter. Throws invalid_argument in case
+       /// Get the range for the specified parameter. Throws invalid_argument in case no range is set for this parameter
        const std::pair<double, double> & get(const ParId & pid) const;
 
        /// Returns whether or not the parameter is fixed, i.e. whether lower and upper bound coincide.
@@ -142,6 +142,7 @@ namespace theta{
 
        /// truncate the values to the ranges. Parameters for which no range is set are not changed.
        void trunc(ParValues & values) const;
+       
     };
 }
 

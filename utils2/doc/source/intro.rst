@@ -200,10 +200,6 @@ can get the content of this report object as html with this line in your analysi
 This should be done at the very end of the analysis.py script, as writing to the "report" object after it has been written is considered an error and will abort the execution
 of the script.
 
-Many python methods of theta-auto accept the same parameters. If a parameter of that name is present, it has the meaning as described below. Note that
-for some methods, some of these parameters do not make sense, so not all parameters can be used with all methods. See the documentation for the methods
-you want to use for details.
-
 
 
 

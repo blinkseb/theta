@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import hashlib, io, os, time, re, numpy, shutil, termios, threading
+import hashlib, io, os, time, re, numpy, shutil, termios, threading, StringIO
 from Model import *
 from utils import *
 import config
@@ -79,6 +79,13 @@ stepsize_factor = None
         
     def get_workdir(self):
         return os.path.realpath(config.workdir)
+    
+    def copy(self):
+        s = StringIO.StringIO()
+        self.write(s)
+        result = Options()
+        result.read(s)
+        return result
 
 # each class representing a theta module should inherit from ModuleBase
 class ModuleBase:
@@ -381,7 +388,35 @@ class DeltaNllHypotest(ProducerBase):
         if self.restrict_poi is not None: result['restrict_poi'] = self.restrict_poi
         if self.restrict_poi_value is not None: result['default_poi_value'] = self.restrict_poi_value
         return result
-        
+    
+class NllDerProducer(ProducerBase):
+    def __init__(self, model, signal_processes, override_distribution = None, name = 'nll_der', signal_prior_sb = 'flat', signal_prior_b = 'fix:0.0', parameter = 'beta_signal'):
+        ProducerBase.__init__(self, model, signal_processes, override_distribution = None, name = name, signal_prior = None)
+        self.minimizer = Minimizer(need_error = False)
+        self.add_submodule(self.minimizer)
+        self.parameter = parameter
+        if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
+        else: dist = model.distribution
+        sb_parameters = set(model.get_parameters(signal_processes))
+        assert self.parameter in sb_parameters, "Parameter %s invalid: model does not depend on it" % parameter
+        b_parameters = set(model.get_parameters(''))
+        means = dist.get_means()
+        # the "signal parameters": those which the model depends only for the signal ...
+        means_spar = {}
+        for p in means:
+            if p in sb_parameters and p not in b_parameters: means_spar[p] = means[p]
+        dist_bkg = Distribution.merge(dist, get_fixed_dist_at_values(means_spar))
+        self.sb_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(sb_parameters), _signal_prior_dict(signal_prior_sb)]}
+        self.b_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist_bkg.get_cfg(sb_parameters), _signal_prior_dict(signal_prior_b)]}
+
+    def get_cfg(self, options):
+        result = {'type': 'nll_der', 'minimizer': self.minimizer.get_cfg(options),
+           'background-only-distribution': self.b_distribution_cfg, 'signal-plus-background-distribution': self.sb_distribution_cfg, 
+           'parameter': self.parameter}
+        result.update(self.get_cfg_base(options))
+        if 'override-parameter-distribution' in result: del result['override-parameter-distribution']
+        return result
+
 class MCMCRatioProducer(ProducerBase):
     def __init__(self, model, signal_processes, override_distribution = None, name = 'mcmcratio', signal_prior_sb = 'fix:1.0', signal_prior_b = 'fix:0.0', iterations = 10000):
         ProducerBase.__init__(self, model, signal_processes, override_distribution = None, name = name, signal_prior = None)
@@ -568,6 +603,13 @@ class DbResult(object):
         c.close()
         table_names = [r[0] for r in rows]
         return table_names
+    
+    
+    def _get_columns(self, table):
+        c = self._query("PRAGMA table_info(\"%s\")" % table)
+        columns = c.fetchall()
+        colnames = [c[1] for c in columns]
+        return colnames
 
     def get_results(self, table_name, columns, order_by = None):
         """
@@ -588,6 +630,11 @@ class DbResult(object):
         order_by_sql = ''
         if len(tables) == 1:
             if type(columns)!=str:
+                # make sure all columns asked for exist (if we don't do this, then sqlite returns the column name in case a
+                # column does not exist, which is annoying and a hard to detect bug).
+                cols = self._get_columns(tables[0])
+                for c in columns:
+                    if c not in cols: raise RuntimeError, "Asked for column '%s' but it is not present in table '%s' (columns: %s)" % (c, tables[0], cols)
                 columns_sql = '"' + '", "'.join(columns) + '"'
             else:
                 assert columns == '*'
@@ -607,7 +654,7 @@ class DbResult(object):
             res_columns = c.description
             c.close()
             for i in range(len(res_columns)):
-                colname = res_columns[i][0]
+                colname = res_columns[i][0].strip('"')
                 if columns != '*' and colname not in columns:
                     continue
                 result[colname] = [row[i] for row in data]

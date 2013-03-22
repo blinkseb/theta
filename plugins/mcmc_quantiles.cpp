@@ -86,7 +86,7 @@ void mcmc_quantiles::produce(const Data & data, const Model & model) {
 
 
 mcmc_quantiles::mcmc_quantiles(const theta::Configuration & cfg): Producer(cfg),
-   init(false), par_id(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])), re_init(0), itoy(0) {
+   init(false), par_id(get_parameter(cfg, "parameter")), re_init(0), itoy(0) {
     Setting s = cfg.setting;
     string parameter = s["parameter"];
     size_t n = s["quantiles"].size();

@@ -108,3 +108,39 @@ the fourth and last index ``0`` selects the fitted value. See the documentation 
 The second-to-last line does the actual evaluation of the model prediction, and the last line writes the histograms to the root file "histos-mle.root".
 
 The resulting root file will only have one histogram in this example, ``obs__b``, but this example can also be applied to more complicated models.
+
+
+==========
+CLs Limits
+==========
+
+Calculate the expected asymptotic CLs limits with injected signal 
+-----------------------------------------------------------------
+
+To calculate the expected asymptotic CLs limits with a non-zero signal, use the ``beta_signal_expected`` parameter of :meth:`asymptotic_cls_limits`::
+
+  model = test_model.simple_counting(s = 2.0, b = 10.0, n_obs = 7, b_uncertainty = 3.0)
+  exp, obs = asymptotic_cls_limits(model, beta_signal_expected = 1.0)
+  print exp, obs
+
+The resulting expected limits have been evaluated with the signal strength parameter ``beta_signal`` set to 1.0. This method, however, only works if
+you want to inject the same signal that you want to exclude.
+
+In general, you might want to inject a signal different from the one you fit. To calculate the expected limit in such a case, the toy data is generated according to
+the "signal-injected" model in a first stage. In the second stage, this toy data is passed as ``input`` parameter to the asymptotic CLs limit calculation::
+
+  model_toys = test_model.simple_counting(s = 1.2, b = 10.0, n_obs = 7, b_uncertainty = 3.0)
+  model_toys = get_bootstrapped_model(model_toys)
+  N_toy = 1000
+  data = make_data(model_toys, 'toys:1.0', N_toy)
+  
+  model_limit = test_model.simple_counting(s = 2.0, b = 10.0, n_obs = 7, b_uncertainty = 3.0)
+  exp, obs = asymptotic_cls_limits(model_limit, input = data['s'], n = N_toy)
+  print obs
+  
+Some things to note:
+ * the models for generating toy data and for deriving the CLs limits are completely decoupled. This is Ok as long as they define the same observables (including the same binning, etc.).
+ * in the second line, the toy model is adapted from the default "prior-predictive" mode (in which each nuisance parameter has a Bayesian prior) to the "frequentist" view in which for each nuisance parameter, there is a (pseudo-)measurement. The central values are bootsrapped from data by making a maximum likelihood fit. This is required for the data generation to generate the observations of the nuisance parameter measurements consistently with what is done in ``asymptotic_cls_limits``.
+ * the asymptotic CLs limits for the toy data are reported as the "observed" limits; in general, anything specified in the ``input`` parameter will contribute to the ``obs`` result. The ``exp`` variable is unchanged, i.e. it contains the asymptotic CLs limits for an ensemble of (toy-)data distributed according to ``model_limit`` with ``beta_signal = 0.0``.
+ 
+See also: :meth:`theta_auto.make_data`, :meth:`theta_auto.asymptotic_cls_limits`.

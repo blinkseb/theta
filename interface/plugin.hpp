@@ -36,9 +36,9 @@ namespace theta {
         /// The setting in the configuration file from which to build the instance
         Setting setting;
 
-        /** \brief Construct Configuration by specifying all data members
+        /** \brief Construct Configuration from the root setting
          */
-        Configuration(const Setting & setting_);
+        explicit Configuration(const Setting & root_setting);
 
         /** \brief Copy elements from another Configuration, but replace Configuration::setting
          *
@@ -46,6 +46,10 @@ namespace theta {
          */
         Configuration(const Configuration & cfg, const Setting & setting_);
     };
+    
+    // convert the string cfg.setting[key] to a ParId, using cfg.pm->get<VarIdManager>().
+    // This is useful for many producers, as ParId does not have a default constructor.
+    theta::ParId get_parameter(const Configuration & cfg, const std::string & key);
 
 
     template<typename> class PluginManager;

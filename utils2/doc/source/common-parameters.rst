@@ -121,8 +121,7 @@ other hand, the overhead introduced by this multi-threading is usually much larg
 ``model use_llvm`` and ``model use_tbb`` are mutually exclusive. Setting both to ``True`` results in an exception. Using both ``main n_threads`` and ``model use_tbb``
 is valid but creates a total of ``n_threads * tbb_nthreads`` which is to be considered if using both options.
 
-.. warning:: llvm and tbb have been tested to some extent but should still be considered *experimental*; make sure to compare results with these options disabled. While
-small numerical deviations can arise for llvm (due to different floating point computations in the llvm-compiled code), the result for tbb should be 100% identical.
+.. warning:: llvm and tbb have been tested to some extent but should still be considered *experimental*; make sure to compare results with these options disabled. For these tests, be aware that small deviations can arise for llvm (due to different floating point computations in the llvm-compiled code), while the result for tbb should be completely unchanged.
 
 The section ``mcmc`` controls Markov-Chain Monte-Carlo settings used by Bayesian methods (note that these settings do not affect the mcmc run in the minimizer):
 ``mcmc strategy`` controls how proposal steps in the Markov Chain are constructed. The default of "asimov_widths" uses a Gaussian proposal function with a diagonal

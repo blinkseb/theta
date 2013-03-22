@@ -66,7 +66,7 @@ void nll_scan::produce(const Data & data, const Model & model) {
 }
 
 
-nll_scan::nll_scan(const theta::Configuration & cfg): Producer(cfg), pid(cfg.pm->get<VarIdManager>()->get_par_id(cfg.setting["parameter"])),
+nll_scan::nll_scan(const theta::Configuration & cfg): Producer(cfg), pid(get_parameter(cfg, "parameter")),
    re_minimize(true), adaptive_startvalues(false), start_step_ranges_init(false){
     Setting s = cfg.setting;
     minimizer = PluginManager<Minimizer>::build(theta::Configuration(cfg, s["minimizer"]));

@@ -124,6 +124,48 @@ def deltanll(model, input, n, signal_process_groups = None, nuisance_constraint 
     return result
 
 
+def derll(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, options = None,
+  run_theta = True, seed = None):
+    """
+    Calculate the derivative of the log-likelihood,
+    
+    .. math::
+    
+      d = \\frac{\\partial}{\partial \\beta_s} \\log L
+      
+    evaluated at the maximum likelihood estimate of the background-only (beta_signal = 0.0) hypothesis. This can be used as
+    an alternative to the deltanll test statistic for discovery.
+    
+    For the parameters ``model``, ``input``, ``n``, ``signal_process_groups``, ``nuisance_constraint``, ``nuisance_prior_toys``, and ``options`` refer
+    to :ref:`common_parameters`.
+    
+    More parameters:
+    
+    * ``seed`` - this is the random seed to use for toy data generation. It is only relevant for ``input="toys..."``. The default value of ``None`` will use a seed which is
+      different in each :program:`theta` run.
+    * ``run_theta`` - if ``True``, runs :program:`theta` locally. Otherwise, :class:`Run` objects are returned which can be used e.g. to access the cfg file. Note that in case of
+      ``run_theta=False``, the ``options`` parameter has no effect whatsoever.
+      
+    The return value is a nested python dictionary. The first-level key is the signal process group id (see :ref:`what_is_signal`). The value depends on ``run_theta``:
+    
+    * in case ``run_theta`` is ``True``, the value is a dictionary with the keys "der" containing a list of the negative log-likelihood derivative.
+    * if ``run_theta`` is ``False``, the value is an instance of the :class:`theta_interface.Run` class
+    """
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    result = {}
+    for spid, signal_processes in signal_process_groups.iteritems():
+        dernll = NllDerProducer(model, signal_processes, nuisance_constraint)
+        r = Run(model, signal_processes, signal_prior = 'flat', input = input, n = n, producers = [dernll], nuisance_prior_toys = nuisance_prior_toys, seed = seed)
+        if not run_theta:
+            result[spid] = r
+        else:
+            r.run_theta(options)
+            data = r.get_products(['nll_der__der'])
+            result[spid] = {'der': [-x for x in data['nll_der__der']]}
+    return result
+
+
 def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10000, nuisance_constraint = None, nuisance_prior_toys = None, seed_min = 1, pchi2 = False):
     """
     Prepare Run instances for 'background-only' toys for p-value determination with ``pvalue``.
@@ -155,8 +197,7 @@ def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10
     
     The random seed used for toys is always set explicitly to ``i_run + seed_min`` (with ``i_run = 0..n_run-1`` ).
     You have to be careful if calling this method more than once to use a different ``seed_min`` so that no overlapping seeds are used. In general,
-    it is advisable to call this method only once per cited p-value, with ``n_runs`` set to a high enough value. You can look at the implementation of their
-    ``discovery`` method for an example of how to do that correctly.
+    it is advisable to call this method only once per cited p-value, with ``n_runs`` set to a high enough value.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     result = {}
@@ -213,13 +254,8 @@ def pvalue(model, input, n, signal_process_groups = None, nuisance_constraint = 
     return result
 
 
-
-# debug_method is called using the test statistic values as argument in this order
-#   debug_method('expected', ts_list)    -- after the toys for the "expected" significance using input_expected
-#   debug_method('data', ts_single)   -- the ts value for data
-#   debug_method('bkg', ts_list)    -- the ts value for background-only toys (using input="toys:0.0").
 def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 100, n = 10000, input_expected = 'toys:1.0', n_expected = 1000,
-   nuisance_constraint = None, nuisance_prior_toys_bkg = None, options = None, verbose = True, debug_method = None, chi2_trunc = 0.0):
+   nuisance_constraint = None, nuisance_prior_toys_bkg = None, options = None, verbose = True, ts_method = deltanll):
     """
     Determine p-value / "N sigma" from tail distribution of background-only test statistic.
 
@@ -236,6 +272,7 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
     * ``n`` number of background-only toys per iterations (there are ``maxit`` iterations maximum)
     * ``input_expected`` - a ``input``-like string which deinfes what is reported as "expected" Z-value
     * ``nuisance_prior_toys_bkg`` is like ``nuisance_prior_toys`` (see :ref:`common_parameters`), but only applied to the "background-only" toys.
+    * ``ts_method`` is the method to be used to produce the test statistic. Use either :meth:`deltanll` (default) or :meth:`llder`
     
     Returns a four-tuple (median expected significance, lower 1sigma expected, upper 1sigma expected, observed)
     each entry in the tuple is itself a two-tuple ``(Z, Z_error)`` where the Z_error is the uncertainty on ``Z`` from the limited number of background-only toys.
@@ -246,49 +283,30 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
     signal_process_groups = {spid : model.signal_process_groups[spid]}
     if options is None: options = Options()
     
-    pchi2 = chi2_trunc > 0.0
-    res = deltanll(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint,
-                   input = input_expected, n = n_expected, pchi2 = pchi2, options = options)[spid]
-    ts_sorted = res['dnll']
+    res = ts_method(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint,
+                   input = input_expected, n = n_expected, options = options)[spid]
+    ts_name = res.keys()[0]
+    ts_sorted = res[ts_name]
     ts_sorted.sort()
-    if chi2_trunc > 0.0:
-        chi2s = res['pchi2']
-        chi2s.sort()
-        index = -int(len(chi2s) * chi2_trunc)
-        if index == 0: chi2_threshols = float("inf")
-        else: chi2_threshold = chi2s[index]
-    if debug_method is not None: debug_method('expected', ts_sorted)
     expected = (ts_sorted[int(0.5 * len(ts_sorted))], ts_sorted[int(0.16 * len(ts_sorted))], ts_sorted[int(0.84 * len(ts_sorted))])
     del ts_sorted
     
     if use_data:
-        res = deltanll(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint, input = 'data', n = 1, pchi2 = pchi2, options = options)[spid]
-        observed = res['dnll'][0]
-        if chi2_trunc > 0.0 and res['pchi2'][0] > chi2_threshold:
-            raise RuntimeError, "chi2 value on data too bad. No p-value on data available."
-        if debug_method is not None: debug_method('data', observed)
-        
+        res = ts_method(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint, input = 'data', n = 1, options = options)[spid]
+        observed = res[ts_name][0]       
     
     # (median [n, n0], -1sigma [n, n0], +1sigma [n, n0])
     expected_nn0 = ([0,0], [0,0], [0,0])
     # [n, n0] for observed p-value
     observed_nn0 = [0,0]
     observed_significance = None
+    options = options.copy()
     options.set('minimizer', 'strategy', 'fast')
     if verbose: print "making at most maxit=%d iterations of background-only toys, each with n=%d toys" % (maxit, n)
     for seed in range(1, maxit + 1):
-        # only create only one run, so seed is never re-used.
-        run = pvalue_bkgtoys_runs(model, signal_process_groups = signal_process_groups, n_runs = 1, n = n, nuisance_constraint = nuisance_constraint,
-            nuisance_prior_toys = nuisance_prior_toys_bkg, seed_min = seed, pchi2 = pchi2)[spid][0]
-        run.run_theta(options)
-        if pchi2:
-            res = run.get_products(['dnll__nll_diff', 'dnll__pchi2'])
-            ts_bkgonly = [dnll for dnll, pchi2 in zip(res['dnll__nll_diff'], res['dnll__pchi2']) if pchi2 < chi2_threshold]
-            if verbose: print "keeping %d / %d background-only toys according to chi2 threshold." % (len(ts_bkgonly), len(res['dnll__pchi2']))
-        else:
-            res = run.get_products(['dnll__nll_diff'])
-            ts_bkgonly = res['dnll__nll_diff']
-        if debug_method is not None: debug_method('bkg', ts_bkgonly)
+        ts_bkgonly = ts_method(model, 'toys:0.0', signal_process_groups = signal_process_groups, n = n, nuisance_constraint = nuisance_constraint,
+             nuisance_prior_toys = nuisance_prior_toys_bkg, seed = seed, options = options)
+        ts_bkgonly = ts_bkgonly[spid][ts_name]
         max_Z_error = 0.0
         expected_Z = [[0,0],[0,0],[0,0]]
         Z, Z_error = None, None

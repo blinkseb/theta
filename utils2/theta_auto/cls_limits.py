@@ -127,6 +127,7 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
     
     
     Also note that some parameters described in :ref:`common_parameters` have a special meaning here:
+    
     * ``input`` - this is the data source to calculate the "observed" limit(s) for. The default of ``None`` is equivalent to "data" if ``use_data==True`` and to ``None`` (not computing any observed limit) if ``use_data=False``
     * ``n`` is the number of "observed" limits to calculate from the ``input`` data source. Only has effect if ``input`` is not the default ``None``.
 
@@ -134,8 +135,8 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
     are missing on purpose as the asymptotic method implemented in theta only works for flat priors.
     
     Just like :meth:`cls_limits`, the return value is a two-tuple ``(pd_expected, pd_observed)`` of plotutil.plotdata instances that contain the
-    expected and observed limits. If more than one "observed" limit is calculated, these limits are used to calculate 1sigma and 2sigma bands
-    in ``pd_observed`` as well.
+    expected and observed limits, including the 1sigma and 2sigma expected limit bands. If more than one "observed" limit is calculated,
+    these limits are used to calculate 1sigma and 2sigma bands in ``pd_observed`` as well.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
@@ -183,7 +184,7 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
             pd_expected.bands[1][1].append(limits_expected[sp][3])
             pd_expected.bands[0][1].append(limits_expected[sp][4])
         if n > 0:
-            nobs = len(limits_observed[sp])
+            nobs = len(limits_observed[sp]) # note: can be < n, if some failed.
             lobs = sorted(limits_observed[sp])
             median = lobs[nobs/2]
             pd_observed.y.append(median)
@@ -194,6 +195,7 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
                 # second is 1sigma:
                 pd_observed.bands[1][0].append(lobs[int(0.16 * nobs)])
                 pd_observed.bands[1][1].append(lobs[int(0.84 * nobs)])
+    report_limit_band_plot(pd_expected, pd_observed, 'Asymptotic CLs', 'acls')
     return pd_expected, pd_observed
 
 def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_prior = None, frequentist_bootstrapping = False,

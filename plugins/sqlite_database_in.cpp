@@ -126,6 +126,21 @@ std::vector<std::pair<std::string, theta::data_type> > sqlite_database_in::get_a
 }
 
 std::auto_ptr<DatabaseInput::ResultIterator> sqlite_database_in::query(const std::string & table_name, const std::vector<std::string> & column_names){
+    // check that all columns exist:
+    {
+        std::vector<std::pair<std::string, theta::data_type> > cols = get_all_columns(table_name);
+        std::set<std::string> colset;
+        for(size_t i=0; i<cols.size(); ++i){
+            colset.insert(cols[i].first);
+        }
+        for(size_t i=0; i<column_names.size(); ++i){
+            if(colset.find(column_names[i]) == colset.end()){
+                throw DatabaseException("sqlite_database_in: asked for column '" + column_names[i] + "', but it does not exist for table '" + table_name + "'");
+            }
+        }
+        
+    }
+    
     stringstream q;
     q << "select ";
     for(size_t i=0; i<column_names.size(); ++i){
@@ -171,7 +186,7 @@ void sqlite_database_in::SqliteResultIterator::operator++(){
 double sqlite_database_in::SqliteResultIterator::get_double(size_t icol){
     if(sqlite3_column_type(statement, icol)!=SQLITE_FLOAT){
         stringstream ss;
-        ss << "sqlite_database_in: column type mismtatch for column " << icol << " in query '" << sql_statement << "': asked for double (SQLITE_DOUBLE), but type is "
+        ss << "sqlite_database_in: column type mismatch for column " << icol << " in query '" << sql_statement << "': asked for double (SQLITE_FLOAT), but type is "
            << sqlite_type_to_string(sqlite3_column_type(statement, icol));
         throw DatabaseException(ss.str());
     }

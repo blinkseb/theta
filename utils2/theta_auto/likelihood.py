@@ -145,7 +145,7 @@ def nll_scan(model, input, n, npoints=101, range = [0.0, 3.0], adaptive_startval
     * ``parameter`` - the model parameter the profile likelihood function is defined in; all other parameters will be "minimized out"
     
     The return value is a dictionary for which the first-level key is the signal process group id (see :ref:`what_is_signal` for a definition). The value
-    is a list of length ``n`` of Histogram instances, containing the negative profile log-likelihood values.
+    is a list of length ``n`` of :class:`theta_auto.Histogram` instances, containing the negative profile log-likelihood values.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()

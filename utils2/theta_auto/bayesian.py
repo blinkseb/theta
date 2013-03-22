@@ -63,7 +63,7 @@ def bayesian_nl_posterior_ratio(model, input, n, signal_prior_sb = 'fix:1.0', si
     return result
 
 
-def bayesian_limits(model, what = 'all', **options):
+def bayesian_limits(model, what = 'all', input_expected = 'toys:0', **options):
     """
     Calculate Bayesian limits on the cross section beta_signal.
  
@@ -72,14 +72,19 @@ def bayesian_limits(model, what = 'all', **options):
     and write the result to the global `report` object.
 
     The ``what`` parameter controls which limits are computed. Valid vaues are:
+    
      * 'observed': compute observed limit on data only
      * 'expected': compute +-1sigma, +-2sigma limit bands for background only
      * 'all': both 'data' and 'expected'
  
     Further ``options`` are passed through to :func:`bayesian_quantiles` with the special case that
+    
      * there should be "n_toy", "n_data"  instead of "n";  "n" will be ignored
      * "input" will be ignored
      
+    The parameter ``input_expected`` is used to calculate the expected limit bands. The default of "toys:0" calculates
+    the expected limits in case there is actually no signal. You can set this to a path of a toy data .db file to calculate the expected limit
+    for arbitrary toy data (see the documentation of the ``input`` parameter in :ref:`common_parameters`).
      
     The return value is a two-tuple of ``plotutil.plotdata`` instances. The first contains expected
     limit (including the 1sigma and 2sigma bands), the second the 'observed' limit.
@@ -94,7 +99,7 @@ def bayesian_limits(model, what = 'all', **options):
     n = options.get('n_toy', 1000)
     plot_expected, plot_observed = None, None
     if what in ('expected', 'all'):
-        expected_limits = bayesian_quantiles(model, input = 'toys:0', n = n, **options)
+        expected_limits = bayesian_quantiles(model, input = input_expected, n = n, **options)
         plot_expected = limit_band_plot(expected_limits, True)
     if what in ('observed', 'all'):
         assert model.has_data()

@@ -291,7 +291,8 @@ mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
 sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
 #alltests = unittest.TestSuite([mletests])
-alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, mcmc, cls, sqlite])
+#alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, mcmc, cls, sqlite])
+alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)

@@ -251,7 +251,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
     """
     Plot the given :class:`plotutil.plotdata` objects. Many drawing options are controlled by those instances; see documentation there.
     
-    :param histos: A list of :class:`plotutil.plotdata` instances
+    :param histos: A list of :class:`plotutil.plotdata` instances or a single instance
     :param xlabel: The label for the x axis. Latex is allowed in $$-signs
     :param ylabel: The label for the y axis. Latex is allowed in $$-signs
     :param outname: name of the output file; the file extension will be used to guess the file type (by matplotlib); typical choices are ".pdf" and ".png".
@@ -275,6 +275,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
     fp = fm.FontProperties(size = fontsize)
     if fig is None:
         fig = plt.figure(figsize = fsize)
+    axes_creation_args = dict(axes_creation_args) # make copy to prevent next line from modifying argument.
     rect = axes_creation_args.pop('rect', (0.15, 0.15, 0.8, 0.75))
     ax = fig.add_axes(rect, **axes_creation_args)
     if logy: ax.set_yscale('log')
@@ -291,6 +292,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
             ax.text(0.0, 1.02, title_ul, transform = ax.transAxes, ha='left', va='bottom')
     if title_ur is not None: ax.text(1.0, 1.02, title_ur, transform = ax.transAxes, ha='right', va='bottom')
     draw_legend = False
+    if isinstance(histos, plotdata): histos = [histos]
     for histo in histos:
         legend_added = False
         assert len(histo.x)==len(histo.y), "number of x,y coordinates not the same for '%s'" % histo.legend

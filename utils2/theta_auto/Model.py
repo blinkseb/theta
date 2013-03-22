@@ -30,24 +30,6 @@ def evaluate_prediction(model, par_values, include_signal = True, observables = 
     return result
 
 
-## \brief A statistical Model
-#
-# This class contains all information about a statistical model, including:
-# * data histograms (if any)
-# * additional likelihood terms
-# * observables, with xmin, xmax, ranges
-# * which processes are potentially signal
-#
-# In general, more than one process is marked as 'signal' (such as different masses), but only
-# a subset of these, the signal process group, is actually used to build a concrete, usable model. In this
-# sense, the Model class represents a collection of <em>potential</em> models. In order to write a concrete
-# model configuration, some additional informations are required, namely:
-# * which processes are to be considered as signal; these will all be scaled by the 'beta_signal' parameter
-# * the prior distribution for beta_signal for model.parameter_distribution
-#
-#
-# notes:
-# * the coefficients should be chosen such that their mean / most probable value is 1.0 as this is assumed e.g. in model_summary
 class Model(utils.Copyable):
     """
     The statistical model specifies the predicted event yields *λ_ci* for all channels *c* and bins *i*, as a function of the model
@@ -135,6 +117,7 @@ class Model(utils.Copyable):
         if other_model.additional_nll_term is not None:
             if self.additional_nll_term is None: self.additional_nll_term = other_model.additional_nll_term
             else: self.additional_nll_term = self.additional_nll_term + other_model.additional_nll_term
+
 
     def rename_parameter(self, current_name, new_name):
         """
