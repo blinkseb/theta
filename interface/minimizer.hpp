@@ -6,7 +6,7 @@
 #include "interface/variables.hpp"
 #include "interface/matrix.hpp"
 
-#include <map>
+#include <boost/shared_ptr.hpp>
 
 namespace theta{
 
@@ -63,27 +63,16 @@ namespace theta{
         void operator=(const MinimizationResult& rhs);
     };
     
-    /** \brief A minimization problem: function, parameter bounds, and start/step values
+    
+    /** \brief Class providing information useful for minimization for a function to minimize.
      * 
-     * Successful construction guarantees some basic properties: start, step, and range values are available for
-     * all parameters of the function; all step sizes are &gt;= 0.0; the start value is always within the range.
-     * 
-     * The matrix is an estimate for the covariance matrix, using the function parameters to convert ParIds to indices
-     * consistently.
+     * It stores at least the start step and range information for the parameters. However, Minimizers
+     * can add additional information based on their requirements.
      */
-    // this could also be done in parameters of Minimizer::minimize, but this is more general ...
-    class MinimizationProblem{
+    class FunctionInfo{
     public:
-        MinimizationProblem(const theta::Function & f, const theta::ParValues & start, const theta::ParValues & step, const std::map<theta::ParId, std::pair<double, double> > & ranges);
-        MinimizationProblem(const theta::Function & f, const theta::ParValues & start, const theta::Matrix & matrix, const std::map<theta::ParId, std::pair<double, double> > & ranges);
-        
-        /// The function to minimize
-        const theta::Function & get_f() const{
-            return f;
-        }
-        
         /// The start values for the minimization.
-        theta::ParValues get_start() const{
+        const ParValues & get_start() const{
             return start;
         }
         
@@ -93,31 +82,54 @@ namespace theta{
         }
         
         /// the step values contain approximately the standard deviation of the parameters to estimate
-        theta::ParValues get_steps() const{
+        const ParValues & get_step() const{
             return step;
         }
         
-        /// the step matrix holds approximately the covariance matrix (if known).
-        Matrix get_step_matrix() const{
-            return matrix;
+        /// The fixed parameters
+        const ParIds & get_fixed_parameters() const{
+            return fixed_parids;
         }
         
+        /// Declare destructor virtual as we allow deriving; make it pure to avoid creating a FunctionInfo directly.
+        virtual ~FunctionInfo() = 0;
+        
     private:
-        const Function & f;
         ParValues start;
         ParValues step;
         Ranges ranges;
-        Matrix matrix;
+        ParIds fixed_parids;
         
-        void check_consistency() const;
+    protected:
+        // The value in fixed_parameters overrides the value in start
+        FunctionInfo(const ParValues & start, const ParValues & step, const Ranges & ranges, const ParValues & fixed_parameters);
     };
 
 
     /** \brief Abstract interface to different minimizers.
      *
-     * The possible settings are documented at derived classes.
+     * The possible settings are documented at derived classes. The interface provides two methods:
+     *  - the simpler "minimize" method just receives the Function to minimize, with values for the start values, step size, and parameter ranges.
+     *  - the more complicated interface using FunctionInfo, which is (currently) only useful for likelihood functions. A clarrer would:
+     *     * call create_nll_function_info first
+     *     * call minimize2 with the negative log-likelihood and the FunctionInfo from the previous step
+     * The second method the minimizer to save arbitrary data derived from the model about the nll function which can be used to optimize
+     * the minimization. For example, a minimizer could calculate the covariance matrix of the Asimov data and store it in the FunctionInfo class.
+     * As the covariance matrix usually does not have a strong dependence on the data, this provides a good estimate for the covariance for subsequent
+     * minimizations of a likelihood function derived from the same model.
+     * 
+     * For backward compatibility, the minimize2 is implemented generically for all minimizers here which just call minimize.
      */
     class Minimizer{
+    private:
+        // to detect interface violations, make our own version of FunctionInfo here; create_nll_info actually
+        // returns a DefFunctionInfo and minimize2 checks for that.
+        class DefFunctionInfo: public FunctionInfo{
+        public:
+            DefFunctionInfo(const ParValues & start_, const ParValues & step_, const Ranges & ranges_, const ParValues & fixed_parameters): FunctionInfo(start_, step_, ranges_, fixed_parameters){ }
+            ~DefFunctionInfo();
+        };
+        
     public:
         
         /// Define this class as the base_type for derived classes; required for the plugin system
@@ -131,10 +143,10 @@ namespace theta{
          * The minimum of f is found, starting at the specified start values, step sizes and
          * ranges. The step size should be an estimate of the parameter uncertainty.
          *
-         * If a serious error occurs during minimization and the minimization fails,
-         * a MinimizationException is thrown. The reasons for such a failure 
-         * depend on the particular minimization algorithm and should be documented
-         * in derived classes.
+         * If the minimization fails,a MinimizationException is thrown. The reasons for such a failure 
+         * depend on the particular minimization algorithm and should be documented in derived classes.
+         * Typical failues include not being able to reach the desired accuracy in the maximum number
+         * of iterations.
          * 
          * If for a parameter either step is 0.0 or the range contains only one value, this parameter is considered
          * as constant and it is not varied during minimization.
@@ -144,16 +156,34 @@ namespace theta{
         
         /** \brief Alternative minimize method with more information
          *
-         * Same as the minimize method, but can make use of more information about the minimization problem
-         * via the MinimizationProblem instance.
+         * Similar to minimize, but can make use of more information about the minimization problem
+         * via the FunctionInfo instance.
+         *
+         * \c fixed_parameters specify all parameters that should be fixed in the minimization. This has the same effect
+         * as using a step size of 0, and setting start and according (trivial) range in "minimize".
+         * The parameters specified in \c fixed_parameters must be a subset of info.get_fixed_parameters().
          * 
-         * Derived classes should implement this method. The default implementation is a simple forwarding to
-         * the minimize method above. In derived classes, it makes sense to implement the main
-         * function in this method and make minimize a forward to this one, using the appropriate constructor
-         * of MinimizationProblem.
+         * \c info must be an instance created previously with create_nll_function_info from the same Minimizer.
+         * Otherwise, the behavior is undefined.
+         * 
+         * Derived classes should implement this method if they want to make use of the FunctionInfo mechanism. The default
+         * implementation just calls "minimize" using \c info for all parameters to minimize.
          */
-        virtual MinimizationResult minimize2(const MinimizationProblem & mp);
+        virtual MinimizationResult minimize2(const Function & f, const FunctionInfo & info, const ParValues & fixed_parameters = ParValues());
         
+        
+        /** \brief Create a FunctionInfo instance suitable for minimizing negative log-likelihood functions from the given Model
+         * 
+         * \c fixed_parameters are values for fixing parameters for the negative log-likelihood function; this overrides the parameter distribution
+         *   from the model / from \c override_parameter_distribution.
+         * 
+         * \c override_parameter_distribution can be a null pointer in which case the parameter distrbution from the Model is used.
+         * 
+         * The default implementation constructs a FunctionInfo instance with start and ranges from the parameter Distribution;
+         * step is derived from asimov_likelihood_widths.
+         */
+        virtual boost::shared_ptr<FunctionInfo> create_nll_function_info(const Model & m, const boost::shared_ptr<Distribution> & override_parameter_distribution,
+                                                                         const ParValues & fixed_parameters = ParValues());
     };
     
 }

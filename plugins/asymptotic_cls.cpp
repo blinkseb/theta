@@ -53,16 +53,15 @@ public:
     double sigma(double beta_toy, double beta_q) const {
         ParValues start_(start);
         start_.set(pid, beta_toy);
-        Data asimov_data = asimov_dataset(model, start_, boost::shared_ptr<Distribution>());
-        std::auto_ptr<NLLikelihood> nll = model.get_nllikelihood(asimov_data);
-        const double nll0 = (*nll)(start_);
+        asimov_data_nll nll(model, boost::shared_ptr<Distribution>(), start_);
+        const double nll0 = nll(start_);
         // restict poi to beta_q and fit:
         start_.set(pid, beta_q);
         map<ParId, pair<double, double> > ranges_(ranges);
         ranges_[pid] = make_pair(beta_q, beta_q);
         ParValues widths_(widths);
         widths_.set(pid, 0.0);
-        MinimizationResult minres = minimizer.minimize(*nll, start_, widths_, ranges_);
+        MinimizationResult minres = minimizer.minimize(nll, start_, widths_, ranges_);
         const double nll1 = minres.fval;
 
         // found minimum should be worse than the parameter value used to construct the asimov dataset with:

@@ -1,5 +1,6 @@
 #include "interface/minimizer.hpp"
-#include "interface/phys.hpp"
+#include "interface/model.hpp"
+#include "interface/asimov-utils.hpp"
 #include "interface/plugin.tcc"
 
 REGISTER_PLUGIN_BASETYPE(theta::Minimizer);
@@ -15,57 +16,77 @@ void MinimizationResult::operator=(const MinimizationResult& rhs){
     covariance = rhs.covariance;
 }
 
-MinimizationProblem::MinimizationProblem(const theta::Function & f_, const theta::ParValues & start_,
-                                         const theta::ParValues & step_, const std::map<theta::ParId, std::pair<double, double> > & ranges_): f(f_), start(start_), step(step_), ranges(ranges_){
-     const ParIds & pars = f.get_parameters();
-     matrix.reset(pars.size(), pars.size());
-     size_t i=0;
-     for(ParIds::const_iterator pit=pars.begin(); pit!=pars.end(); ++pit, ++i){
-         matrix(i,i) = pow(step.get(*pit), 2);
-     }
-     check_consistency();
-}
-
-MinimizationProblem::MinimizationProblem(const theta::Function & f_, const theta::ParValues & start_,
-                                         const theta::Matrix & matrix_, const std::map<theta::ParId, std::pair<double, double> > & ranges_): f(f_), start(start_), ranges(ranges_), matrix(matrix_){
-    const ParIds & pars = f.get_parameters();
-    theta_assert(pars.size() == matrix.get_n_rows() && pars.size() == matrix.get_n_cols());
-    size_t i=0;
-    for(ParIds::const_iterator pit=pars.begin(); pit!=pars.end(); ++pit, ++i){
-        theta_assert(matrix(i,i) >= 0.0);
-        step.set(*pit, sqrt(matrix(i,i)));
-    }
-    check_consistency();
-}
-
-// check the consistency of the parameters
-void MinimizationProblem::check_consistency() const{
-    // all sets of ParId are the same:
-    const ParIds & f_pars = f.get_parameters();
-    theta_assert(start.contains_all(f_pars));
-    theta_assert(step.contains_all(f_pars));
-    ParIds ranges_pids;
-    theta_assert(f_pars.size() == matrix.get_n_rows());
-    theta_assert(f_pars.size() == matrix.get_n_cols());
-    // check that start is within ranges, and that steps are non-negative:
-    for(ParIds::const_iterator it=f_pars.begin(); it!=f_pars.end(); ++it){
-        double val = start.get(*it);
-        theta_assert(std::isfinite(val));
-        const pair<double, double> & range = ranges.get(*it);
-        theta_assert(range.first <= range.second);
-        theta_assert(val <= range.second && val >= range.first);
-        double st = step.get(*it);
-        theta_assert(st >= 0.0 && std::isfinite(st));
-    }
-    for(size_t i=0; i<matrix.get_n_rows(); ++i){
-        double me = matrix(i,i);
-        theta_assert(std::isfinite(me));
-        theta_assert(me >= 0.0);
+FunctionInfo::FunctionInfo(const ParValues & start_, const ParValues & step_, const Ranges & ranges_, const ParValues & fixed_parameters): start(start_), step(step_), ranges(ranges_){
+    ParIds pids = start.get_parameters();
+    for(ParIds::const_iterator pit=pids.begin(), it_end = pids.end(); pit!=it_end; ++pit){
+        if(!step.contains(*pit)) throw invalid_argument("FunctionInfo: step does not contain all parameters from start");
+        // 1. check whether parameter is fixed by step and range:
+        const pair<double, double> & r = ranges.get(*pit);
+        if(r.first==r.second){
+            if(!step.get_unchecked(*pit)>0.0){
+                throw invalid_argument("FunctionInfo: inconsistent range/step given: range empty but step > 0");
+            }
+            fixed_parids.insert(*pit);
+        }
+        else{
+            if(step.get_unchecked(*pit)<=0.0){
+                throw invalid_argument("FunctionInfo: step <= 0.0 for non-empty range given");
+            }
+        }
+        // 2. check whether parameter is fixed by fixed_parameters. Note that
+        //  the value given in fixed_parameter overrides the value according to start.
+        if(fixed_parameters.contains(*pit)){
+            double val = fixed_parameters.get(*pit);
+            start.set(*pit, val);
+            ranges.set(*pit, make_pair(val, val));
+            step.set(*pit, 0.0);
+            fixed_parids.insert(*pit);
+        }
     }
 }
 
-MinimizationResult Minimizer::minimize2(const MinimizationProblem & mp){
-    return minimize(mp.get_f(), mp.get_start(), mp.get_steps(), mp.get_ranges());
+FunctionInfo::~FunctionInfo(){}
+
+boost::shared_ptr<FunctionInfo> Minimizer::create_nll_function_info(const Model & model, const boost::shared_ptr<Distribution> & override_parameter_distribution, const ParValues & fixed_parameters){
+    const Distribution & dist = override_parameter_distribution.get()? *override_parameter_distribution: model.get_parameter_distribution();
+    ParValues start;
+    dist.mode(start);
+    Ranges ranges(dist);
+    ParIds pids = fixed_parameters.get_parameters();
+    for(ParIds::const_iterator pit = pids.begin(); pit!=pids.end(); ++pit){
+        double val = fixed_parameters.get(*pit);
+        start.set(*pit, val);
+        ranges.set(*pit, make_pair(val, val));
+    }
+    ParValues step = asimov_likelihood_widths(model, override_parameter_distribution);
+    return boost::shared_ptr<FunctionInfo>(new DefFunctionInfo(start, step, ranges, fixed_parameters));
+}
+
+MinimizationResult Minimizer::minimize2(const Function & f, const FunctionInfo & info, const ParValues & fixed_parameters){
+    dynamic_cast<const DefFunctionInfo&>(info); // throws bad_cast
+    ParIds pids = fixed_parameters.get_parameters();
+    if(pids.size()==0){
+        return minimize(f, info.get_start(), info.get_step(), info.get_ranges());
+    }
+    else{
+        ParValues start(info.get_start());
+        ParValues step(info.get_step());
+        Ranges ranges(info.get_ranges());
+        const ParIds & info_fixed = info.get_fixed_parameters();
+        for(ParIds::const_iterator pit = pids.begin(); pit!=pids.end(); ++pit){
+            if(!info_fixed.contains(*pit)){
+                throw invalid_argument("fixed parameter in minimize2 which is not fixed in info. This is not allowed.");
+            }
+            double val = fixed_parameters.get(*pit);
+            start.set(*pit, val);
+            step.set(*pit, 0.0);
+            ranges.set(*pit, make_pair(val, val));
+        }
+        return minimize(f, start, step, ranges);
+    }
 }
 
 Minimizer::~Minimizer(){}
+
+Minimizer::DefFunctionInfo::~DefFunctionInfo(){}
+

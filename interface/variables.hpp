@@ -298,11 +298,11 @@ namespace theta {
         
         /** \brief Fill double array with current values
          *
-         * This method filled the parameter \c data_out with the current parameter values.
-         * The conversion from ParId to indices is defined via par_ids, as usual. data_out
-         * has to be reserved for at least par_ids.size() values.
+         * This method fills the parameter \c data_out with the current parameter values.
+         * The conversion from ParId to indices into \c data_out is defined via par_ids, as usual. The first
+         * par_ds.size() values of \c data_out will be set.
          * 
-         * In case a value is not set, an invalid_argument exception is thrown.
+         * In case a no value is defined for a parameter specified in \c par_ids, an invalid_argument exception is thrown.
          */
         void fill(double * data_out, const ParIds & par_ids) const{
             size_t i=0;
