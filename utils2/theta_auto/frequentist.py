@@ -31,18 +31,20 @@ def frequentize_model(model):
     return result
     
 
-def get_bootstrapped_model(model, options = None):
+def get_bootstrapped_model(model, options = None, verbose = False):
     """
     Return a new :class:`theta_auto.Model` instance in which the data values for the global
     observables are set to the best fit values from a background-only fit to data.
     """
-    print "Performing the bootstrapping"
+    if verbose: print "Performing the bootstrapping"
     model_freq = frequentize_model(model)
     pars = model_freq.get_parameters([])
     res = mle(model_freq, 'data', 1, with_error = False, signal_process_groups = {'': []}, options = options)
     par_values = {}
+    if verbose: print "Fitted parameters: "
     for p in pars:
         par_values[p] = res[''][p][0][0]
+        if verbose: print "   %15s = %8.3g" % (p, par_values[p])
     for p in pars:
         model_freq.distribution.set_distribution_parameters(p, mean = par_values[p])
     return model_freq
@@ -166,7 +168,7 @@ def derll(model, input, n, signal_process_groups = None, nuisance_constraint = N
     return result
 
 
-def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10000, nuisance_constraint = None, nuisance_prior_toys = None, seed_min = 1, pchi2 = False):
+def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10000, nuisance_constraint = None, nuisance_prior_toys = None, seed_min = 1, ts_method = deltanll):
     """
     Prepare Run instances for 'background-only' toys for p-value determination with ``pvalue``.
     
@@ -177,7 +179,7 @@ def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10
     * ``n_runs`` is the number of ``Run`` instances to return
     * ``n`` is the number of toys per ``Run`` instance; so the total number of toys in the returned configuration will be ``n_runs * n``
     * ``seed_min`` is the minimum random seed to use. It is incremented by 1 for each returned ``Run``, so for ``seed_min = 1``, the random seeds used will be ``1..n_runs``.
-    * ``pchi2`` - if ``True``, configure :program:`theta` to calculate the pseudo-chi2 value for the s+b fit for each toy
+    * ``ts_method`` - is the underlying method to generate the test statistic. It should be either :meth:`deltanll` or :meth:`derll`
     
     Returns a dictionary with the signal process group id as key. The value is a list of :class:`theta_interface.Run` instances, which can be used
     for :ref:`distributed_running`, or to execute :program:`theta` locally with more control, e.g. running multiple :program:`theta` processes
@@ -188,22 +190,18 @@ def pvalue_bkgtoys_runs(model, signal_process_groups = None, n_runs = 10, n = 10
     1. call ``pvalue_bkgtoys_runs``, get the config files, run :program:`theta` on all of them (maybe in a cluster) and copy the .cfg and the .db files to the "cache" directory (which is a subdirectory of the analysis workdir), see :ref:`distributed_running` for details.
     2. call :meth:`pvalue`, using the same ``bkgtoys_*`` parameters as in step 1., as only this ensures that the same .cfg files are created and the result from the cache created in step 1. will be used
    
-.. note::
-
-   If calling the method again with the same parameters and increased ``n_runs``, the created config files will be identical for the first previously created
+.. note::  If calling the method again with the same parameters and increased ``n_runs``, the created config files will be identical for the first previously created
    ones. This allows to increase the number of background-only toys without loosing the first ones. Note that this is *not* true for changing ``n``.
     
-.. important::
-    
-    The random seed used for toys is always set explicitly to ``i_run + seed_min`` (with ``i_run = 0..n_run-1`` ).
+.. important:: The random seed used for toys is always set explicitly to ``i_run + seed_min`` (with ``i_run = 0..n_run-1`` ).
     You have to be careful if calling this method more than once to use a different ``seed_min`` so that no overlapping seeds are used. In general,
     it is advisable to call this method only once per cited p-value, with ``n_runs`` set to a high enough value.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     result = {}
     for i_run in range(n_runs):
-        res = deltanll(model, 'toys:0.0', n, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint,
-            nuisance_prior_toys = nuisance_prior_toys, run_theta = False, seed = seed_min + i_run, pchi2 = pchi2)
+        res = ts_method(model, 'toys:0.0', n, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint,
+            nuisance_prior_toys = nuisance_prior_toys, run_theta = False, seed = seed_min + i_run)
         for spid in res:
             if not spid in result: result[spid] = []
             result[spid].append(res[spid])
@@ -272,7 +270,9 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
     * ``n`` number of background-only toys per iterations (there are ``maxit`` iterations maximum)
     * ``input_expected`` - a ``input``-like string which deinfes what is reported as "expected" Z-value
     * ``nuisance_prior_toys_bkg`` is like ``nuisance_prior_toys`` (see :ref:`common_parameters`), but only applied to the "background-only" toys.
-    * ``ts_method`` is the method to be used to produce the test statistic. Use either :meth:`deltanll` (default) or :meth:`llder`
+    * ``ts_method`` is the method to be used to produce the test statistic. Use either :meth:`deltanll` (default) or :meth:`derll`
+    
+    .. note:: You can pre-compute the  background-only toys with :meth:`pvalue_bkgtoys_runs`. In this case, make sure to use the same values which control the generation of background-only toys, i.e. ``model``, ``n``, ``nuisance_contraint``, ``nuisance_prior_toys_bkg``, ``ts_method``, and ``options``.
     
     Returns a four-tuple (median expected significance, lower 1sigma expected, upper 1sigma expected, observed)
     each entry in the tuple is itself a two-tuple ``(Z, Z_error)`` where the Z_error is the uncertainty on ``Z`` from the limited number of background-only toys.
@@ -300,8 +300,6 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
     # [n, n0] for observed p-value
     observed_nn0 = [0,0]
     observed_significance = None
-    options = options.copy()
-    options.set('minimizer', 'strategy', 'fast')
     if verbose: print "making at most maxit=%d iterations of background-only toys, each with n=%d toys" % (maxit, n)
     for seed in range(1, maxit + 1):
         ts_bkgonly = ts_method(model, 'toys:0.0', signal_process_groups = signal_process_groups, n = n, nuisance_constraint = nuisance_constraint,
@@ -322,7 +320,7 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
             observed_nn0[1] += len(ts_bkgonly)
             observed_nn0[0] += count(lambda c: c >= observed, ts_bkgonly)
             Z, Z_error = get_Z(*observed_nn0)
-            obs_info = '' if observed_nn0[0]==0 else " (>~ %.3f)" % get_Z(1, observed_nn0[1])[0]
+            obs_info = '' if observed_nn0[0]>0 else " (>~ %.3f)" % get_Z(1, observed_nn0[1])[0]
             max_Z_error = max(max_Z_error, Z_error)
             observed_significance = Z, Z_error
         if verbose:

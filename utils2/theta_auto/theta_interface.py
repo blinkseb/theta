@@ -492,12 +492,12 @@ class Minimizer(ModuleBase):
             minimizers = []
             #try, in this order: migrad, mcmc+migrad, simplex, mcmc+simplex, more mcmc+simplex
             if not always_mcmc: minimizers.append({'type': 'root_minuit'})
-            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit'}})
+            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min0', 'rnd_gen': {'seed' : 1}, 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit'}})
             if not always_mcmc: minimizers.append({'type': 'root_minuit', 'method': 'simplex'})
-            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+            minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min1', 'rnd_gen': {'seed' : 1}, 'iterations': mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
             if strategy == 'robust':
-                minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min2', 'iterations': 50 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
-                minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min3', 'iterations': 500 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+                minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min2', 'rnd_gen': {'seed' : 1}, 'iterations': 50 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
+                minimizers.append({'type': 'mcmc_minimizer', 'name':'mcmc_min3', 'rnd_gen': {'seed' : 1}, 'iterations': 500 * mcmc_iterations, 'after_minimizer': {'type': 'root_minuit', 'method': 'simplex'}})
             bootstrap_mcmcpars = options.getint('minimizer', 'bootstrap_mcmcpars')
             if bootstrap_mcmcpars > 0:
                 for m in minimizers:

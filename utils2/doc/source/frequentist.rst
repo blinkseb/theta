@@ -27,14 +27,23 @@ To calculate p-values from toys, there are three different "levels" of the inter
    Alterantively, they return the corresponding :class:`theta_auto.Run` instance. You can use this if you need full control about how the toys are performed.
 
 
-p-values via tail distribution of background-only toys
-=======================================================
+High-level p-values calculation
+===============================
 
 .. autofunction:: discovery
+
+
+Toy generation
+==============
+
 
 .. autofunction:: pvalue_bkgtoys_runs
 
 .. autofunction:: pvalue
+
+
+Test statistic Routines
+=======================
 
 .. autofunction:: deltanll
 
