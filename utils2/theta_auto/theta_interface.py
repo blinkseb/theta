@@ -56,9 +56,9 @@ check_cache = True
 always_mcmc = False
 mcmc_iterations = 1000
 bootstrap_mcmcpars = 0
-# strategy can be 'fast' or 'robust'
 strategy = fast
 minuit_tolerance_factor = 1
+debug = false
        
 [cls_limits]
 write_debuglog = True
@@ -465,7 +465,7 @@ class Minimizer(ModuleBase):
     def get_required_plugins(self, options):
         plugins = set(['core-plugins.so'])
         strategy = options.get('minimizer', 'strategy')
-        if strategy == 'simplex_vanilla':  plugins.add('simplex.so')
+        if strategy == 'newton_vanilla':  plugins.add('simplex.so')
         elif strategy == 'lbfgs_vanilla': plugins.add('liblbfgs.so')
         else: plugins.add('root.so')
         return plugins
@@ -476,14 +476,14 @@ class Minimizer(ModuleBase):
         mcmc_iterations = options.getint('minimizer', 'mcmc_iterations')
         strategy = options.get('minimizer', 'strategy')
         tolerance_factor = options.getfloat('minimizer', 'minuit_tolerance_factor')
-        assert strategy in ('fast', 'robust', 'minuit_vanilla', 'simplex_vanilla', 'lbfgs_vanilla')
+        assert strategy in ('fast', 'robust', 'minuit_vanilla', 'newton_vanilla', 'lbfgs_vanilla')
         if strategy == 'minuit_vanilla':
             result = {'type': 'root_minuit'}
-        elif strategy == 'simplex_vanilla':
-            result = {'type': 'simplex_minimizer'}
-            #result['max_iter'] = '100000'
-            #result = {'type': "minimizer_chain", 'minimizers': [{'type': "mcmc_minimizer", 'iterations': 1000, 'bootstrap_mcmcpars': 2, 'name': "mcmc_min0"}],
-            #    'last_minimizer': result}
+        elif strategy == 'newton_vanilla':
+            result = {'type': 'newton_minimizer'}
+            debug = options.getboolean('minimizer', 'debug')
+            if self.need_error: result['improve_cov'] = True
+            if debug: result['debug'] = True
             return result
         elif strategy == 'lbfgs_vanilla':
             result = {'type': 'lbfgs_minimizer'}
@@ -836,7 +836,9 @@ class MainBase(ModuleBase, DbResult):
         if check_cache: self._check_cache(options)
         cfgfile = self.get_configfile(options)
         self.debug = options.getboolean('global', 'debug')
-        if self.result_available: return
+        if self.result_available:
+            if self.debug: info("Found config file '%s' in cache, not running again." % cfgfile)
+            return
         workdir = options.get_workdir()
         cache_dir = os.path.join(workdir, 'cache')
         theta = os.path.realpath(os.path.join(config.theta_dir, 'bin', 'theta'))
@@ -884,7 +886,9 @@ class Run(MainBase):
          
         For ``signal_prior``, ``input``, ``n``, see :ref:`common_parameters`.
         """
-        fragment = ''.join([p.name for p in producers]) + '-' + input + '-' + ''.join(signal_processes)
+        input_fragment = str(input)
+        if '/' in input_fragment: input_fragment = input_fragment[input_fragment.rfind('/')+1:]
+        fragment = ''.join([p.name for p in producers]) + '-' + input_fragment + '-' + ''.join(signal_processes)
         MainBase.__init__(self, fragment)
         self.model = model
         self.signal_processes = signal_processes
@@ -893,13 +897,11 @@ class Run(MainBase):
         self.nuisance_prior_toys = nuisance_prior_toys
         for p in producers: self.add_submodule(p)
         self.seed = seed
-        if input is None: self.data_source = None
+        if type(input) == str:
+            self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
         else:
-            if type(input) == str:
-                self.data_source = DataSource(input, model, signal_processes, override_distribution = nuisance_prior_toys, seed = seed)
-            else:
-                assert type(input) in (RootNtupleSource, DataSource), "unexpected type for 'input' argument: %s" % type(input)
-                self.data_source = input
+            assert isinstance(input, DataSource), "unexpected type for 'input' argument: %s" % type(input)
+            self.data_source = input
         self.signal_prior_cfg = _signal_prior_dict(signal_prior)
         
     def get_cfg(self, options):
