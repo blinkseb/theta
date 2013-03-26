@@ -10,7 +10,7 @@ else
 
 sources := $(wildcard *.cpp)
 objects := $(patsubst %.cpp,.bin/%.o,$(sources))
-deps := $(patsubst %.cpp,.bin/%.d,$(sources)) .bin/histos.d .bin/db2root.d
+deps := $(patsubst %.cpp,.bin/%.d,$(sources)) .bin/histos.d
 
 include ../Makefile.rules
 
@@ -18,7 +18,7 @@ include ../Makefile.rules
 # from root.
 WFLAGSCPP := -Wall
 EXTRA_COMPILE := $(shell root-config --cflags)
-EXTRA_LINK := -lMinuit2 $(shell root-config --libs) $(shell root-config --ldflags) 
+EXTRA_LINK :=  -lMinuit2 -lMinuit $(shell root-config --libs) $(shell root-config --ldflags) 
 
 # put the '-lNet' AFTER -lTree (this is required for the linker on oneiric which is sensitive to linking order):
 EXTRA_LINK := $(patsubst -lNet,,$(EXTRA_LINK))
@@ -46,7 +46,7 @@ create_testtree: .bin/create_testtree.o
 	@$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 ../lib/root.so: $(objects)
-	@$(LINK_SO) $(EXTRA_LINK)
+	$(LINK_SO) $(EXTRA_LINK)
 
 endif
 

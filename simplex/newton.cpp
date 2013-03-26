@@ -112,7 +112,8 @@ public:
         double cbest = 0.0; // best coefficient c found so far for   x = x0 + c * step
         // 1. find start of coefficients (a,b) in which the minimum is contained.
         // We assume that step is already a good start, so test nearby points:
-        // TODO: delta could be tuned (?!)
+        // In general, delta0 could be tuned; a quick test suggests that either the choice
+        // does not matter much, or this choice is already pretty good.
         const double delta0 = 0.1;
         const size_t n = f.ndim();
         double a = 1 - delta0;
@@ -120,7 +121,7 @@ public:
         // 1.a. make sure the lower point a is within the function range:
         vector<double> x(x0);
         add_with_coeff(x, step, a);
-        // search for a value of a which is not outside the function range (that usually does not happen very often):
+        // search for a value of a which is not outside the function range (that should not happen very often):
         bool found_a = false;
         for(int i=0; i < int(1/delta0 + 2); ++i){
             if(f.trunc_to_range(x) < n){
@@ -209,48 +210,6 @@ newton_minimizer::newton_minimizer(const Configuration & cfg) {
     ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug));
 }
 
-namespace{
-    
-bool update_ihessian(Matrix & ih, const vector<double> & x, const vector<double> & xnew, const vector<double> & g, const vector<double> & gnew, bool debug){
-    const size_t n = x.size();
-    vector<double> dx(xnew);
-    add_with_coeff(dx, x, -1.0);
-    // calculate z = (Delta x - inverse_hessian * (next_grad - grad))
-    vector<double> z(n);
-    for(size_t i=0; i<n; ++i){
-        z[i] = dx[i];
-        for(size_t j=0; j<n; ++j){
-            z[i] -=  ih(i, j) * (gnew[j] - g[j]);
-        }
-    }
-    // calculate the denominator, z * (next_grad - grad):
-    double denom = 0.0;
-    double norm_graddiff = 0.0;
-    for(size_t i=0; i<n; ++i){
-        double graddiff = gnew[i] - g[i];
-        norm_graddiff += graddiff * graddiff;
-        denom += z[i] * graddiff;
-    }
-    double norm_z = norm(z);
-    norm_graddiff = sqrt(norm_graddiff);
-    if(debug)cout << "denom = " << denom << "; |z| = " << norm_z << "; |g_k+1 - g_k| = " << norm_graddiff << endl;
-    if(fabs(denom) > 1e-7 * norm_graddiff * norm_z){
-        // calculate the update to inverse_hessian: add z * z^T / denom:
-        for(size_t i=0; i<n; ++i){
-            for(size_t j=0; j< n; ++j){
-                ih(i,j) += z[i] * z[j] / denom;
-            }
-        }
-        return true;
-    }
-    else{
-        if(debug) cout << "denom is too small for update; continuing with next iteration directly " << endl;
-        return false;
-    }
-}
-    
-}
-
 
 MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const theta::FunctionInfo & info_, const theta::ParValues & fixed_parameters){
     const NewtonFunctionInfo & info = dynamic_cast<const NewtonFunctionInfo &>(info_);
@@ -328,7 +287,36 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         }
         // do the update to inverse_hessian:
         double next_fx = f.eval_with_derivative(next_x, next_grad);
-        update_ihessian(inverse_hessian, x, next_x, grad, next_grad, opts.debug);
+        // calculate z = (Delta x - inverse_hessian * (next_grad - grad))
+        vector<double> z(n);
+        for(size_t i=0; i<n; ++i){
+            z[i] = dx[i];
+            for(size_t j=0; j<n; ++j){
+                z[i] -=  inverse_hessian(i, j) * (next_grad[j] - grad[j]);
+            }
+        }
+        // calculate the denominator, z * (next_grad - grad):
+        double denom = 0.0;
+        double norm_graddiff = 0.0;
+        for(size_t i=0; i<n; ++i){
+            double graddiff = next_grad[i] - grad[i];
+            norm_graddiff += graddiff * graddiff;
+            denom += z[i] * graddiff;
+        }
+        double norm_z = norm(z);
+        norm_graddiff = sqrt(norm_graddiff);
+        if(opts.debug)cout << "denom = " << denom << "; |z| = " << norm_z << "; |g_k+1 - g_k| = " << norm_graddiff << endl;
+        if(fabs(denom) > 1e-7 * norm_graddiff * norm_z){
+            // calculate the update to inverse_hessian: add z * z^T / denom:
+            for(size_t i=0; i<n; ++i){
+                for(size_t j=0; j< n; ++j){
+                    inverse_hessian(i,j) += z[i] * z[j] / denom;
+                }
+            }
+        }
+        else{
+            if(opts.debug) cout << "denom is too small for update; continuing with next iteration directly " << endl;
+        }
         // prepare for next iteration:
         swap(x, next_x);
         swap(grad, next_grad);
@@ -338,21 +326,30 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         throw MinimizationException("maximum number of iterations reached");
     }
     if(opts.improve_cov){
-        // calculate better estimate for covariance here by going to 0.1 sigma ("posterior") in the
-        // direction of the parameter and calculating the update.
+        // calculate better estimate for covariance here by going to 0.1 times the step size in the
+        // direction of the parameter and evaluate the gradient there.
         theta_assert(f.trunc_to_range(x)==0);
         for(size_t i=0; i<n; ++i){
             vector<double> next_x(x);
-            const double step = 0.1 * sqrt(inverse_hessian(i,i));
-            next_x[i] = x[i] + step;
+            double stepi = 0.1 * step[i];
+            next_x[i] = x[i] + stepi;
             if(f.trunc_to_range(next_x) > 0){
-                next_x[i] = x[i] - step;
+                stepi *= 1.0;
+                next_x[i] = x[i] + stepi;
                 if(f.trunc_to_range(next_x) > 0){
                     throw MinimizationException("for calculating covariance: range too small (<0.1 sigma)");
                 }
             }
             f.eval_with_derivative(next_x, next_grad);
-            update_ihessian(inverse_hessian, x, next_x, grad, next_grad, opts.debug);
+            for(size_t j=0; j<n; ++j){
+                inverse_hessian(i,j) = (next_grad[j] - grad[j]) / stepi;
+            }
+        }
+        // symmetrize the off-diagonals: any difference here comes from numerical rounding errors:
+        for(size_t i=0; i<n; ++i){
+            for(size_t j=i+1; j<n; ++j){
+                inverse_hessian(i,j) = inverse_hessian(j,i) = 0.5 * (inverse_hessian(i,j) + inverse_hessian(j,i));
+            }
         }
     }
     MinimizationResult res;

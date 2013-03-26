@@ -168,6 +168,7 @@ namespace theta {
         std::auto_ptr<Function> additional_nll_term;
         
         bool bb_uncertainties;
+        bool robust_nll;
 
     private:
         void set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs, boost::ptr_vector<HistogramFunction> & histos);
@@ -264,6 +265,7 @@ namespace theta {
         const default_model & model;
         const Data & data;
         static atomic_int n_eval;
+        bool robust_nll;
         boost::shared_ptr<Distribution> override_distribution;
         
         default_model_nll(const default_model & m, const Data & data);

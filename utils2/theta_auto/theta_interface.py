@@ -58,7 +58,9 @@ mcmc_iterations = 1000
 bootstrap_mcmcpars = 0
 strategy = fast
 minuit_tolerance_factor = 1
-debug = false
+
+[newton]
+debug = False
        
 [cls_limits]
 write_debuglog = True
@@ -67,6 +69,7 @@ write_debuglog = True
 use_llvm = False
 use_tbb = False
 tbb_nthreads = 0
+robust_nll = False
         
 [main]
 n_threads = 1
@@ -476,12 +479,14 @@ class Minimizer(ModuleBase):
         mcmc_iterations = options.getint('minimizer', 'mcmc_iterations')
         strategy = options.get('minimizer', 'strategy')
         tolerance_factor = options.getfloat('minimizer', 'minuit_tolerance_factor')
-        assert strategy in ('fast', 'robust', 'minuit_vanilla', 'newton_vanilla', 'lbfgs_vanilla')
-        if strategy == 'minuit_vanilla':
+        assert strategy in ('fast', 'robust', 'minuit_vanilla', 'newton_vanilla', 'lbfgs_vanilla', 'tminuit')
+        if strategy == 'tminuit':
+            result = {'type': 'root_minuit1'}
+        elif strategy == 'minuit_vanilla':
             result = {'type': 'root_minuit'}
         elif strategy == 'newton_vanilla':
             result = {'type': 'newton_minimizer'}
-            debug = options.getboolean('minimizer', 'debug')
+            debug = options.getboolean('newton', 'debug')
             if self.need_error: result['improve_cov'] = True
             if debug: result['debug'] = True
             return result
@@ -916,6 +921,8 @@ class Run(MainBase):
             result['p%s' % p.name] = p.get_cfg(options)
             main['producers'].append('@p%s' % p.name)
         result.update({'main': main, 'model': self.model.get_cfg(self.signal_processes, self.signal_prior_cfg, options)})
+        robust_nll = options.getboolean('model', 'robust_nll')
+        if robust_nll: result['model']['robust_nll'] = True
         use_llvm = options.getboolean('model', 'use_llvm')
         use_tbb = options.getboolean('model', 'use_tbb')
         if use_tbb and use_llvm:

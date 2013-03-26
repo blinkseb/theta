@@ -7,7 +7,7 @@
 
 #include "interface/minimizer.hpp"
 
-/** \brief Minimizer using the MINUIT minimizer from root
+/** \brief Minimizer using the MINUIT2 minimizer from root
  *
  * Configuration with a setting like:
  * \code

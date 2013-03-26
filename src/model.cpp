@@ -89,17 +89,25 @@ std::auto_ptr<NLLikelihood> default_model::get_nllikelihood(const Data & data) c
     if(not(data.get_rvobs_values().contains_all(rvobservables))){
         throw invalid_argument("default_model::get_nllikelihood: real-values observables of model and data mismatch!");
     }
+    default_model_nll * result;
     if(bb_uncertainties){
-        return std::auto_ptr<NLLikelihood>(new default_model_bbadd_nll(*this, data));
+        result = new default_model_bbadd_nll(*this, data);
     }
-    return std::auto_ptr<NLLikelihood>(new default_model_nll(*this, data));
+    else{
+        result = new default_model_nll(*this, data);
+    }
+    result->robust_nll = robust_nll;
+    return std::auto_ptr<NLLikelihood>(result);
 }
 
-default_model::default_model(const Configuration & ctx): bb_uncertainties(false) {
+default_model::default_model(const Configuration & ctx): bb_uncertainties(false), robust_nll(false){
     Setting s = ctx.setting;
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     if(s.exists("bb_uncertainties")){
         bb_uncertainties =  s["bb_uncertainties"];
+    }
+    if(s.exists("robust_nll")){
+        robust_nll =  s["robust_nll"];
     }
     //go through observables to find the template definition for each of them:
     ObsIds observables = vm->get_all_observables();
@@ -195,10 +203,19 @@ double default_model_nll::operator()(const ParValues & values) const{
     model.get_prediction(predictions, values);
     //3. the template likelihood    
     const ObsIds & obs_ids = model.get_observables();
-    for(ObsIds::const_iterator obsit=obs_ids.begin(); obsit!=obs_ids.end(); obsit++){
-        const double * pred_data = predictions[*obsit].get_data();
-        const double * data_data = data[*obsit].get_data();
-        result += template_nllikelihood(data_data, pred_data, data[*obsit].get_nbins());
+    if(robust_nll){
+        for(ObsIds::const_iterator obsit=obs_ids.begin(); obsit!=obs_ids.end(); obsit++){
+            const double * pred_data = predictions[*obsit].get_data();
+            const double * data_data = data[*obsit].get_data();
+            result += template_nllikelihood_robust(data_data, pred_data, data[*obsit].get_nbins());
+        }
+    }
+    else{
+        for(ObsIds::const_iterator obsit=obs_ids.begin(); obsit!=obs_ids.end(); obsit++){
+            const double * pred_data = predictions[*obsit].get_data();
+            const double * data_data = data[*obsit].get_data();
+            result += template_nllikelihood(data_data, pred_data, data[*obsit].get_nbins());
+        }
     }
     if(std::isinf(result)) return result;
     //4. the likelihood part for the real-valued observables, if set:

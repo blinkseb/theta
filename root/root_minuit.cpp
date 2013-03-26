@@ -174,38 +174,38 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
 
 root_minuit::root_minuit(const Configuration & cfg): tolerance_factor(1),
         max_iterations(0), max_function_calls(0), n_retries(2) {
-       gErrorIgnoreLevel = kFatal + 1;
-       if(cfg.setting.exists("max_iterations")){
-          max_iterations = cfg.setting["max_iterations"];
-       }
-       if(cfg.setting.exists("max_function_calls")){
-          max_iterations = cfg.setting["max_function_calls"];
-       }
-       if(cfg.setting.exists("n_retries")){
-          n_retries = cfg.setting["n_retries"];
-       }
-       string method = "migrad";
-       if(cfg.setting.exists("method")){
-           method = (string)cfg.setting["method"];
-       }
-       if(method=="migrad"){
-            type = ROOT::Minuit2::kMigrad;
-       }
-       else if(method == "simplex"){
-           type = ROOT::Minuit2::kSimplex;
-       }
-       else{
-           stringstream s;
-           s << "invalid method '" << method << "' (allowed are only 'migrad' and 'simplex')";
-           throw ConfigurationException(s.str());
-       }       
-       if(cfg.setting.exists("tolerance_factor")){
-           tolerance_factor = cfg.setting["tolerance_factor"];
-           if(tolerance_factor <= 0){
-               throw ConfigurationException("tolerance_factor is <= 0.0; this is not allowed");
-           }
-       }
-   }
+    gErrorIgnoreLevel = kFatal + 1;
+    if(cfg.setting.exists("max_iterations")){
+        max_iterations = cfg.setting["max_iterations"];
+    }
+    if(cfg.setting.exists("max_function_calls")){
+        max_iterations = cfg.setting["max_function_calls"];
+    }
+    if(cfg.setting.exists("n_retries")){
+        n_retries = cfg.setting["n_retries"];
+    }
+    string method = "migrad";
+    if(cfg.setting.exists("method")){
+        method = (string)cfg.setting["method"];
+    }
+    if(method=="migrad"){
+        type = ROOT::Minuit2::kMigrad;
+    }
+    else if(method == "simplex"){
+        type = ROOT::Minuit2::kSimplex;
+    }
+    else{
+        stringstream s;
+        s << "invalid method '" << method << "' (allowed are only 'migrad' and 'simplex')";
+        throw ConfigurationException(s.str());
+    }       
+    if(cfg.setting.exists("tolerance_factor")){
+        tolerance_factor = cfg.setting["tolerance_factor"];
+        if(tolerance_factor <= 0){
+            throw ConfigurationException("tolerance_factor is <= 0.0; this is not allowed");
+        }
+    }
+}
 
 REGISTER_PLUGIN(root_minuit)
 

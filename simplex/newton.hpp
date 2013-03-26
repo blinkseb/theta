@@ -13,11 +13,11 @@ namespace newton_internal{
 
 /** \brief Quasi-Newton Minimizer
  * 
- * Minimizer implementing the Quasi-Newton method of calculating updated estimates for the
- * covariance matrix.
+ * Minimizer implementing the quasi-Newton method; using a derivative-free interval line search and the symmetric-rank 1
+ * update for the covariance matrix.
  * 
  * Configured via a setting group like
- * \begincode
+ * \code
  * minimizer = {
  *    type = "newton_minimizer";
  *    par_eps = 1e-4; // optional; default is 1e-3 (1e-6) for improve_cov = false (true)
@@ -47,8 +47,8 @@ namespace newton_internal{
  * \c maxit is the maximum number of iterations of the algorithm. One iteration executes all steps 1. to 3. as explained above.
  * 
  * \c improve_cov : if true, an additional step is performed after the actual minimization to improve the estimate for the covariance matrix by exploring
- *  function points and gradients around the found minimum. The tested points are at around 100 times the accuracy, so you should set
- *  \c par_eps to a small value when using this option.
+ *  function points and gradients around the found minimum. The tested points are at around 0.1 times the step size; to have some margin to the accuracy of the minimum,
+ *  so you should set  \c par_eps to a small value (1e-4 or smaller) when using this option.
  * 
  * Note that the algorithm typically makes n function evaluations at each point to calculate the gradient, where n is the number of parameters of f.
  * For the line search algorithm, another m ~ O(10) function evaluations are required. maxit controls the number of complete iterations of the

@@ -134,7 +134,7 @@ double find_argmin(const boost::function<double (double)> & f, double a, double 
  * 
  * As the newton_minimizer internally uses vector&lt;double&gt; and theta::Matrix, we provide some
  * utility functions for these types here:
- * \begincode
+ * \code
  *   vector<double> x, y;
  *   Matrix A;
  *   double c;

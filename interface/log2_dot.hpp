@@ -17,6 +17,13 @@ namespace theta{
  */
 double template_nllikelihood(const double * data, const double * pred, unsigned int n);
 
+/** \brief Same as template_nllikelihood, but add constant term to increase robustness
+ * 
+ * A constant term is added to the negative log-likelihood that should increase numerical accuracy
+ * around the minimum.
+ */
+double template_nllikelihood_robust(const double * data, const double * pred, unsigned int n);
+
 
 /** \brief Calculate a generalized chi2 test statistic from the given model prediction for the Poisson means and observation
  * 

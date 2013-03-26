@@ -179,6 +179,9 @@ namespace theta{
          * 
          * \c override_parameter_distribution can be a null pointer in which case the parameter distrbution from the Model is used.
          * 
+         * Important: the set of fixed parameters for which FunctionInfo instance is created here and used for minimize2 must be the same (only the
+         *  value of those fixed parameters is allowed to change).
+         * 
          * The default implementation constructs a FunctionInfo instance with start and ranges from the parameter Distribution;
          * step is derived from asimov_likelihood_widths.
          */
