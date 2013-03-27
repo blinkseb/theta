@@ -46,8 +46,8 @@ public:
     /// The dimensionality
     virtual size_t ndim() const = 0;
     
-    /// Evaluate the function and its derivatives
-    virtual double eval_with_derivative(const std::vector<double> & x0, std::vector<double> & grad) const;
+    /// Evaluate the function and its derivatives. ipar is -1 to calculate all derivatives, or the index to x0 / grad
+    virtual double eval_with_derivative(const std::vector<double> & x0, std::vector<double> & grad, int ipar = -1) const;
     
     /// Truncate x to the range this function is defined on. Returns the number of entries changed in x.
     size_t trunc_to_range(std::vector<double> & x) const;

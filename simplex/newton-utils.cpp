@@ -8,13 +8,15 @@ using namespace std;
 using namespace theta;
 using namespace newton_internal;
 
-double RangedFunction::eval_with_derivative(const vector<double> & x0, vector<double> & grad) const{
+double RangedFunction::eval_with_derivative(const vector<double> & x0, vector<double> & grad, int ipar) const{
     const size_t n = ndim();
     theta_assert(x0.size()==n);
+    theta_assert(ipar < static_cast<int>(n));
     vector<double> x(x0);
     grad.resize(n);
     double f0 = operator()(x);
     for(size_t i=0; i<n; ++i){
+        if(ipar >= 0 and static_cast<int>(i)!=ipar) continue;
         double x0i = x0[i];
         const double sigma = step[i];
         theta_assert(sigma > 0);

@@ -61,6 +61,11 @@ minuit_tolerance_factor = 1
 
 [newton]
 debug = False
+#-1 means default from theta plugin
+step_cov = -1
+maxit = -1
+par_eps = -1
+force_cov_positive = False
        
 [cls_limits]
 write_debuglog = True
@@ -271,7 +276,7 @@ class MleProducer(ProducerBase):
     # to use all parameters.
     def __init__(self, model, signal_processes, override_distribution, signal_prior = 'flat', name = 'mle', need_error = True, with_covariance = False, parameters_write = None, ks = False, chi2 = False):
         ProducerBase.__init__(self, model, signal_processes, override_distribution, name, signal_prior)
-        self.minimizer = Minimizer(need_error or with_covariance)
+        self.minimizer = Minimizer(need_error, with_covariance)
         self.add_submodule(self.minimizer)
         self.ks = ks
         self.chi2 = chi2
@@ -461,9 +466,13 @@ class NllScanProducer(ProducerBase):
 
 
 class Minimizer(ModuleBase):
-    def __init__(self, need_error):
+    def __init__(self, need_error, need_covariance = None):
         ModuleBase.__init__(self)
         self.need_error = need_error
+        if need_covariance is None:
+            self.need_covariance = self.need_error
+        else:
+            self.need_covariance = need_covariance
         
     def get_required_plugins(self, options):
         plugins = set(['core-plugins.so'])
@@ -482,13 +491,24 @@ class Minimizer(ModuleBase):
         assert strategy in ('fast', 'robust', 'minuit_vanilla', 'newton_vanilla', 'lbfgs_vanilla', 'tminuit')
         if strategy == 'tminuit':
             result = {'type': 'root_minuit1'}
+            if self.need_covariance: result['hesse'] = True
+            return result
         elif strategy == 'minuit_vanilla':
             result = {'type': 'root_minuit'}
         elif strategy == 'newton_vanilla':
             result = {'type': 'newton_minimizer'}
+            if self.need_error: result['improve_errors'] = True
+            if self.need_covariance: result['improve_cov'] = True
             debug = options.getboolean('newton', 'debug')
-            if self.need_error: result['improve_cov'] = True
             if debug: result['debug'] = True
+            step_cov = options.getfloat('newton', 'step_cov')
+            if step_cov > 0: result['step_cov'] = step_cov
+            par_eps = options.getfloat('newton', 'par_eps')    
+            if par_eps > 0: result['par_eps'] = par_eps
+            maxit = options.getint('newton', 'maxit')
+            if maxit > 0: result['maxit'] = maxit
+            force_cov_positive = options.getboolean('newton', 'force_cov_positive')
+            if force_cov_positive: result['force_cov_positive'] = True
             return result
         elif strategy == 'lbfgs_vanilla':
             result = {'type': 'lbfgs_minimizer'}
@@ -962,7 +982,7 @@ class ClsMain(MainBase):
                 self.data_source = input
         self.signal_prior_cfg = _signal_prior_dict(signal_prior)
         self.cls_options = {'ts_column': self.producers[0].name + '__nll_diff'}
-        self.minimizer = Minimizer(need_error = True)
+        self.minimizer = Minimizer(need_error = True, with_covariance = False)
         self.add_submodule(self.minimizer)
         
     def set_cls_options(self, **args):

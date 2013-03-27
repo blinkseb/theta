@@ -184,6 +184,19 @@ std::ostream & operator<<(std::ostream & out, const std::vector<double> & x){
     return out;
 }
 
+
+std::ostream & operator<<(std::ostream & out, const Matrix & m){
+    const size_t nr = m.get_n_rows();
+    const size_t nc = m.get_n_cols();
+    for(size_t i=0; i<nr; ++i){
+        for(size_t j=0; j<nc; ++j){
+            out << m(i,j) << " ";
+        }
+        out << endl;
+    }
+    return out;
+}
+
 // PROBLEM: operator<< is defined globally
 
 
@@ -191,15 +204,19 @@ newton_minimizer::newton_minimizer(const newton_minimizer:: options & opts_): op
     ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug));
 }
 
-newton_minimizer::newton_minimizer(const Configuration & cfg) {
+newton_minimizer::newton_minimizer(const Configuration & cfg){
     Setting s = cfg.setting;
     if(s.exists("maxit")){
         opts.maxit = s["maxit"];
     }
+    if(s.exists("step_cov")){
+        opts.step_cov = s["step_cov"];
+    }
     if(s.exists("improve_cov")){
         opts.improve_cov = s["improve_cov"];
-        // change default par_eps; might be overridden by user settings below.
-        opts.par_eps = 1e-6;
+    }
+    if(s.exists("force_cov_positive")){
+        opts.force_cov_positive = s["force_cov_positive"];
     }
     if(s.exists("par_eps")){
         opts.par_eps = s["par_eps"];
@@ -239,7 +256,7 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         }
     }
     vector<double> x(n), grad(n);
-    vector<double> direction(n), next_x(n), next_grad(n);
+    vector<double> direction(n), next_x(n), next_grad(n), z(n), dx(n);
     ParValues pv_start = info.get_start();
     pv_start.set(fixed_parameters);
     pv_start.fill(&x[0], nonfixed_pids);
@@ -277,7 +294,7 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
             cout << "Iteration " << it << ": linesearch proposes:" << endl << "x =" << next_x << endl;
         }
         // calculate dx = next_x - x
-        vector<double> dx(next_x);
+        dx = next_x;
         add_with_coeff(dx, x, -1.0);
         if(pnorm(dx, step) < opts.par_eps){
             if(opts.debug){
@@ -288,7 +305,6 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         // do the update to inverse_hessian:
         double next_fx = f.eval_with_derivative(next_x, next_grad);
         // calculate z = (Delta x - inverse_hessian * (next_grad - grad))
-        vector<double> z(n);
         for(size_t i=0; i<n; ++i){
             z[i] = dx[i];
             for(size_t j=0; j<n; ++j){
@@ -325,32 +341,68 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
     if(it==opts.maxit){
         throw MinimizationException("maximum number of iterations reached");
     }
+    // cov is the best estimate for the covariance matrix: either inverse_hessian directly, or
+    // the explicit inverse of the numerical hessian in case of improve_cov:
+    Matrix cov = inverse_hessian;
     if(opts.improve_cov){
-        // calculate better estimate for covariance here by going to 0.1 times the step size in the
-        // direction of the parameter and evaluate the gradient there.
+        if(opts.debug) cout << "improve_cov is true, calculating Hesse matrix now" << endl;
+        Matrix hessian(n,n);
+        // calculate better estimate for covariance here by going to opts.step_cov times the step size in the
+        // direction of the parameter i and evaluate the gradient there; repeat for all i.
         theta_assert(f.trunc_to_range(x)==0);
         for(size_t i=0; i<n; ++i){
-            vector<double> next_x(x);
-            double stepi = 0.1 * step[i];
+            next_x = x;
+            double stepi = opts.step_cov * step[i];
             next_x[i] = x[i] + stepi;
             if(f.trunc_to_range(next_x) > 0){
-                stepi *= 1.0;
+                stepi *= -1.0;
                 next_x[i] = x[i] + stepi;
                 if(f.trunc_to_range(next_x) > 0){
-                    throw MinimizationException("for calculating covariance: range too small (<0.1 sigma)");
+                    throw MinimizationException("for calculating covariance: range too small (< step_cov * sigma)");
                 }
             }
+            if(opts.debug) cout << " step" << i << " = " << stepi << endl;
             f.eval_with_derivative(next_x, next_grad);
             for(size_t j=0; j<n; ++j){
-                inverse_hessian(i,j) = (next_grad[j] - grad[j]) / stepi;
+                hessian(i,j) = (next_grad[j] - grad[j]) / stepi;
             }
         }
-        // symmetrize the off-diagonals: any difference here comes from numerical rounding errors:
+        // symmetrize the off-diagonals: any difference here comes from rounding/truncation errors:
         for(size_t i=0; i<n; ++i){
             for(size_t j=i+1; j<n; ++j){
-                inverse_hessian(i,j) = inverse_hessian(j,i) = 0.5 * (inverse_hessian(i,j) + inverse_hessian(j,i));
+                hessian(i,j) = hessian(j,i) = 0.5 * (hessian(i,j) + hessian(j,i));
             }
         }
+        // make covariance matrix positive definite by adding alpha * identify matrix with small alpha:
+        double min_ = numeric_limits<double>::infinity(), max_ = -numeric_limits<double>::infinity();
+        for(size_t i=0; i<n; ++i){
+            min_ = min(min_, hessian(i,i));
+            max_ = max(max_, hessian(i,i));
+        }
+        if(opts.force_cov_positive){
+            // min is the smallest eigenvalue of inverse_hessian. If it is negative (or positive but very small), add a small
+            // value to make it > sqrt(eps) * max:
+            double desired_min = sqrt(numeric_limits<double>::epsilon()) * fabs(max_);
+            if(min_ < desired_min){
+                if(opts.debug){
+                    cout << "hesse not positive definite; hesse = " << hessian << endl;
+                    cout << "adding " << (desired_min - min_) << " to diagonal of Hesse to make it positive definite" << endl;
+                }
+                for(size_t i=0; i<n; ++i){
+                    hessian(i,i) += desired_min - min_;
+                }    
+            }
+        }
+        try{
+            hessian.invert_cholesky();
+            cov = hessian;
+        }
+        catch(range_error & re){
+            stringstream s;
+            s << "error inverting matrix to calculate covariance matrix: " << re.what();
+            throw MinimizationException(s.str());
+        }
+        
     }
     MinimizationResult res;
     res.fval = fx;
@@ -365,19 +417,15 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         j_nf = 0;
         for(ParIds::const_iterator pit2=all_pids.begin(); pit2!=all_pids.end(); ++pit2, ++j){
             if(nonfixed_pids.contains(*pit) && nonfixed_pids.contains(*pit2)){
-                res.covariance(i,j) = inverse_hessian(i_nf, j_nf);
-                if(i==j){
-                    double error = sqrt(res.covariance(i,j));
-                    res.errors_plus.set(*pit, error);
-                    res.errors_minus.set(*pit, error);
-                }
+                res.covariance(i,j) = cov(i_nf, j_nf);
             }
-            else{
-                res.covariance(i,j) = 0.0;
-                if(i==j){
-                    res.errors_plus.set(*pit, 0.0);
-                    res.errors_minus.set(*pit, 0.0);
+            if(i==j){
+                double error = sqrt(fabs(cov(i_nf, i_nf)));
+                if(cov(i_nf, i_nf) < 0.0){
+                    error *= -1.0; // let the user see if there's something weird
                 }
+                res.errors_plus.set(*pit, error);
+                res.errors_minus.set(*pit, error);
             }
             if(nonfixed_pids.contains(*pit2)) ++j_nf;
         }
