@@ -5,10 +5,12 @@
 #include "interface/variables.hpp"
 #include "interface/matrix.hpp"
 #include "interface/cfg-utils.hpp"
+#include "interface/redirect_stdio.hpp"
 
 #include <cmath>
 #include <cstdio>
 #include <iostream>
+#include <iomanip>
 #include <limits>
 
 using namespace theta;
@@ -24,8 +26,9 @@ public:
     // The result is filled in x.
     // x does not have to be on the line defined by x0 and step. (this allows an easier
     // handling of constraints). The result point x must be in the range of f.
-    // All memory belongs to the caller.
-    virtual void do_linesearch(const RangedFunction & f, const std::vector<double> & x0, const std::vector<double> & step, std::vector<double> & x) const = 0;
+    //
+    // returns the function value at x.
+    virtual double do_linesearch(const RangedFunction & f, const std::vector<double> & x0, const std::vector<double> & step, std::vector<double> & x) const = 0;
     virtual ~Linesearch(){}
 };
 
@@ -90,23 +93,29 @@ private:
             y.resize(x0.size());
         }
         
-        bool operator()(double a, double b){
+        bool operator()(const min_triplet & tr){
+            // small enough means that the interval a,b is known to a precision of 10%.
+            // This only applies if the interval does not switch signs (or is at 0.0):
+            if(tr.a * tr.b > 0.0){
+                double denom = min(fabs(tr.a), fabs(tr.b));
+                if((tr.b - tr.a) / denom < 0.1) return true;
+            }
+            // Otherwise, test the distance (pnorm) in truncated parameter space:
             x = x0;
-            add_with_coeff(x, step, a);
+            add_with_coeff(x, step, tr.a);
             f.trunc_to_range(x);
             y = x0;
-            add_with_coeff(y, step, b);
+            add_with_coeff(y, step, tr.b);
             f.trunc_to_range(y);
             add_with_coeff(x, y, -1.0);
             return pnorm(x, step) < eps;
         }
-    };
-    
+    };    
     
 public:
     explicit IntervalLinesearch(double eps_, bool debug_ = false): eps(eps_), debug(debug_){}
     
-    void do_linesearch(const RangedFunction & f, const vector<double> & x0, const vector<double> & step, vector<double> & x_new) const{
+    double do_linesearch(const RangedFunction & f, const vector<double> & x0, const vector<double> & step, vector<double> & x_new) const{
         const double f0 = f(x0);
         double fbest = f0;
         double cbest = 0.0; // best coefficient c found so far for   x = x0 + c * step
@@ -114,7 +123,7 @@ public:
         // We assume that step is already a good start, so test nearby points:
         // In general, delta0 could be tuned; a quick test suggests that either the choice
         // does not matter much, or this choice is already pretty good.
-        const double delta0 = 0.1;
+        const double delta0 = 0.2;
         const size_t n = f.ndim();
         double a = 1 - delta0;
         
@@ -157,6 +166,8 @@ public:
         double b = cbest + delta;
         double fb = f1d(b);
         while(fb < fbest){
+            a = cbest;
+            fa = fbest;
             fbest = fb;
             cbest = b;
             b += delta;
@@ -165,10 +176,14 @@ public:
         }
         // 2. using a < c < b with fa >= fc <= fb, search for the minimum of f.
         ab_small small_enough(f, x0, step, eps);
-        double cmin = find_argmin(boost::ref(f1d), a, b, cbest, boost::ref(small_enough), fa, fb, fbest, 10000, debug);
+        min_triplet tr;
+        tr.a = a; tr.b=b; tr.c = cbest;
+        tr.fa = fa; tr.fb = fb; tr.fc = fbest;
+        find_argmin(boost::ref(f1d), tr, quadratic_interpolation, boost::ref(small_enough), 10000);
         x_new = x0;
-        add_with_coeff(x_new, step, cmin);
+        add_with_coeff(x_new, step, tr.c);
         f.trunc_to_range(x_new);
+        return fbest;
     }
 };
 
@@ -201,7 +216,7 @@ std::ostream & operator<<(std::ostream & out, const Matrix & m){
 
 
 newton_minimizer::newton_minimizer(const newton_minimizer:: options & opts_): opts(opts_){
-    ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug));
+    ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug & 1));
 }
 
 newton_minimizer::newton_minimizer(const Configuration & cfg){
@@ -224,7 +239,7 @@ newton_minimizer::newton_minimizer(const Configuration & cfg){
     if(s.exists("debug")){
         opts.debug = s["debug"];
     }
-    ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug));
+    ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug & 1));
 }
 
 
@@ -246,17 +261,17 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
     // TODO: for the future, could do that in FunctionInfo already and use non-diagonal elements as well ...
     ParValues pv_step = info.get_step();
     Matrix inverse_hessian(n, n);
-    vector<double> step(n);
+    vector<double> step0(n);
     {
         size_t i=0;
         for(ParIds::const_iterator it=nonfixed_pids.begin(); i<n; ++i, ++it){
             double st = pv_step.get(*it);
             inverse_hessian(i,i) = pow(st, 2);
-            step[i] = st;
+            step0[i] = st;
         }
     }
     vector<double> x(n), grad(n);
-    vector<double> direction(n), next_x(n), next_grad(n), z(n), dx(n);
+    vector<double> direction(n), next_x(n), next_grad(n), z(n), dx(n), step(step0);
     ParValues pv_start = info.get_start();
     pv_start.set(fixed_parameters);
     pv_start.fill(&x[0], nonfixed_pids);
@@ -264,46 +279,52 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
     int it = 0;
     for(; it < opts.maxit; ++it){
         if(opts.debug){
-            // dump current status:
-            cout << endl << "Starting iteration " << it << ": " << endl << "x = " << x << " --> " << fx << endl;
-            cout << "  g = " << grad << endl;
-            cout << endl << "h = " << endl;
-            for(size_t k=0; k<n; ++k){
-                for(size_t l=0; l<n; ++l){
-                    printf(" %8.4g", inverse_hessian(k, l));
+            out << endl << "Starting iteration " << it << ". ";
+            if(opts.debug >=2){
+                out << endl << "x = " << x << " --> f(x) = " << fx << endl;
+                out << "g = " << grad << endl;
+            }
+            if(opts.debug >= 4){
+                out << "h = " << endl;
+                char s[200];
+                for(size_t k=0; k<n; ++k){
+                    for(size_t l=0; l<n; ++l){
+                        snprintf(s, 200, "%12.4g", inverse_hessian(k, l));
+                        out << s;//printf(" %8.4g", inverse_hessian(k, l));
+                    }
+                    out << endl;
                 }
-                cout << endl;
             }
         }
         
         // the estimated minimum is   -inverse_hessian * grad
         mul(direction, inverse_hessian, grad);
         mul(direction, -1.0);
-        if(opts.debug){
-            cout << "Iteration " << it << ": search direction = " << direction << endl;
+        if(opts.debug >= 2){
+            out << "Iteration " << it << ": search direction = " << direction << endl;
         }
         if(pnorm(direction, step) < opts.par_eps){
             if(opts.debug){
-                cout << "Iteration " << it << ": estimated minimum close enough; stopping iteration." << endl;
+                out << "Iteration " << it << ": estimated minimum close enough." << endl;
             }
             break;
         }
-        if(opts.debug)cout << "Iteration " << it << ": doing linesearch now" << endl;
-        ls->do_linesearch(f, x, direction, next_x);
-        if(opts.debug){
-            cout << "Iteration " << it << ": linesearch proposes:" << endl << "x =" << next_x << endl;
+        if(opts.debug)out << "Iteration " << it << ": doing linesearch now" << endl;
+        double next_fx = ls->do_linesearch(f, x, direction, next_x);
+        if(opts.debug >= 2){
+            out << "Iteration " << it << ": linesearch proposes:" << endl << "x =" << next_x << endl;
         }
         // calculate dx = next_x - x
         dx = next_x;
         add_with_coeff(dx, x, -1.0);
         if(pnorm(dx, step) < opts.par_eps){
             if(opts.debug){
-                 cout << "Iteration " << it << ": actual dx was smaller than par_eps, stopping iteration." << endl;
+                 out << "Iteration " << it << ": actual dx was smaller than par_eps, stopping now." << endl;
             }
             break;
         }
         // do the update to inverse_hessian:
-        double next_fx = f.eval_with_derivative(next_x, next_grad);
+        next_fx = f.eval_with_derivative(next_x, next_grad);
         // calculate z = (Delta x - inverse_hessian * (next_grad - grad))
         for(size_t i=0; i<n; ++i){
             z[i] = dx[i];
@@ -321,17 +342,21 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         }
         double norm_z = norm(z);
         norm_graddiff = sqrt(norm_graddiff);
-        if(opts.debug)cout << "denom = " << denom << "; |z| = " << norm_z << "; |g_k+1 - g_k| = " << norm_graddiff << endl;
+        if(opts.debug)out << "denom = " << denom << "; |z| = " << norm_z << "; |g_k+1 - g_k| = " << norm_graddiff << endl;
         if(fabs(denom) > 1e-7 * norm_graddiff * norm_z){
             // calculate the update to inverse_hessian: add z * z^T / denom:
             for(size_t i=0; i<n; ++i){
                 for(size_t j=0; j< n; ++j){
                     inverse_hessian(i,j) += z[i] * z[j] / denom;
+                    // update step, if this makes step larger:
+                    if(i==j && inverse_hessian(i,i) > pow(step0[i], 2)){
+                        step[i] = sqrt(inverse_hessian(i,i));
+                    }
                 }
             }
         }
         else{
-            if(opts.debug) cout << "denom is too small for update; continuing with next iteration directly " << endl;
+            if(opts.debug) out << "denom is too small for update; continuing with next iteration directly " << endl;
         }
         // prepare for next iteration:
         swap(x, next_x);
@@ -339,13 +364,14 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         fx = next_fx;
     }
     if(it==opts.maxit){
+        if(opts.debug) out << "maximum number of iterations reached; throwing exception" << endl;
         throw MinimizationException("maximum number of iterations reached");
     }
     // cov is the best estimate for the covariance matrix: either inverse_hessian directly, or
     // the explicit inverse of the numerical hessian in case of improve_cov:
     Matrix cov = inverse_hessian;
     if(opts.improve_cov){
-        if(opts.debug) cout << "improve_cov is true, calculating Hesse matrix now" << endl;
+        if(opts.debug) out << "improve_cov is true, calculating Hesse matrix now" << endl;
         Matrix hessian(n,n);
         // calculate better estimate for covariance here by going to opts.step_cov times the step size in the
         // direction of the parameter i and evaluate the gradient there; repeat for all i.
@@ -361,7 +387,7 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
                     throw MinimizationException("for calculating covariance: range too small (< step_cov * sigma)");
                 }
             }
-            if(opts.debug) cout << " step" << i << " = " << stepi << endl;
+            if(opts.debug) out << " step" << i << " = " << stepi << endl;
             f.eval_with_derivative(next_x, next_grad);
             for(size_t j=0; j<n; ++j){
                 hessian(i,j) = (next_grad[j] - grad[j]) / stepi;
@@ -385,8 +411,8 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
             double desired_min = sqrt(numeric_limits<double>::epsilon()) * fabs(max_);
             if(min_ < desired_min){
                 if(opts.debug){
-                    cout << "hesse not positive definite; hesse = " << hessian << endl;
-                    cout << "adding " << (desired_min - min_) << " to diagonal of Hesse to make it positive definite" << endl;
+                    out << "hesse not positive definite; hesse = " << hessian << endl;
+                    out << "adding " << (desired_min - min_) << " to diagonal of Hesse to make it positive definite" << endl;
                 }
                 for(size_t i=0; i<n; ++i){
                     hessian(i,i) += desired_min - min_;
@@ -447,7 +473,7 @@ MinimizationResult newton_minimizer::minimize(const theta::Function & f_, const 
     vector<double> x0(f.ndim());
     start.fill(&x0[0], f.get_nonfixed_parameters());
     double epsilon_f = f_accuracy(f, x0, 0);
-    if(opts.debug) cout << "epsilon_f = " << epsilon_f << endl;
+    if(opts.debug) out << "epsilon_f = " << epsilon_f << endl;
     NewtonFunctionInfo info(start, step, ranges, fixed_parameters, epsilon_f);
     return minimize2(f_, info, fixed_parameters);
 }

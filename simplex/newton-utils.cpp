@@ -1,6 +1,7 @@
 #include "simplex/newton-utils.hpp"
 #include "interface/phys.hpp"
 #include "interface/distribution.hpp"
+#include "interface/redirect_stdio.hpp"
 #include <limits>
 #include <iostream>
 
@@ -122,121 +123,106 @@ double RangedThetaFunction::operator()(const vector<double> & vals) const {
     return f(&values[0]);
 }
 
-
-double newton_internal::find_argmin(const boost::function<double (double)> & f, double a, double b, double c,
-                                    const boost::function<bool (double, double)> & ab_small_enough, double fa, double fb, double fc, unsigned int maxit, bool debug){
-    theta_assert(a < c && c < b);
-    theta_assert(fa >= fc and fb >= fc);
-    unsigned int it = 0;
-    size_t f_eval = 0;
-    for(; it < maxit; ++it){
-        if(ab_small_enough(a,b)){
-            if(debug) cout << "interval linesearch done. f_eval = " << f_eval << endl;
-            return c;
+namespace newton_internal{
+    
+// update the triplet tr using the new point d with f(d) = fd.
+// The new point must be within the interval: d > tr.a and d < tr.b
+void add_point(min_triplet & tr, double d, double fd){
+    theta_assert(d > tr.a and d < tr.b);
+    if(d < tr.c){
+        // a < d < c < b
+        if(fd <= tr.fc){
+            // new triplet is a < d < c:
+            tr.b = tr.c;
+            tr.fb = tr.fc;
+            tr.c = d;
+            tr.fc = fd;
         }
-        if(debug) cout << "interval linesearch iteration " << it << "; at: " << a << " " << c << " " << b << endl
-                       << "  f = " << fa << " >= " << fc << " <= " << fb << endl
-                       << "  f_eval = " << f_eval << endl;
-        theta_assert(a <= c and c <= b);
-        theta_assert(fa >= fc and fb >= fc);
-        // for now, use interval bisection. In the future, could use Brent.
-        // bisect either a--c or c--b, using the larger one, to make most gain:
-        if(c - a > b - c){
-            double c_trial = a + 0.5 * (c-a); // a < c_trial < c < b
-            if(debug) cout << "  c_trial = " << c_trial << endl;
-            double fct = f(c_trial);
-            ++f_eval;
-            if(debug) cout << "  f(c_trial) = " << fct << endl;
-            if(fct <= fc){
-                // we found an even smaller function value; the new search triplet would be   a < c_trial < c. However,
-                // c can be very close to b in which case the interval hardly shrinks. To avoid that, test yet
-                // another point at (c + c_trial) / 2 if c is close to b:
-                if(b - c < 0.5 * (c - a)){ 
-                    double c_trial2 = c + 0.5 * (c_trial - c); // a < c_trial < c_trial2 < c < b
-                    if(debug) cout << "  c_trial2 = " << c_trial2 << endl;
-                    double fct2 = f(c_trial2);
-                    ++f_eval;
-                    if(debug) cout << "  f(c_trial2) = " << fct2 << endl;
-                    if(fct2 <= fct){
-                        // new triplet is c_trial < c_trial2 < c
-                        a = c_trial;
-                        fa = fct;
-                        b = c;
-                        fb = fc;
-                        c = c_trial2;
-                        fc = fct2;
-                    }
-                    else{
-                        // new triplet is a < c_trial < c_trial2
-                        b = c_trial2;
-                        fb = fct2;
-                        c = c_trial;
-                        fc = fct;
-                    }
-                }
-                else{ // i.e. b and c are not so close: just use triplet a < c_trial < c:
-                    b = c;
-                    fb = fc;
-                    c = c_trial;
-                    fc = fct;
-                }
-            }
-            else{
-                // c_trial < c < b
-                a = c_trial;
-                fa = fct;
-            }
-        }
-        else{ // test c_trial between c and b, so we have   a < c < c_trial < b
-            double c_trial = c + 0.5 * (b-c);
-            if(debug) cout << "  c_trial = " << c_trial << endl;
-            double fct = f(c_trial);
-            ++f_eval;
-            if(debug) cout << "  f(c_trial) = " << fct << endl;
-            if(fct <= fc){
-                if(c - a < 0.5 * (b - c)){
-                    // a < c < c_trial2 < c_trial < b
-                    double c_trial2 = c + 0.5 * (c_trial - c);
-                    if(debug) cout << "  c_trial2 = " << c_trial2 << endl;
-                    double fct2 = f(c_trial2);
-                    ++f_eval;
-                    if(debug) cout << "  f(c_trial2) = " << fct2 << endl;
-                    if(fct2 <= fct){
-                        // new triplet is c < c_trial2 < c_trial
-                        a = c;
-                        fa = fc;
-                        c = c_trial2;
-                        fc = fct2;
-                        b = c_trial;
-                        fb = fct;
-                    }
-                    else{
-                        // new triplet is c_trial2 < c_trial < b
-                        a = c_trial2;
-                        fa = fct2;
-                        c = c_trial;
-                        fc = fct;
-                    }
-                }
-                else{
-                    // new triplet: c < c_trial < b
-                    a = c;
-                    fa = fc;
-                    c = c_trial;
-                    fc = fct;
-                }
-            }
-            else{
-                // new triplet: a < c < c_trial
-                b = c_trial;
-                fb = fct;
-            }
+        else{
+            // new triplet is d < c < b:
+            tr.a = d;
+            tr.fa = fd;
         }
     }
+    else{
+        // a < c < d < b
+        if(fd <= tr.fc){
+            // new triplet: c < d < b:
+            tr.a = tr.c;
+            tr.fa = tr.fc;
+            tr.c = d;
+            tr.fc = fd;
+        }
+        else{
+            // new triplet: a < c < d
+            tr.b = d;
+            tr.fb = fd;
+        }
+    }
+}
     
-    throw Exception("too many iterations to find minimum");
+    
 }
 
+
+double newton_internal::bisect_larger(const min_triplet & tr){
+    if(tr.b - tr.c > tr.c - tr.a){
+        return tr.c + 0.5 * (tr.b - tr.c);
+    }
+    else{
+        return tr.a + 0.5 * (tr.c - tr.a);
+    }
+}
+
+
+double newton_internal::quadratic_interpolation(const min_triplet & tr){
+    // shift the problem such that c = 0, fc = 0
+    double a = tr.a - tr.c;
+    double b = tr.b - tr.c;
+    double fa = tr.fa - tr.fc;
+    double fb = tr.fb - tr.fc;
+    // minimum of the parabola in shifted coordinates:
+    double x = (b*b * fa - a*a*fb) / (b * fa - a*fb) / 2;
+    return x + tr.c;// note: returning inf or nan is ok here; this is handled by find_argmin
+}
+
+
+void newton_internal::find_argmin(const f1d & f, min_triplet & tr, const fproposal & fp,  const fstop & stop, unsigned int maxit){
+    unsigned int it = 0;
+    const double max_factor = 0.8;
+    for(; it < maxit; ++it){
+        if(stop(tr)){
+            return;
+        }
+        theta_assert(tr.a <= tr.c and tr.c <= tr.b);
+        theta_assert(tr.fa >= tr.fc and tr.fb >= tr.fc);
+        // generate the proposal with fp:
+        double c_trial = fp(tr);
+        // if the proposal is a finite number within a,b then accept it:
+        if(isfinite(c_trial) and c_trial > tr.a and c_trial < tr.b){
+        }
+        else{
+            // Make a better suggestion by bisection the larger sub-interval:
+            c_trial = bisect_larger(tr);
+        }
+        const double fct = f(c_trial);
+        const double isize_old = tr.b - tr.a;
+        add_point(tr, c_trial, fct);
+        const double isize_new = tr.b - tr.a;
+        if(isize_new > max_factor * isize_old){
+            double c_trial2 = bisect_larger(tr);
+            double fct2 = f(c_trial2);
+            add_point(tr, c_trial2, fct2);
+            // There is one problematic situation left: if both c and c_trial are close to an interval end,
+            // say a < c < c_trial with only very small differences. Then c could be the new a in tr_tmp. Bisecting
+            // the larger sub-interval in this if condition bisects c_trial--b and the final interval of this iteration
+            // could pick c_trial as the final new a which means that the interval has hardly shrinked during this iteration.
+            // However, in this case, c split a,b into two equal sub-intervals; this guarantees that the next
+            // iteration is free from this pathology.
+        }
+    }
+    throw Exception("find_argmin2: too many iterations to find minimum");
+}
 
 
 double newton_internal::f_accuracy(const RangedFunction & f, const vector<double> & x0, size_t i, double f_scale){

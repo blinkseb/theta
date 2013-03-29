@@ -115,20 +115,60 @@ public:
 double f_accuracy(const RangedFunction & f, const std::vector<double> & x0, size_t i, double f_scale = 1.0);
 
 
-/** \brief Find the position of the minimum of a 1D function.
- *
- * The value x for which f(x) is minimized is searched in the interval [a,b]; a&lt;b with a first guess for the minimum c;
- * it must hold: a < c < b; f(a) >= f(c) <= f(b). The interval is made smaller until ab_small_enough(a,b) returns true.
+/** \brief Simple structure holding status of minimum search in an interval
  * 
- * fa, fb and fc are function values at a, b, and c respectively; providing those here is done for optimization only, as this saves
- * evaluating f at those points again within find_argmin.
- * 
- * If the maximum number of iterations is reached, the calculation aborts with a theta::Exception.
- * 
- * The algorithm currently uses some sort of interval bisection, though future implementation might change.
+ * If a minimum is sought with an inteerval search routine, the current status
+ * is summarized as the working interval [a,b] in which the minimum is contained
+ * and a point c in this interval with f(c) <= f(a) and f(c) <= f(b) is a cancidate
+ * for the position of the minimum.
  */
-double find_argmin(const boost::function<double (double)> & f, double a, double b, double c, const boost::function<bool (double, double)> & ab_small_enough,
-                   double fa, double fb, double fc, unsigned int maxit = 10000, bool debug = false);
+struct min_triplet{
+    double a, b, c; // a < c < b
+    double fa, fb, fc; // fa >= fc <= fb
+};
+
+/// Definition for find_argmin: The one-dimensional function double -> double
+typedef boost::function<double (double)> f1d;
+
+/// Definition for find_argmin: The proposal-generating function
+typedef boost::function<double (const min_triplet&)> fproposal;
+
+/// Definition for find_argmin: The stopping criterion. Should return true if iteration should be stopped.
+typedef boost::function<bool (const min_triplet&)> fstop;
+
+/** \brief Simple proposal function for find_argmin
+ *
+ * Always proposes the midpoint of the larger subinterval of (a,c,b) in the triplet tr.
+ */
+double quadratic_interpolation(const min_triplet & tr);
+
+/** \brief Quadratic interpolation function for find_argmin
+ *
+ * Interpolates the points ith a quadratic function and returns the position of the minimum.
+ */
+double bisect_larger(const min_triplet & tr);
+
+/** \brief Find the position of the minimum of a 1D function.
+ * 
+ * The initial position of the minimum and search interval is passed via tr, which is also used
+ * to communicate the result of the search.
+ * 
+ * The algorithm is as follows:
+ * 
+ * 1. stop(tr) is evaluated. If it returns true, the iteration is stopped.
+ * 2. fp(tr) is called to generate a proposal \c p. If \c p is is not a finite number in the interval (a,b), p = bisect_larger(tr) it used
+ *    as a fallback. \c p is used to update the current triplet tr.
+ * 3. There is one pathological case requiring special attention: if the proposal p or the point c is very close to a,b
+ *    then the interval (a,b) in the triplet hardly shrinks in one iteration. If this is the case, an additional
+ *    proposal is generated using bisect_larger on the new triplet.
+ * 
+ * \c fp is usually set to \c quadratic_interpolation.
+ * 
+ * \c maxit is the number of maximum iterations (where one iteration consists of executing 1. to 3. as described above).
+ *    If the minimum is not found within this number of iterations, the calculation aborts with a theta::Exception.
+ */
+void find_argmin(const f1d & f, min_triplet & tr, const fproposal & fp, const fstop & stop, unsigned int maxit = 10000);
+
 
 /** \brief Various arithmetic functions for vectors and matrices.
  * 

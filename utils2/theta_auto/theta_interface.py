@@ -60,7 +60,7 @@ strategy = fast
 minuit_tolerance_factor = 1
 
 [newton]
-debug = False
+debug = 0
 #-1 means default from theta plugin
 step_cov = -1
 maxit = -1
@@ -497,10 +497,9 @@ class Minimizer(ModuleBase):
             result = {'type': 'root_minuit'}
         elif strategy == 'newton_vanilla':
             result = {'type': 'newton_minimizer'}
-            if self.need_error: result['improve_errors'] = True
             if self.need_covariance: result['improve_cov'] = True
-            debug = options.getboolean('newton', 'debug')
-            if debug: result['debug'] = True
+            debug = options.getint('newton', 'debug')
+            if debug > 0: result['debug'] = debug
             step_cov = options.getfloat('newton', 'step_cov')
             if step_cov > 0: result['step_cov'] = step_cov
             par_eps = options.getfloat('newton', 'par_eps')    
