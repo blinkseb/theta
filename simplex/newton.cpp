@@ -28,7 +28,7 @@ public:
     // handling of constraints). The result point x must be in the range of f.
     //
     // returns the function value at x.
-    virtual double do_linesearch(const RangedFunction & f, const std::vector<double> & x0, const std::vector<double> & step, std::vector<double> & x) const = 0;
+    virtual double do_linesearch(const RangedFunction & f, const std::vector<double> & x0, const std::vector<double> & step, std::vector<double> & x, bool precise = false) const = 0;
     virtual ~Linesearch(){}
 };
 
@@ -43,6 +43,7 @@ namespace{
 class NewtonFunctionInfo: public FunctionInfo{
 private:
     double epsilon_f;
+    Matrix inverse_hessian;
     
 public:
     NewtonFunctionInfo(const ParValues & start, const ParValues & step, const Ranges & ranges, const ParValues & fixed_parameters, double epsilon_f_):
@@ -56,6 +57,14 @@ public:
     
     double get_epsilon_f() const{
         return epsilon_f;
+    }
+    
+    void set_inverse_hessian(const Matrix & m){
+        inverse_hessian = m;
+    }
+    
+    Matrix get_inverse_hessian() const {
+        return inverse_hessian;
     }
 };
 
@@ -87,8 +96,9 @@ private:
         const vector<double> & x0, step;
         double eps;
         vector<double> x, y;
+        bool precise;
         
-        ab_small(const RangedFunction & f_, const vector<double> & x0_, const vector<double> & step_, double eps_): f(f_), x0(x0_), step(step_), eps(eps_){
+        ab_small(const RangedFunction & f_, const vector<double> & x0_, const vector<double> & step_, double eps_, bool precise_): f(f_), x0(x0_), step(step_), eps(eps_), precise(precise_){
             x.resize(x0.size());
             y.resize(x0.size());
         }
@@ -96,9 +106,11 @@ private:
         bool operator()(const min_triplet & tr){
             // small enough means that the interval a,b is known to a precision of 10%.
             // This only applies if the interval does not switch signs (or is at 0.0):
-            if(tr.a * tr.b > 0.0){
-                double denom = min(fabs(tr.a), fabs(tr.b));
-                if((tr.b - tr.a) / denom < 0.1) return true;
+            if(!precise){
+                if(tr.a * tr.b > 0.0){
+                    double denom = min(fabs(tr.a), fabs(tr.b));
+                    if((tr.b - tr.a) / denom < 0.1) return true;
+                }
             }
             // Otherwise, test the distance (pnorm) in truncated parameter space:
             x = x0;
@@ -115,7 +127,7 @@ private:
 public:
     explicit IntervalLinesearch(double eps_, bool debug_ = false): eps(eps_), debug(debug_){}
     
-    double do_linesearch(const RangedFunction & f, const vector<double> & x0, const vector<double> & step, vector<double> & x_new) const{
+    double do_linesearch(const RangedFunction & f, const vector<double> & x0, const vector<double> & step, vector<double> & x_new, bool precise) const{
         const double f0 = f(x0);
         double fbest = f0;
         double cbest = 0.0; // best coefficient c found so far for   x = x0 + c * step
@@ -175,7 +187,7 @@ public:
             delta *= 2;
         }
         // 2. using a < c < b with fa >= fc <= fb, search for the minimum of f.
-        ab_small small_enough(f, x0, step, eps);
+        ab_small small_enough(f, x0, step, eps, precise);
         min_triplet tr;
         tr.a = a; tr.b=b; tr.c = cbest;
         tr.fa = fa; tr.fb = fb; tr.fc = fbest;
@@ -186,6 +198,7 @@ public:
         return fbest;
     }
 };
+
 
 
 } // anon. namespace
@@ -257,21 +270,26 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
     }
     const size_t n = f.ndim();
     theta_assert(n == nonfixed_pids.size());
-    // fill the matrix with step**2 at the diagonals:
-    // TODO: for the future, could do that in FunctionInfo already and use non-diagonal elements as well ...
+    // fill the inverse hessian either from info or using step**2 at the diagonals:
     ParValues pv_step = info.get_step();
-    Matrix inverse_hessian(n, n);
+    Matrix inverse_hessian = info.get_inverse_hessian();
+    bool ih_info = inverse_hessian.get_n_rows() == n;
+    if(!ih_info){
+        inverse_hessian.reset(n,n);
+    }
     vector<double> step0(n);
     {
         size_t i=0;
         for(ParIds::const_iterator it=nonfixed_pids.begin(); i<n; ++i, ++it){
             double st = pv_step.get(*it);
-            inverse_hessian(i,i) = pow(st, 2);
+            if(!ih_info){
+                inverse_hessian(i,i) = pow(st, 2);
+            }
             step0[i] = st;
         }
     }
-    vector<double> x(n), grad(n);
-    vector<double> direction(n), next_x(n), next_grad(n), z(n), dx(n), step(step0);
+    vector<double> x(n), grad(n), z(n);
+    vector<double> direction(n), next_x(n), next_grad(n), dx(n), step(step0);
     ParValues pv_start = info.get_start();
     pv_start.set(fixed_parameters);
     pv_start.fill(&x[0], nonfixed_pids);
@@ -279,22 +297,23 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
     int it = 0;
     for(; it < opts.maxit; ++it){
         if(opts.debug){
-            out << endl << "Starting iteration " << it << ". ";
+            out << "Iteration " << it << " starting.";
             if(opts.debug >=2){
                 out << endl << "x = " << x << " --> f(x) = " << fx << endl;
-                out << "g = " << grad << endl;
+                out << "g = " << grad;
             }
             if(opts.debug >= 4){
-                out << "h = " << endl;
+                out << endl << "h = " << endl;
                 char s[200];
                 for(size_t k=0; k<n; ++k){
                     for(size_t l=0; l<n; ++l){
                         snprintf(s, 200, "%12.4g", inverse_hessian(k, l));
-                        out << s;//printf(" %8.4g", inverse_hessian(k, l));
+                        out << s;
                     }
                     out << endl;
                 }
             }
+            out << endl;
         }
         
         // the estimated minimum is   -inverse_hessian * grad
@@ -309,7 +328,7 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
             }
             break;
         }
-        if(opts.debug)out << "Iteration " << it << ": doing linesearch now" << endl;
+        if(opts.debug) out << "Iteration " << it << ": doing linesearch now" << endl;
         double next_fx = ls->do_linesearch(f, x, direction, next_x);
         if(opts.debug >= 2){
             out << "Iteration " << it << ": linesearch proposes:" << endl << "x =" << next_x << endl;
@@ -317,11 +336,29 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         // calculate dx = next_x - x
         dx = next_x;
         add_with_coeff(dx, x, -1.0);
+        if(opts.debug){
+            out << "Iteration " << it << ": step size of linesearch was pnorm = " << pnorm(dx, step) << "; norm = " << norm(dx) << endl;
+        }
+        // we are done if the actual step size was small. However, the line search is only accurate to 10% of the search direction, so
+        // make a more precise linesearch again:
         if(pnorm(dx, step) < opts.par_eps){
             if(opts.debug){
-                 out << "Iteration " << it << ": actual dx was smaller than par_eps, stopping now." << endl;
+                 out << "Iteration " << it << ": actual dx by linesearch was smaller than par_eps, doing a more precise linesearch." << endl;
             }
-            break;
+            ls->do_linesearch(f, x, direction, next_x, true);
+            dx = next_x;
+            add_with_coeff(dx, x, -1.0);
+            if(pnorm(dx, step) < opts.par_eps){
+                if(opts.debug){
+                    out << "Iteration " << it << ": precise linesearch also below par_eps, stopping." << endl;
+                }
+                break;
+            }
+            else{
+                if(opts.debug){
+                    out << "Iteration " << it << ": precise linesearch was above par_eps, continuing." << endl;
+                }
+            }
         }
         // do the update to inverse_hessian:
         next_fx = f.eval_with_derivative(next_x, next_grad);
@@ -342,21 +379,19 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
         }
         double norm_z = norm(z);
         norm_graddiff = sqrt(norm_graddiff);
-        if(opts.debug)out << "denom = " << denom << "; |z| = " << norm_z << "; |g_k+1 - g_k| = " << norm_graddiff << endl;
         if(fabs(denom) > 1e-7 * norm_graddiff * norm_z){
             // calculate the update to inverse_hessian: add z * z^T / denom:
             for(size_t i=0; i<n; ++i){
                 for(size_t j=0; j< n; ++j){
                     inverse_hessian(i,j) += z[i] * z[j] / denom;
-                    // update step, if this makes step larger:
-                    if(i==j && inverse_hessian(i,i) > pow(step0[i], 2)){
-                        step[i] = sqrt(inverse_hessian(i,i));
-                    }
                 }
             }
         }
-        else{
-            if(opts.debug) out << "denom is too small for update; continuing with next iteration directly " << endl;
+        // update step:
+        for(size_t i=0; i<n; ++i){
+            if(inverse_hessian(i,i) > pow(step0[i], 2)){
+                step[i] = sqrt(inverse_hessian(i,i));
+            }
         }
         // prepare for next iteration:
         swap(x, next_x);
@@ -485,11 +520,21 @@ boost::shared_ptr<theta::FunctionInfo> newton_minimizer::create_nll_function_inf
     // get epsilon_f for the asimov likelihood:
     asimov_data_nll nll(m, override_parameter_distribution, fixed_parameters);
     RangedThetaFunction f(nll, fixed_parameters, info->get_step(), info->get_ranges());
-    vector<double> x0(f.ndim());
+    const size_t n = f.ndim();
+    vector<double> x0(n);
     ParValues start = info->get_start();
     start.fill(&x0[0], f.get_nonfixed_parameters());
     double epsilon_f = f_accuracy(f, x0, 0);
     boost::shared_ptr<NewtonFunctionInfo> result(new NewtonFunctionInfo(*info, epsilon_f));
+    // build approximate inverse hesse from step values:
+    Matrix inverse_hessian(n,n);
+    size_t i=0;
+    ParIds nonfixed_pids = f.get_nonfixed_parameters();
+    ParValues step = info->get_step();
+    for(ParIds::const_iterator pit=nonfixed_pids.begin(); pit!=nonfixed_pids.end(); ++pit, ++i){
+        inverse_hessian(i,i) = pow(step.get(*pit), 2);
+    }
+    result->set_inverse_hessian(inverse_hessian);
     return result;
 }
 

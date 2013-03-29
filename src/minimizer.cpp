@@ -23,7 +23,7 @@ FunctionInfo::FunctionInfo(const ParValues & start_, const ParValues & step_, co
         // 1. check whether parameter is fixed by step and range:
         const pair<double, double> & r = ranges.get(*pit);
         if(r.first==r.second){
-            if(!step.get_unchecked(*pit)>0.0){
+            if(step.get_unchecked(*pit)>0.0){
                 throw invalid_argument("FunctionInfo: inconsistent range/step given: range empty but step > 0");
             }
             fixed_parids.insert(*pit);
