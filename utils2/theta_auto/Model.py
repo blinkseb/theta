@@ -416,13 +416,16 @@ class Model(utils.Copyable):
             result[o] = {}
             for proc in self.observable_to_pred[o]:
                 if proc in self.signal_processes and proc not in signal_processes: continue
-                result[o][proc] = {'histogram': self.observable_to_pred[o][proc]['histogram'].get_cfg(),
-                     'coefficient-function': self.observable_to_pred[o][proc]['coefficient-function'].get_cfg()}
+                cf = self.observable_to_pred[o][proc]['coefficient-function']
                 if proc in signal_processes:
-                    result[o][proc]['coefficient-function']['factors'].append('beta_signal')
+                    cf = cf.copy()
+                    cf.add_factor('id', parameter = 'beta_signal')
+                result[o][proc] = {'histogram': self.observable_to_pred[o][proc]['histogram'].get_cfg(), 'coefficient-function': cf.get_cfg()}
         parameters = self.get_parameters(signal_processes)
-        if 'beta_signal' in parameters:
-            result['parameter-distribution'] = {'type': 'product_distribution', 'distributions': (self.distribution.get_cfg(parameters), signal_prior_cfg)}
+        if 'beta_signal' in parameters:            
+            bkg_parameters = set(parameters)
+            bkg_parameters.discard('beta_signal')
+            result['parameter-distribution'] = {'type': 'product_distribution', 'distributions': (self.distribution.get_cfg(bkg_parameters), signal_prior_cfg)}
         else:
             result['parameter-distribution'] = self.distribution.get_cfg(parameters)
         #rv observables:
@@ -436,7 +439,7 @@ class Model(utils.Copyable):
 
 # a function multiplying 1d functions.
 # TODO: Replace by FunctionBase ...
-class Function:
+class Function(utils.Copyable):
     """
     Instances of this class are used as coefficients for templates in a model. It is limited to simple expressions
     of a constant factor ``c``, multiplied by exponential factors (which are in effect the log-normal rate uncertainties, if the
@@ -513,13 +516,14 @@ class Function:
     
     def get_cfg(self, optimize = True):
         result = {'type': 'multiply', 'factors': self.factors.values()}
+        if self.value != 1.0: result['factors'].append(self.value)
         #print result
         # optimize by using several exponentials together:
         if optimize:
             result['factors'] = []
-            parameters = [];
-            lambdas_plus = [];
-            lambdas_minus = [];
+            parameters = []
+            lambdas_plus = []
+            lambdas_minus = []
             for p in self.factors:
                 if type(self.factors[p])!=dict or self.factors[p]['type'] != 'exp_function':
                     result['factors'].append(self.factors[p])
@@ -529,8 +533,11 @@ class Function:
                 lambdas_minus.append(self.factors[p]['lambda_minus'])
             if len(parameters) > 0:
                  result['factors'].append({'type': 'exp_function', 'parameters': parameters, 'lambdas_plus': lambdas_plus, 'lambdas_minus': lambdas_minus})
-        #print result
-        if self.value != 1.0: result['factors'].append(self.value)
+        try:
+            # this can raise in case result['factors'][0] is not a dictionary:
+            if len(result['factors']) == 1 and result['factors'][0]['type']=='exp_function' and self.value == 1.0:
+                result = result['factors'][0]
+        except Exception: pass
         return result
     
     def get_parameters(self):
@@ -874,21 +881,20 @@ class GaussDistribution:
         self.parameters[self.parameters.index(old_name)] = new_name
 
 # product of 1d distributions
-class Distribution:
+class Distribution(utils.Copyable):
     def __init__(self):
         # map par_name -> dictionary with parameters 'mean', 'width', 'range', 'typ'.
         self.distributions = {} 
     
-    # supported types: 'gauss', 'gamma'
+    # supported type: so far only 'gauss'
     # note that width can be infinity or 0.0 to get flat and delta distributions, resp. In this case, the
     # type does not matter
     def set_distribution(self, par_name, typ, mean, width, range):
-        assert typ in ('gauss', 'gamma')
+        assert typ == 'gauss'
         assert range[0] <= range[1]
         if mean is not None and type(mean) != str: # otherwise, the mean is a parameter ...
             mean = float(mean)
             assert range[0] <= mean and mean <= range[1] and width >= 0.0
-        else: assert typ == 'gauss', "using a parameter as mean is only supported for gauss"
         self.distributions[par_name] = {'typ': typ, 'mean': mean, 'width': float(width), 'range': [float(range[0]), float(range[1])]}
         
     # Changes parameters of an existing distribution. pars can contain 'typ', 'mean', 'width', 'range'. Anything
@@ -938,30 +944,13 @@ class Distribution:
         return result
     
     def get_cfg(self, parameters):
-        result = {'type': 'product_distribution', 'distributions': []}
-        flat_dist = {'type': 'flat_distribution'}
-        delta_dist = {'type': 'delta_distribution'}
-        set_parameters = set(parameters)
-        set_parameters.discard('beta_signal')
-        set_self_parameters = set(self.distributions.keys())
-        assert set_parameters.issubset(set_self_parameters), "Requested more parameters than distribution" + \
-             " defined for: requested %s,\n got %s\n (too much: %s)" % (set_parameters, set_self_parameters, set_parameters.difference(set_self_parameters))
-        for p in self.distributions:
-            if p not in parameters: continue
-            d = self.distributions[p]
-            if d['width'] == 0.0:
-                delta_dist[p] = d['mean']
-            elif d['width'] == float("inf"):
-                flat_dist[p] = {'range': d['range']}
-                if d['mean'] is not None:
-                    flat_dist[p]['fix-sample-value'] = d['mean']
-            else:
-                theta_type = {'gauss': 'gauss1d', 'gamma': 'gamma_distribution'}[d['typ']]
-                result['distributions'].append({'type': theta_type, 'parameter': p, 'mean': d['mean'], 'width': d['width'], 'range': d['range']})
-        if len(flat_dist) > 1:
-            result['distributions'].append(flat_dist)
-        if len(delta_dist) > 1:
-            result['distributions'].append(delta_dist)
+        result = {'type': 'igauss', 'parameters': [], 'mu':[], 'sigma':[], 'ranges': []}
+        for p in sorted(parameters):
+            if p not in self.distributions: continue
+            result['parameters'].append(p)
+            result['mu'].append(self.distributions[p]['mean'])
+            result['sigma'].append(self.distributions[p]['width'])
+            result['ranges'].append(self.distributions[p]['range'])
         return result
 
 

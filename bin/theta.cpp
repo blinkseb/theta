@@ -328,7 +328,7 @@ int main(int argc, char** argv) {
         theta::out << "(exiting on SIGINT)" << endl;
     }
     if(!quiet){
-        theta::out << "Total number of likelihood evaluations: " << default_model_nll::get_n_eval() << endl;
+        theta::out << "Total number of likelihood evaluations: " << atomic_get(&n_nll_eval) << endl;
     }
     return 0;
 }

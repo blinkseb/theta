@@ -55,19 +55,13 @@ DoubleVector::DoubleVector(const DoubleVector & rhs): data(0), n_data(rhs.n_data
    }
 }
 
-void DoubleVector::operator=(const DoubleVector & rhs){
-    if(&rhs == this) return;
-    if(n_data != rhs.n_data){
-        free_doubles(data);
-        if(rhs.n_data > 0){
-            data = allocate_doubles(rhs.n_data);
-        }else{
-            data = 0;
-        }
-        n_data = rhs.n_data;
-    }
-    if(n_data > 0){
-    	utils::copy_fast(data, rhs.data, n_data);
+
+void theta::dvhelper::reallocate(double *& p, size_t n){
+    free_doubles(p);
+    if(n>0){
+        p = allocate_doubles(n);
+    }else{
+        p = 0;
     }
 }
 

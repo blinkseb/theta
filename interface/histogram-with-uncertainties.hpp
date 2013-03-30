@@ -50,7 +50,10 @@ public:
     /// Construct from Histogram1D, setting all uncertainties to zero
     explicit Histogram1DWithUncertainties(const Histogram1D & h);
     
-    //note: can use default copy constr., assignment op., and destructor
+    void assign_unchecked(const Histogram1DWithUncertainties & rhs){
+        values.assign_unchecked(rhs.values);
+        sq_uncertainties.assign_unchecked(rhs.sq_uncertainties); // can have size()==0, but that's ok.
+    }
     
     //@{
     /// Get metadata

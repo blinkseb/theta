@@ -27,12 +27,13 @@ void metropolisHastings_diag(const theta::Function & nllikelihood, const MCMCOpt
     theta_assert(parameters.size() == npar);
 
     //0. initialization:
-    boost::scoped_array<double> x(new double[npar]);
-    boost::scoped_array<double> x_new(new double[npar]);
+    std::vector<double> x(npar);
+    std::vector<double> x_new(npar);
+    
 
     //set the starting point:
     std::copy(opts.startvalues.begin(), opts.startvalues.end(), &x[0]);
-    double nll = nllikelihood(x.get());
+    double nll = nllikelihood(&x[0]);
     if(!std::isfinite(nll) and not opts.ignore_inf_nll_start) throw Exception("first nll value was inf");
     // if this exception is thrown, it means that the likelihood function at the start values was inf or NAN.
     // One common reason for this is that the model produces a zero prediction in some bin where there is >0 data which should
@@ -42,7 +43,7 @@ void metropolisHastings_diag(const theta::Function & nllikelihood, const MCMCOpt
 
     const size_t iter = opts.burn_in + opts.iterations;
     size_t weight = 1;
-    for (size_t it = 1; it < iter; it++) {
+    for (size_t it = 1; it < iter; ++it) {
         if(oneatatime){
             // randomly choose a dimension:
             size_t index;
@@ -59,19 +60,19 @@ void metropolisHastings_diag(const theta::Function & nllikelihood, const MCMCOpt
                 x_new[i] = x[i] + rand.gauss(widths[i] * opts.factor * f);
             }
         }
-        double nll_new = nllikelihood(x_new.get());
+        double nll_new = nllikelihood(&x_new[0]);
         if ((nll_new <= nll) || (rand.uniform() < exp(nll - nll_new))) {
             if(it > opts.burn_in){
-                res.fill(x.get(), nll, weight);
+                res.fill(&x[0], nll, weight);
                 weight = 1;
             }
-            x.swap(x_new);
+            swap(x, x_new);
             nll = nll_new;
         } else if(it > opts.burn_in){
             ++weight;
         }
     }
-    res.fill(x.get(), nll, weight);
+    res.fill(&x[0], nll, weight);
 }
 
 

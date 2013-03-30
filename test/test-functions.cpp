@@ -1,4 +1,5 @@
 #include "interface/phys.hpp"
+#include "interface/utils.hpp"
 #include "test/utils.hpp"
 
 #include <iostream>
@@ -19,15 +20,7 @@ BOOST_AUTO_TEST_CASE(add){
                      "f2 = {type = \"add\"; addends = (\"p3\"); };"
             , vm);
     const theta::Configuration & cfg = cc.get();
-    std::auto_ptr<Function> f_ptr;
-    try{
-        f_ptr = PluginManager<Function>::build(Configuration(cfg, cfg.setting["f"]));
-    }
-    catch(ConfigurationException & ex){
-        cout << ex.message << endl;
-        BOOST_CHECK(false);
-        return;
-    }
+    std::auto_ptr<Function> f_ptr = PluginManager<Function>::build(Configuration(cfg, cfg.setting["f"]));
     const Function & f = *f_ptr;
     ParValues values;
     values.set(p1, 0.0);
@@ -41,6 +34,31 @@ BOOST_AUTO_TEST_CASE(add){
     values.set(p3, 42.0);
     expected = (1.7 + 3.2) + 24.7 - 25.2 + 42.0;
     BOOST_CHECK(close_to_relative(f(values), expected));
+}
+
+BOOST_AUTO_TEST_CASE(test_exp){
+    boost::shared_ptr<VarIdManager> vm(new VarIdManager);
+    ParId p1 = vm->create_par_id("p1");
+    ParId p2 = vm->create_par_id("p2");
+    ParId p3 = vm->create_par_id("p3");
+    load_core_plugins();
+    ConfigCreator cc("f = {type = \"exp_function\"; parameters = (\"p1\", \"p2\", \"p3\"); lambdas_plus = (0.1, 0.2, 0.3); lambdas_minus = (0.1, 0.19, 0.3); };\n" , vm);
+    const theta::Configuration & cfg = cc.get();
+    std::auto_ptr<Function> fp = PluginManager<Function>::build(Configuration(cfg, cfg.setting["f"]));
+    const Function & f = *fp;
+    ParValues values;
+    values.set(p1, 1.0).set(p2, 0.0).set(p3, 0.0);
+    double fval = f(values);
+    double fval_exp = theta::utils::exp(0.1 * 1.0);
+    BOOST_CHECK_EQUAL(fval_exp, fval);
+    values.set(p1, -1.7);
+    fval = f(values);
+    fval_exp = exp(0.1 * -1.7);
+    BOOST_CHECK_EQUAL(fval_exp, fval);
+    values.set(p2, -0.9).set(p3, -1.2);
+    fval = f(values);
+    fval_exp = theta::utils::exp(0.1 * -1.7 - 0.9 * 0.19 - 1.2 * 0.3);
+    BOOST_CHECK_EQUAL(fval_exp, fval);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

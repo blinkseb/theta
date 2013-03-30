@@ -7,14 +7,14 @@ using namespace theta;
 namespace{
     template<typename HT, typename HT2>
     void add_with_coeff2(HT & t, double c1, const HT2 & v1, double c2, const HT2 & v2){
-    	t.add_with_coeff(c1, v1);
-    	t.add_with_coeff(c2, v2);
+        t.add_with_coeff(c1, v1);
+        t.add_with_coeff(c2, v2);
     }
 
     template<>
-	void add_with_coeff2<Histogram1D, Histogram1D>(Histogram1D & t, double c1, const Histogram1D & v1, double c2, const Histogram1D & v2){
-		t.add_with_coeff2(c1, v1, c2, v2);
-	}
+    void add_with_coeff2<Histogram1D, Histogram1D>(Histogram1D & t, double c1, const Histogram1D & v1, double c2, const Histogram1D & v2){
+        t.add_with_coeff2(c1, v1, c2, v2);
+    }
 }
 
 template<typename HT>
@@ -67,13 +67,13 @@ void cubiclinear_histomorph::add_morph_terms(HT & t, const ParValues & values) c
 }
 
 void cubiclinear_histomorph::apply_functor(const functor<Histogram1DWithUncertainties> & f, const ParValues & values) const{
-    h_wu = h0_wu;
+    h_wu.assign_unchecked(h0_wu);
     add_morph_terms(h_wu, values);
     f(h_wu);
 }
 
 void cubiclinear_histomorph::apply_functor(const functor<Histogram1D> & f, const ParValues & values) const{
-    h = h0;
+    h.assign_unchecked(h0);
     add_morph_terms(h, values);
     f(h);
 }
@@ -124,6 +124,7 @@ cubiclinear_histomorph::cubiclinear_histomorph(const Configuration & ctx): norma
     }
     h0_sum = h0.get_sum();
     h = h0;
+    h_wu = h0_wu;
 }
 
 REGISTER_PLUGIN(cubiclinear_histomorph)

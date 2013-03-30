@@ -46,7 +46,7 @@ create_testtree: .bin/create_testtree.o
 	@$(LINK_EXE_NOLIBS) $(EXTRA_LINK)
 
 ../lib/root.so: $(objects)
-	$(LINK_SO) $(EXTRA_LINK)
+	@$(LINK_SO) $(EXTRA_LINK)
 
 endif
 

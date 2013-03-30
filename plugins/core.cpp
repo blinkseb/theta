@@ -14,10 +14,10 @@ fixed_poly::fixed_poly(const Configuration & ctx){
     Setting s = ctx.setting;
     double relative_bb_uncertainty = 0.0;
     if(s.exists("relative_bb_uncertainty")){
-    	relative_bb_uncertainty = s["relative_bb_uncertainty"];
-    	if(relative_bb_uncertainty < 0.0){
-    		throw ConfigurationException("relative_bb_uncertainty < 0.0 not allowed");
-    	}
+        relative_bb_uncertainty = s["relative_bb_uncertainty"];
+        if(relative_bb_uncertainty < 0.0){
+            throw ConfigurationException("relative_bb_uncertainty < 0.0 not allowed");
+        }
     }
     boost::shared_ptr<VarIdManager> vm = ctx.pm->get<VarIdManager>();
     ObsId obs_id = vm->get_obs_id(s["observable"]);
@@ -44,7 +44,7 @@ fixed_poly::fixed_poly(const Configuration & ctx){
             value += coeffs[order - k - 1];
         }
         h.set(i, value);
-		h_unc.set(i, relative_bb_uncertainty * value);
+        h_unc.set(i, relative_bb_uncertainty * value);
     }
     double norm_to = ctx.setting["normalize_to"];
     double norm = h.get_sum();
@@ -53,10 +53,10 @@ fixed_poly::fixed_poly(const Configuration & ctx){
     }
     Histogram1DWithUncertainties h_wu;
     if(relative_bb_uncertainty > 0.0){
-    	h_wu.set(h, h_unc);
+        h_wu.set(h, h_unc);
     }
     else{
-    	h_wu.set(h);
+        h_wu.set(h);
     }
     h_wu *= norm_to / norm;
     set_histo(h_wu);
@@ -66,10 +66,10 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
     Setting s = ctx.setting;
     double relative_bb_uncertainty = 0.0;
     if(s.exists("relative_bb_uncertainty")){
-    	relative_bb_uncertainty = s["relative_bb_uncertainty"];
-    	if(relative_bb_uncertainty < 0.0){
-    		throw ConfigurationException("relative_bb_uncertainty < 0.0 not allowed");
-    	}
+        relative_bb_uncertainty = s["relative_bb_uncertainty"];
+        if(relative_bb_uncertainty < 0.0){
+            throw ConfigurationException("relative_bb_uncertainty < 0.0 not allowed");
+        }
     }
     double width = s["width"];
     double mean = s["mean"];
@@ -92,14 +92,14 @@ fixed_gauss::fixed_gauss(const Configuration & ctx){
         throw ConfigurationException("Histogram specification is zero (can't normalize)");
     }
     Histogram1DWithUncertainties h_wu;
-	if(relative_bb_uncertainty > 0.0){
-		h_wu.set(h, h_unc);
-	}
-	else{
-		h_wu.set(h);
-	}
-	h_wu *= norm_to / norm;
-	set_histo(h_wu);
+    if(relative_bb_uncertainty > 0.0){
+        h_wu.set(h, h_unc);
+    }
+    else{
+        h_wu.set(h);
+    }
+    h_wu *= norm_to / norm;
+    set_histo(h_wu);
 }
 
 log_normal::log_normal(const Configuration & cfg){
@@ -373,7 +373,7 @@ void gauss1d::sample(ParValues & result, Random & rnd) const{
 
 
 double gauss1d::eval_nl(const ParValues & values) const{
-    const double mean = mu_pid ? values.get(*mu_pid) : mu;
+    const double mean = mu_pid ? values.get_unchecked(*mu_pid) : mu;
     const double value = values.get_unchecked(pid);
     if(value > range.second || value < range.first){
         return std::numeric_limits<double>::infinity();

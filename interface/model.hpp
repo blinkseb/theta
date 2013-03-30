@@ -152,8 +152,9 @@ namespace theta {
         ObsIds observables;
     };
     
-    
     /** \brief The default model in theta
+     * 
+     * Declared here to allow extension via deriving from it.
      */
     class default_model: public Model{
     protected:
@@ -175,7 +176,7 @@ namespace theta {
         template<typename HT>
         void get_prediction_impl(DataT<HT> & result, const ParValues & parameters) const;
         
-     public:
+    public:
         explicit default_model(const Configuration & cfg);
         virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const;
         virtual void get_prediction(Data & result, const ParValues & parameters) const;
@@ -186,15 +187,24 @@ namespace theta {
         }
         
         virtual const Distribution & get_parameter_distribution() const {
-           return *parameter_distribution;
+            return *parameter_distribution;
         }
         
         virtual const Distribution * get_rvobservable_distribution() const{
             return rvobservable_distribution.get();
         }
         
+        const std::vector<std::pair<ObsId, size_t> > & get_last_indices() const{
+            return last_indices;
+        }
+        
         virtual ~default_model();  
     };
+    
+
+    /// A counter for the number of likelihood evaluations.
+    extern atomic_int n_nll_eval;
+    
 
     /** \brief Function object of a negative log likelihood of a model, given data.
      *
@@ -243,49 +253,6 @@ namespace theta {
             return par_ids.size();
         }
     };
-    
-    
-    class default_model_nll: public NLLikelihood{
-    friend class default_model;
-    public:
-        using Function::operator();
-        virtual double operator()(const ParValues & values) const;
-        
-        virtual void set_override_distribution(const boost::shared_ptr<Distribution> & d);
-        virtual const Distribution & get_parameter_distribution() const{
-            if(override_distribution) return *override_distribution;
-            else return model.get_parameter_distribution();
-        }
-        
-        static uint64_t get_n_eval(){
-            return atomic_get(&n_eval);
-        }
-        
-    protected:
-        const default_model & model;
-        const Data & data;
-        static atomic_int n_eval;
-        bool robust_nll;
-        boost::shared_ptr<Distribution> override_distribution;
-        
-        default_model_nll(const default_model & m, const Data & data);
-        
-    private:
-        //cached predictions:
-        mutable Data predictions;
-    };
-     
-     // includes additive Barlow-Beeston uncertainties, where the extra nuisance parameters of this method (1 per bin) have been "profiled out".
-     class default_model_bbadd_nll: public default_model_nll {
-     friend class default_model;
-     public:
-         using Function::operator();
-         virtual double operator()(const ParValues & values) const;
-         
-     private:
-         default_model_bbadd_nll(const default_model & m, const Data & data);
-         mutable DataWithUncertainties predictions_wu;
-     };
 }
 
 #endif

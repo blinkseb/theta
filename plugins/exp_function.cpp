@@ -30,21 +30,30 @@ exp_function::exp_function(const theta::Configuration & cfg){
         }
     }
     //convert to the "vector" version:
-    lambdas_plusminus.reserve(2 * par_ids.size());
-    n = par_ids.size();
-    v_pids.reserve(par_ids.size());
     for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it){
-        v_pids.push_back(*it);
-        lambdas_plusminus.push_back(val_lambdas_plus.get(*it));
-        lambdas_plusminus.push_back(val_lambdas_minus.get(*it));
+        double lp = val_lambdas_plus.get(*it);
+        double lm = val_lambdas_minus.get(*it);
+        if(lp==lm){
+            v_pids_s.push_back(*it);
+            lambdas_s.push_back(lp);
+        }
+        else{
+            v_pids_pm.push_back(*it);
+            lambdas_plusminus.push_back(lp);
+            lambdas_plusminus.push_back(lm);
+        }
     }
-    
 }
 
 double exp_function::operator()(const theta::ParValues & values) const{
     double exponent_total = 0.0;
+    size_t n = lambdas_s.size();
     for(size_t i=0; i<n; ++i){
-        double val = values.get_unchecked(v_pids[i]);
+        exponent_total += lambdas_s[i] * values.get_unchecked(v_pids_s[i]);
+    }
+    n = v_pids_pm.size();
+    for(size_t i=0; i<n; ++i){
+        double val = values.get_unchecked(v_pids_pm[i]);
         int offset = val > 0 ? 0: 1;
         exponent_total += lambdas_plusminus[2*i + offset] * val;
     }

@@ -174,7 +174,9 @@ class DataSource(ModuleBase):
             seed = self.seed
             if seed is None: seed = -1
             parameters = self.model.get_parameters(self.signal_processes)
-            dist = {'type': 'product_distribution', 'distributions': [self.distribution.get_cfg(parameters)]}
+            bkg_parameters = set(parameters)
+            bkg_parameters.discard('beta_signal')
+            dist = {'type': 'product_distribution', 'distributions': [self.distribution.get_cfg(bkg_parameters)]}
             if 'beta_signal' in parameters: dist['distributions'].append({'type': 'delta_distribution', 'beta_signal' : self.beta_signal})
             result.update({'type': 'model_source', 'model': '@model', 'override-parameter-distribution': dist, 'rnd_gen': {'seed': seed}})
             if self.asimov:
@@ -266,7 +268,9 @@ class ProducerBase(ModuleBase):
             if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
             else: dist = model.distribution
             if 'beta_signal' in parameters:
-                self.override_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(parameters), signal_prior_cfg]}
+                bkg_parameters = set(parameters)
+                bkg_parameters.discard('beta_signal')
+                self.override_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(bkg_parameters), signal_prior_cfg]}
             else:
                 self.override_distribution_cfg = dist.get_cfg(parameters)
     
@@ -981,7 +985,7 @@ class ClsMain(MainBase):
                 self.data_source = input
         self.signal_prior_cfg = _signal_prior_dict(signal_prior)
         self.cls_options = {'ts_column': self.producers[0].name + '__nll_diff'}
-        self.minimizer = Minimizer(need_error = True, with_covariance = False)
+        self.minimizer = Minimizer(need_error = True, need_covariance = False)
         self.add_submodule(self.minimizer)
         
     def set_cls_options(self, **args):

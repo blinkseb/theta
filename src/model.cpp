@@ -24,7 +24,58 @@ const ObsIds & Model::get_observables() const{
 }
 
 
+atomic_int theta::n_nll_eval;
+
+namespace{
+
+struct n_nll_eval_reset{
+    n_nll_eval_reset(){
+        atomic_set(&n_nll_eval, 0);
+    }
+} resetter;
+
+    
 /* default_model */
+class default_model_nll: public NLLikelihood{
+friend class theta::default_model;
+public:
+    using Function::operator();
+    virtual double operator()(const ParValues & values) const;
+    
+    virtual void set_override_distribution(const boost::shared_ptr<Distribution> & d);
+    virtual const Distribution & get_parameter_distribution() const{
+        if(override_distribution) return *override_distribution;
+        else return model.get_parameter_distribution();
+    }
+        
+protected:
+    const default_model & model;
+    const Data & data;
+    bool robust_nll;
+    boost::shared_ptr<Distribution> override_distribution;
+    
+    default_model_nll(const default_model & m, const Data & data);
+    
+private:
+    //cached predictions:
+    mutable Data predictions;
+};
+     
+// includes additive Barlow-Beeston uncertainties, where the extra nuisance parameters of this method (1 per bin) have been "profiled out".
+class default_model_bbadd_nll: public default_model_nll {
+friend class theta::default_model;
+public:
+    using Function::operator();
+    virtual double operator()(const ParValues & values) const;
+    
+private:
+    default_model_bbadd_nll(const default_model & m, const Data & data);
+    mutable DataWithUncertainties predictions_wu;
+};
+
+} // anon. namespace
+
+
 void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Function> & coeffs_, boost::ptr_vector<HistogramFunction> & histos_){
     observables.insert(obs_id);
     const size_t n = coeffs_.size();
@@ -176,8 +227,6 @@ default_model::~default_model(){
 }
 
 /* default_model_nll */
-atomic_int default_model_nll::n_eval;
-
 default_model_nll::default_model_nll(const default_model & m, const Data & dat): model(m),  data(dat) {
     par_ids = model.get_parameters();
 }
@@ -188,7 +237,7 @@ void default_model_nll::set_override_distribution(const boost::shared_ptr<Distri
 
 
 double default_model_nll::operator()(const ParValues & values) const{
-    atomic_inc(&n_eval);
+    atomic_inc(&n_nll_eval);
     double result = 0.0;
     //1. the model prior first, because if we are out of bounds, we should not evaluate
     //   the likelihood of the templates ...
@@ -201,20 +250,22 @@ double default_model_nll::operator()(const ParValues & values) const{
     if(std::isinf(result)) return result;
     //2. get the prediction of the model:
     model.get_prediction(predictions, values);
-    //3. the template likelihood    
-    const ObsIds & obs_ids = model.get_observables();
+    //3. the template likelihood
+    const std::vector<std::pair<ObsId, size_t> > & li = model.get_last_indices();
     if(robust_nll){
-        for(ObsIds::const_iterator obsit=obs_ids.begin(); obsit!=obs_ids.end(); obsit++){
-            const double * pred_data = predictions[*obsit].get_data();
-            const double * data_data = data[*obsit].get_data();
-            result += template_nllikelihood_robust(data_data, pred_data, data[*obsit].get_nbins());
+        for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it){
+            const ObsId & oid = li_it->first;
+            const double * pred_data = predictions[oid].get_data();
+            const double * data_data = data[oid].get_data();
+            result += template_nllikelihood_robust(data_data, pred_data, data[oid].get_nbins());
         }
     }
     else{
-        for(ObsIds::const_iterator obsit=obs_ids.begin(); obsit!=obs_ids.end(); obsit++){
-            const double * pred_data = predictions[*obsit].get_data();
-            const double * data_data = data[*obsit].get_data();
-            result += template_nllikelihood(data_data, pred_data, data[*obsit].get_nbins());
+        for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it){
+            const ObsId & oid = li_it->first;
+            const double * pred_data = predictions[oid].get_data();
+            const double * data_data = data[oid].get_data();
+            result += template_nllikelihood(data_data, pred_data, data[oid].get_nbins());
         }
     }
     if(std::isinf(result)) return result;
@@ -239,7 +290,7 @@ default_model_bbadd_nll::default_model_bbadd_nll(const default_model & m, const 
 }
 
 double default_model_bbadd_nll::operator()(const ParValues & values) const{
-    atomic_inc(&n_eval);
+    atomic_inc(&n_nll_eval);
     double result = 0.0;
     //1. the model prior first, because if we are out of bounds, we should not evaluate
     //   the likelihood of the templates ...
@@ -294,6 +345,5 @@ double default_model_bbadd_nll::operator()(const ParValues & values) const{
     }
     return result;
 }
-
 
 REGISTER_PLUGIN_DEFAULT(default_model)

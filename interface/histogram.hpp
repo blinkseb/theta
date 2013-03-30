@@ -15,6 +15,9 @@ namespace theta{
  * 
  * As optimization, no memory is allocated for a size of 0.
  */
+namespace dvhelper{
+    void reallocate(double *& p, size_t n);
+}
 class DoubleVector{
 private:
     double * data;
@@ -35,8 +38,21 @@ public:
     /// Destructor
     ~DoubleVector();
     
-    /// Assignment operator
-    void operator=(const DoubleVector & rhs);
+    /// Assignment
+    void operator=(const DoubleVector & rhs){
+        if(&rhs == this) return;
+        if(n_data != rhs.n_data){
+            dvhelper::reallocate(data, rhs.n_data);
+        }
+        n_data = rhs.n_data;
+        utils::copy_fast(data, rhs.data, n_data);
+    }
+    
+    
+    /// same as *this = other; but assume (unchecked) that this->size() == rhs.size()
+    void assign_unchecked(const DoubleVector & rhs){
+        utils::copy_fast(data, rhs.data, n_data);
+    }
     
     /// Set all values to the given value
     void set_all_values(double value){

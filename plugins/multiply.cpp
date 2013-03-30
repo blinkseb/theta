@@ -1,7 +1,6 @@
 #include "plugins/multiply.hpp"
 #include "interface/plugin.hpp"
 #include "interface/redirect_stdio.hpp"
-#include <iostream>
 
 using namespace theta;
 using namespace std;
@@ -46,11 +45,13 @@ multiply::multiply(const Configuration & cfg): literal_factor(1.0){
 
 double multiply::operator()(const ParValues & v) const{
     double result = literal_factor;
-    for(size_t i=0; i<v_pids.size(); ++i){
-        result *= v.get_unchecked(v_pids[i]);
+    std::vector<theta::ParId>::const_iterator it_end = v_pids.end();
+    for(std::vector<theta::ParId>::const_iterator it = v_pids.begin(); it!= it_end; ++it){
+        result *= v.get_unchecked(*it);
     }
-    for(size_t i=0; i<functions.size(); ++i){
-        result *= functions[i](v);
+    boost::ptr_vector<theta::Function>::const_iterator fit_end = functions.end();
+    for(boost::ptr_vector<theta::Function>::const_iterator fit = functions.begin(); fit != fit_end; ++fit){
+        result *= (*fit)(v);
     }
     return result;
 }
