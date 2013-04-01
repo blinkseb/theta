@@ -31,7 +31,7 @@ endif
 
 ifneq ($(OPTIONS_BOOSTDIR),)
    BOOST_INCLUDE := -I$(OPTIONS_BOOSTDIR)/include
-   BOOST_LIBS := -L$(OPTIONS_BOOSTDIR)/lib -lboost_system -lboost_filesystem -lboost_regex -lboost_program_options -lboost_iostreams
+   BOOST_LIBS := -L$(OPTIONS_BOOSTDIR)/lib -lboost_system -lboost_regex -lboost_program_options -lboost_iostreams
 # if available, use dependencies from CMSSW:
 else
    ifeq ($(HAVE_SCRAM),yes)
@@ -95,7 +95,7 @@ ifeq ($(OPTIONS_TIMER),yes)
 endif
 
 FLAGSC := -g -Wall -fPIC $(INCLUDES) $(DEFINES) $(OPTIONS_CFLAGS)
-FLAGSCPP := $(FLAGSC) -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
+FLAGSCPP := $(FLAGSC) -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo
 
 ifneq ($(OPTIONS_DEBUG),yes)
     FLAGSC += -O3

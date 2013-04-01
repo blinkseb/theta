@@ -39,7 +39,7 @@ igauss::igauss(const Configuration & cfg){
 
 void igauss::sample(theta::ParValues & result, theta::Random & rnd) const{
     BOOST_FOREACH(const parset_muconstant & ps, mconst){
-        if(ps.sigma == 0.0 or isinf(ps.sigma)){
+        if(ps.sigma == 0.0 or std::isinf(ps.sigma)){
             result.set(ps.parameter, ps.mu);
         }
         else{
@@ -52,7 +52,7 @@ void igauss::sample(theta::ParValues & result, theta::Random & rnd) const{
     }
     BOOST_FOREACH(const parset_muvar & ps, mvar){
         const double mu = result.get_unchecked(ps.mu);
-        if(ps.sigma == 0.0 or isinf(ps.sigma)){
+        if(ps.sigma == 0.0 or std::isinf(ps.sigma)){
             result.set(ps.parameter, mu);
         }
         else{
@@ -79,14 +79,14 @@ double igauss::eval_nl(const ParValues & values) const{
     BOOST_FOREACH(const parset_muconstant & ps, mconst){
         const double val = values.get_unchecked(ps.parameter);
         if(val < ps.range_low || val > ps.range_high) return std::numeric_limits<double>::infinity();
-        if(ps.sigma == 0.0 or isinf(ps.sigma)) continue;
+        if(ps.sigma == 0.0 or std::isinf(ps.sigma)) continue;
         const double d = (val - ps.mu) / ps.sigma;
         result += 0.5 * d * d;
     }
     BOOST_FOREACH(const parset_muvar & ps, mvar){
         const double val = values.get_unchecked(ps.parameter);
         if(val < ps.range_low || val > ps.range_high) return std::numeric_limits<double>::infinity();
-        if(ps.sigma == 0.0 or isinf(ps.sigma)) continue;
+        if(ps.sigma == 0.0 or std::isinf(ps.sigma)) continue;
         const double d = (val - values.get_unchecked(ps.mu)) / ps.sigma;
         result += 0.5 * d * d;
     }

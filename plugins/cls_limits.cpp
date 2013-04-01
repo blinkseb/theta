@@ -683,7 +683,7 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
                 size_t n0 = tts->get_n0(truth);
                 size_t n0_new = pow(res.cls_uncertainty_n0 / target_cls_uncertainty, 2) * n0;
                 theta_assert(n0_new >= n0);
-                size_t n_toys = max(50ul, min<size_t>(n0_new - n0, 500));
+                size_t n_toys = max<size_t>(50, min<size_t>(n0_new - n0, 500));
                 debug_out << "run_single_truth_adaptive, mode 0: making " << n_toys << " more toys for background only\n";
                 flush(debug_out);
                 run_single_truth(truth, true, n_toys);
@@ -693,7 +693,7 @@ void cls_limits::run_single_truth_adaptive(map<double, double> & truth_to_ts, do
                 size_t n = tts->get_n(truth);
                 size_t n_new = pow(res.cls_uncertainty_n / target_cls_uncertainty, 2) * n;
                 theta_assert(n_new >= n);
-                size_t n_toys = max(50ul, min<size_t>(n_new - n, 500));
+                size_t n_toys = max<size_t>(50, min<size_t>(n_new - n, 500));
                 debug_out << "run_single_truth_adaptive, mode 0: making " << n_toys << " more toys for signal + background\n";
                 flush(debug_out);
                 run_single_truth(truth, false, n_toys);

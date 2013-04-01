@@ -8,6 +8,8 @@ libobjects += .bin/atomic.o
 
 all: ../lib/libtheta.so
 
+include ../Makefile.rules
+
 # switch between implementations of atomic:
 ifeq ($(OPTIONS_GENERIC_ARCH),yes)
 
@@ -25,8 +27,6 @@ libobjects += .bin/atomic_asserts.o
 
 endif
 
-
-include ../Makefile.rules
 
 
 ../lib/libtheta.so: $(libobjects)

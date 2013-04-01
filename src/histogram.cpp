@@ -7,6 +7,7 @@
 #include <sstream>
 #include <limits>
 #include <new>
+#include <malloc.h>
 
 using namespace theta;
 using std::invalid_argument;
@@ -21,11 +22,11 @@ namespace{
       //for the add_fast routine, which might use SSE optimizations, we need this alignment. And
       // while we at it, we should make sure double is as expected:
       BOOST_STATIC_ASSERT(sizeof(double)==8);
-      int err = posix_memalign(reinterpret_cast<void**>(&result), 16, sizeof(double) * n);
-      if(err!=0){
+      result = reinterpret_cast<double*>(memalign(2 * sizeof(double), sizeof(double) * n)); // note: while it is not guaranteed that we can call "free" on the result, that's ok for most systems.
+      if(result==0){
         throw std::bad_alloc();
       }
-      //set the extra allocated double to zero to make sure no time-consuming garbage is there ...
+      //set the extra allocated double to zero by convention.
       if(n_orig % 2) result[n-1] = 0.0;
       return result;
    }
