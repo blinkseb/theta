@@ -15,19 +15,12 @@ namespace theta{
  * 
  * As optimization, no memory is allocated for a size of 0.
  */
-namespace dvhelper{
-    void reallocate(double *& p, size_t n);
-}
 class DoubleVector{
 private:
     double * data;
     size_t n_data;
     
 public:
-    void swap(DoubleVector & other){
-        std::swap(data, other.data);
-        std::swap(n_data, other.n_data);
-    }
     
     /// Create a new DoubleVector with \c n entries, all set to zero.
     explicit DoubleVector(size_t n=0);
@@ -42,17 +35,13 @@ public:
     void operator=(const DoubleVector & rhs){
         if(&rhs == this) return;
         if(n_data != rhs.n_data){
-            dvhelper::reallocate(data, rhs.n_data);
+            realloc(rhs.n_data);
         }
-        n_data = rhs.n_data;
         utils::copy_fast(data, rhs.data, n_data);
     }
     
-    
-    /// same as *this = other; but assume (unchecked) that this->size() == rhs.size()
-    void assign_unchecked(const DoubleVector & rhs){
-        utils::copy_fast(data, rhs.data, n_data);
-    }
+    /// reallocate (unitialized!) to new size n
+    void realloc(size_t n);
     
     /// Set all values to the given value
     void set_all_values(double value){
@@ -142,12 +131,6 @@ private:
 public:
     
     using DoubleVector::operator*=;
-    
-    void swap(Histogram1D & other){
-        DoubleVector::swap(other);
-        std::swap(xmin, other.xmin);
-        std::swap(xmax, other.xmax);
-    }
 
     /** \brief Create an empty Histogram with \c bins bins with range (\c xmin, \c xmax )
      */
@@ -207,6 +190,14 @@ public:
     /// Set all values to 0.0
     // provided for compatibility with DataT
     void reset(){
+        set_all_values(0.0);
+    }
+    
+    /// Set to a zero Histogram with the given bin number and range
+    void reset(size_t nbins, double xmin_, double xmax_){
+        realloc(nbins);
+        xmin = xmin_;
+        xmax = xmax_;
         set_all_values(0.0);
     }
     

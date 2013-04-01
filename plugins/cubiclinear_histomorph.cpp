@@ -32,7 +32,7 @@ void cubiclinear_histomorph::add_morph_terms(HT & t, const ParValues & values) c
             //cubic interpolation:
             const double d2 = delta * delta;
             const double d3 = d2 * fabs(delta);
-        	add_with_coeff2(t, 0.5*delta, diff[isys], d2 - 0.5 * d3, sum[isys]);
+            add_with_coeff2(t, 0.5*delta, diff[isys], d2 - 0.5 * d3, sum[isys]);
         }
     }
     double h_sum = 0.0;
@@ -66,16 +66,16 @@ void cubiclinear_histomorph::add_morph_terms(HT & t, const ParValues & values) c
     }
 }
 
-void cubiclinear_histomorph::apply_functor(const functor<Histogram1DWithUncertainties> & f, const ParValues & values) const{
-    h_wu.assign_unchecked(h0_wu);
+void cubiclinear_histomorph::add_with_coeff_to(Histogram1DWithUncertainties & hres, double coeff, const ParValues & values) const{
+    h_wu = h0_wu;
     add_morph_terms(h_wu, values);
-    f(h_wu);
+    hres.add_with_coeff(coeff, h_wu);
 }
 
-void cubiclinear_histomorph::apply_functor(const functor<Histogram1D> & f, const ParValues & values) const{
-    h.assign_unchecked(h0);
+void cubiclinear_histomorph::add_with_coeff_to(Histogram1D & hres, double coeff, const ParValues & values) const{
+    h = h0;
     add_morph_terms(h, values);
-    f(h);
+    hres.add_with_coeff(coeff, h);
 }
 
 void cubiclinear_histomorph::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{

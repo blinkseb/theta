@@ -7,12 +7,12 @@ REGISTER_PLUGIN_BASETYPE(theta::HistogramFunction);
 
 using namespace theta;
 
-void ConstantHistogramFunction::apply_functor(const functor<Histogram1DWithUncertainties> & f, const ParValues & values) const{
-    f(h_wu);
+void ConstantHistogramFunction::add_with_coeff_to(Histogram1D & hres, double coeff, const ParValues & values) const{
+    hres.add_with_coeff(coeff, h);
 }
 
-void ConstantHistogramFunction::apply_functor(const functor<Histogram1D> & f, const ParValues & values) const{
-    f(h);
+void ConstantHistogramFunction::add_with_coeff_to(Histogram1DWithUncertainties & hres, double coeff, const ParValues & values) const{
+    hres.add_with_coeff(coeff, h_wu);
 }
         
 void ConstantHistogramFunction::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{
@@ -33,7 +33,10 @@ Histogram1DWithUncertainties theta::get_constant_histogram(const Configuration &
     if(hf->get_parameters().size()!=0){
         throw std::invalid_argument("Histogram defined in path '" + cfg.setting.get_path() + "' is not constant");
     }
-    Histogram1DWithUncertainties res;
-    hf->apply_functor(copy_to<Histogram1DWithUncertainties>(res), ParValues());
+    size_t nbins;
+    double xmin, xmax;
+    hf->get_histogram_dimensions(nbins, xmin, xmax);
+    Histogram1DWithUncertainties res(nbins, xmin, xmax);
+    hf->add_with_coeff_to(res, 1.0, ParValues());
     return res;
 }

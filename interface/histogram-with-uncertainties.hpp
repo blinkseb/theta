@@ -35,13 +35,6 @@ private:
     
     void fail_check_compatibility(const Histogram1DWithUncertainties & h) const;
 public:
-    void swap(Histogram1DWithUncertainties & other){
-    	std::swap(xmin, other.xmin);
-    	std::swap(xmax, other.xmax);
-    	values.swap(other.values);
-    	sq_uncertainties.swap(other.sq_uncertainties);
-    	std::swap(nontrivial_unc, other.nontrivial_unc);
-    }
 
     /// create a Histogram with the given range and number of bins
     explicit Histogram1DWithUncertainties(size_t bins=0, double xmin=0, double xmax=1);
@@ -50,9 +43,13 @@ public:
     /// Construct from Histogram1D, setting all uncertainties to zero
     explicit Histogram1DWithUncertainties(const Histogram1D & h);
     
-    void assign_unchecked(const Histogram1DWithUncertainties & rhs){
-        values.assign_unchecked(rhs.values);
-        sq_uncertainties.assign_unchecked(rhs.sq_uncertainties); // can have size()==0, but that's ok.
+    void reset(size_t nbins, double xmin_, double xmax_){
+        xmin = xmin_;
+        xmax = xmax_;
+        values.realloc(nbins);
+        values.set_all_values(0.0);
+        sq_uncertainties.realloc(0);
+        nontrivial_unc = false;
     }
     
     //@{
@@ -158,9 +155,8 @@ public:
         values = values_;
         sq_uncertainties = uncertainties;
         for(size_t i=0; i<sq_uncertainties.size(); ++i){
-        	double newval = sq_uncertainties.get(i);
-        	newval *= newval;
-        	sq_uncertainties.set(i, newval);
+            double newval = sq_uncertainties.get(i);
+            sq_uncertainties.set(i, newval * newval);
         }
         nontrivial_unc = true;
     }

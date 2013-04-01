@@ -116,7 +116,7 @@ size_t RangedThetaFunction::ndim() const{
 
 // vals are the ndim() non-fixed parameters in conversion order defined by pids_ as passed to the constructor.
 double RangedThetaFunction::operator()(const vector<double> & vals) const {
-    theta_assert(vals.size() == nonfixed_indices.size());
+    //theta_assert(vals.size() == nonfixed_indices.size());
     for(size_t i=0; i<nonfixed_indices.size(); ++i){
         values[nonfixed_indices[i]] = vals[i];
     }

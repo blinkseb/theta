@@ -16,15 +16,15 @@ void interpolating_histo::fill_h(const ParValues & values) const {
     h *= h0;
 }
 
-void interpolating_histo::apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const{
+void interpolating_histo::add_with_coeff_to(theta::Histogram1DWithUncertainties & hres, double coeff, const theta::ParValues & values) const{
     fill_h(values);
     h_wu.set(h);
-    f(h_wu);
+    hres.add_with_coeff(coeff, h_wu);
 }
 
-void interpolating_histo::apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const{
+void interpolating_histo::add_with_coeff_to(theta::Histogram1D & hres, double coeff, const theta::ParValues & values) const{
     fill_h(values);
-    f(h);
+    hres.add_with_coeff(coeff, h);
 }
 
 void interpolating_histo::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{

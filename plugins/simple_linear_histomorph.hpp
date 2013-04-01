@@ -46,9 +46,8 @@ public:
      */
     simple_linear_histomorph(const theta::Configuration & ctx);
     
-    
-    virtual void apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const;
-    virtual void apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const;
+    virtual void add_with_coeff_to(theta::Histogram1DWithUncertainties & hres, double coeff, const theta::ParValues & values) const;
+    virtual void add_with_coeff_to(theta::Histogram1D & hres, double coeff, const theta::ParValues & values) const;
     virtual void get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const;
 
 private:

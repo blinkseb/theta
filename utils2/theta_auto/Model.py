@@ -423,9 +423,19 @@ class Model(utils.Copyable):
                 result[o][proc] = {'histogram': self.observable_to_pred[o][proc]['histogram'].get_cfg(), 'coefficient-function': cf.get_cfg()}
         parameters = self.get_parameters(signal_processes)
         if 'beta_signal' in parameters:            
-            bkg_parameters = set(parameters)
-            bkg_parameters.discard('beta_signal')
-            result['parameter-distribution'] = {'type': 'product_distribution', 'distributions': (self.distribution.get_cfg(bkg_parameters), signal_prior_cfg)}
+            # optimize away product distribution in case the signal prior is flat / fixed:
+            if signal_prior_cfg['type'] in ('flat_distribution', 'fixed_distribution'):
+                dist = self.distribution.copy()
+                if signal_prior_cfg['type'] == 'flat_distribution': range, mean, width = signal_prior_cfg['beta_signal']['range'], signal_prior_cfg['beta_signal']['fix-sample-value'], float('inf')
+                else:
+                    mean, width = signal_prior_cfg['beta_signal'], 0.0
+                    range = mean, mean
+                dist.set_distribution('beta_signal', 'gauss', mean = mean, width = width, range = range)
+                result['parameter-distribution'] = dist.get_cfg(parameters)
+            else:
+                bkg_parameters = set(parameters)
+                bkg_parameters.discard('beta_signal')
+                result['parameter-distribution'] = {'type': 'product_distribution', 'distributions': (self.distribution.get_cfg(bkg_parameters), signal_prior_cfg)}
         else:
             result['parameter-distribution'] = self.distribution.get_cfg(parameters)
         #rv observables:

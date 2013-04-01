@@ -8,40 +8,6 @@
 
 namespace theta {
     
-    template<typename T>
-    class functor{
-    public:
-        virtual void operator()(const T&) const = 0;
-        virtual ~functor(){}
-    };
-    
-    template<typename T>
-    class copy_to: public functor<T>{
-    private:
-        T & into;
-    public:
-        copy_to(T & into_): into(into_){}
-        virtual void operator()(const T& t) const {
-            into = t;
-        }
-        virtual ~copy_to(){}
-    };
-    
-    template<typename T>
-    class add_with_coeff_to: public functor<T>{
-    private:
-        T & h0;
-        double coeff;
-    public:
-        add_with_coeff_to(T & h0_, double coeff_): h0(h0_), coeff(coeff_){}
-        virtual void operator()(const T& t) const {
-            theta_assert(h0.get_nbins() == t.get_nbins());
-            h0.add_with_coeff(coeff, t);
-        }
-        virtual ~add_with_coeff_to(){}
-    };
-
-
     /** \brief A Histogram-valued function which depends on zero or more parameters.
      *
      * This class is used extensively for model building: a physical model is given by specifying
@@ -56,26 +22,14 @@ namespace theta {
         typedef HistogramFunction base_type;
         
         //@{
-        /** \brief Apply a functor on the resulting Histogram1D / Histogram1DWithUncertainties
+        /** \brief Calculate h += coeff * hf(values)
          *
-         * This construction is an efficient generalization of the more straight-forward approach of providing
-         * evaluation operators which directly return Histogram1D or Histogram1DWithUncertainties: the former
-         * implementation would require copying the result to the return value, while this implementation can avoid this
-         * copy completely, if the functor does not perform such a copy.
-         *
-         * To just "get the result histogram", do:
-         * \code
-         * const ParValues & values;
-         * const HistogramFunction & hf;
-         * ...
-         * Histogram1D h;
-         * hf.apply_functor(copy_to<Histogram1D>(h), values);
-         * \endcode
-         *
-         * There are two version: with and without bin-by-bin uncertainties.
+         * This somewhat complicated construction is done for reasons of efficiency and avoiding allocations.
+         * 
+         * h must be initialized with the correct range and binning, according to get_histogram_dimensions.
          */
-        virtual void apply_functor(const functor<Histogram1DWithUncertainties> & f, const ParValues & values) const = 0;
-        virtual void apply_functor(const functor<Histogram1D> & f, const ParValues & values) const = 0;
+        virtual void add_with_coeff_to(Histogram1DWithUncertainties & h, double coeff, const ParValues & values) const = 0;
+        virtual void add_with_coeff_to(Histogram1D & h, double coeff, const ParValues & values) const = 0;
         //@}
 
         /** \brief Returns the parameters which this HistogramFunction depends on.
@@ -107,8 +61,8 @@ namespace theta {
     class ConstantHistogramFunction: public HistogramFunction{
     public:
 
-        virtual void apply_functor(const functor<Histogram1DWithUncertainties> & f, const ParValues & values) const;
-        virtual void apply_functor(const functor<Histogram1D> & f, const ParValues & values) const;
+        virtual void add_with_coeff_to(Histogram1DWithUncertainties & h, double coeff, const ParValues & values) const;
+        virtual void add_with_coeff_to(Histogram1D & h, double coeff, const ParValues & values) const;
         virtual void get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const;
 
     protected:

@@ -18,17 +18,17 @@ void simple_linear_histomorph::fill_h(const ParValues & values) const {
     }
 }
 
-
-void simple_linear_histomorph::apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const{
+void simple_linear_histomorph::add_with_coeff_to(theta::Histogram1DWithUncertainties & hres, double coeff, const theta::ParValues & values) const{
     fill_h(values);
     h_wu.set(h);
-    f(h_wu);
+    hres.add_with_coeff(coeff, h_wu);
 }
 
-void simple_linear_histomorph::apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const{
+void simple_linear_histomorph::add_with_coeff_to(theta::Histogram1D & hres, double coeff, const theta::ParValues & values) const{
     fill_h(values);
-    f(h);
+    hres.add_with_coeff(coeff, h);
 }
+
 
 void simple_linear_histomorph::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{
     nbins = h0.get_nbins();

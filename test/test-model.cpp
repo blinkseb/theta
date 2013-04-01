@@ -18,8 +18,11 @@ using namespace std;
 
 namespace{
     Histogram1DWithUncertainties apply(const HistogramFunction & hf, const ParValues & values){
-        Histogram1DWithUncertainties result;
-        hf.apply_functor(copy_to<Histogram1DWithUncertainties>(result), values);
+        size_t nbins;
+        double xmin, xmax;
+        hf.get_histogram_dimensions(nbins, xmin, xmax);
+        Histogram1DWithUncertainties result(nbins, xmin, xmax);
+        hf.add_with_coeff_to(result, 1.0, values);
         return result;
     }
 }

@@ -56,13 +56,15 @@ DoubleVector::DoubleVector(const DoubleVector & rhs): data(0), n_data(rhs.n_data
 }
 
 
-void theta::dvhelper::reallocate(double *& p, size_t n){
-    free_doubles(p);
-    if(n>0){
-        p = allocate_doubles(n);
+void DoubleVector::realloc(size_t n){
+    if(n == n_data) return;
+    free_doubles(data);
+    if(n > 0){
+        data = allocate_doubles(n);
     }else{
-        p = 0;
+        data = 0;
     }
+    n_data = n;
 }
 
 Histogram1D::Histogram1D(size_t b, double x_min, double x_max) : DoubleVector(b), xmin(x_min), xmax(x_max) {

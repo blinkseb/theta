@@ -158,11 +158,17 @@ namespace theta {
      */
     class default_model: public Model{
     protected:
+        struct hdim{
+            size_t nbins;
+            double xmin, xmax;
+        };
+        
         // flattened histogramfunctions and coeffs:
         boost::ptr_vector<HistogramFunction> hfs;
         boost::ptr_vector<Function> coeffs;
         // for each observable, save the last index into hfs / coeffs:
         std::vector<std::pair<ObsId, size_t> > last_indices;
+        std::vector<hdim> histo_dimensions; // same size as last_indices
 
         std::auto_ptr<Distribution> parameter_distribution;
         std::auto_ptr<Distribution> rvobservable_distribution;

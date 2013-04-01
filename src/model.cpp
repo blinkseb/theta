@@ -95,6 +95,10 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
     for(size_t i = imin; i < imax; ++i){
         if(first){
             hfs[i].get_histogram_dimensions(nbins, xmin, xmax);
+            histo_dimensions.push_back(hdim());
+            histo_dimensions.back().xmin = xmin;
+            histo_dimensions.back().xmax = xmax;
+            histo_dimensions.back().nbins = nbins;
             first = false;
         }
         else{
@@ -108,20 +112,19 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
         parameters.insert_all(hfs[i].get_parameters());
         parameters.insert_all(coeffs[i].get_parameters());
     }
+    theta_assert(histo_dimensions.size() == last_indices.size());
 }
 
 template<typename HT>
 void default_model::get_prediction_impl(DataT<HT> & result, const ParValues & parameters) const{
     size_t imin = 0;
-    std::vector<std::pair<ObsId, size_t> >::const_iterator it_end = last_indices.end();
-    for(std::vector<std::pair<ObsId, size_t> >::const_iterator it=last_indices.begin(); it!=it_end; ++it){
-        hfs[imin].apply_functor(copy_to<HT>(result[it->first]), parameters);
-        result[it->first] *= coeffs[imin](parameters);
-        ++imin;
-        for(; imin < it->second; ++imin) {
-            hfs[imin].apply_functor(add_with_coeff_to<HT>(result[it->first], coeffs[imin](parameters)), parameters);
+    size_t nobs = last_indices.size();
+    for(size_t i=0; i<nobs; ++i){
+        const ObsId & oid = last_indices[i].first;
+        result[oid].reset(histo_dimensions[i].nbins, histo_dimensions[i].xmin, histo_dimensions[i].xmax);
+        for(; imin < last_indices[i].second; ++imin){
+            hfs[imin].add_with_coeff_to(result[oid], coeffs[imin](parameters), parameters);
         }
-        theta_assert(imin == it->second);
     }
 }
 

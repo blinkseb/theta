@@ -13,8 +13,11 @@ using namespace std;
 
 namespace{
     Histogram1DWithUncertainties apply(const HistogramFunction & hf, const ParValues & values){
-        Histogram1DWithUncertainties result;
-        hf.apply_functor(copy_to<Histogram1DWithUncertainties>(result), values);
+        size_t nbins;
+        double xmin, xmax;
+        hf.get_histogram_dimensions(nbins, xmin, xmax);
+        Histogram1DWithUncertainties result(nbins, xmin, xmax);
+        hf.add_with_coeff_to(result, 1.0, values);
         return result;
     }
 }
@@ -213,7 +216,7 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
     BOOST_CHECK(close_to_relative(h.get_uncertainty(0), 0.1 / 1.12));
 }
 
-
+/*
 BOOST_AUTO_TEST_CASE(copy_to_functor){
 	Histogram1D h(100, -1.0, 1.0);
 	Histogram1D h2(101, -1.0, 1.0);
@@ -239,7 +242,7 @@ BOOST_AUTO_TEST_CASE(copy_to_functor){
 	BOOST_REQUIRE(h2.get_nbins()==100);
 #endif
 }
-
+*/
 
 
 BOOST_AUTO_TEST_SUITE_END()

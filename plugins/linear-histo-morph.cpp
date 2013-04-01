@@ -33,15 +33,15 @@ void linear_histo_morph::fill_h(const ParValues & values) const {
     h *= scale_unc;
 }
 
-void linear_histo_morph::apply_functor(const theta::functor<theta::Histogram1DWithUncertainties> & f, const theta::ParValues & values) const{
+void linear_histo_morph::add_with_coeff_to(theta::Histogram1DWithUncertainties & hres, double coeff, const theta::ParValues & values) const{
     fill_h(values);
     h_wu.set(h);
-    f(h_wu);
+    hres.add_with_coeff(coeff, h_wu);
 }
 
-void linear_histo_morph::apply_functor(const theta::functor<theta::Histogram1D> & f, const theta::ParValues & values) const{
+void linear_histo_morph::add_with_coeff_to(theta::Histogram1D & hres, double coeff, const theta::ParValues & values) const{
     fill_h(values);
-    f(h);
+    hres.add_with_coeff(coeff, h);
 }
 
 void linear_histo_morph::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{

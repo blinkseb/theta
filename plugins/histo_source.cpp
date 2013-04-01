@@ -14,7 +14,11 @@ histo_source::histo_source(const Configuration & cfg): DataSource(cfg){
         if(hf->get_parameters().size() > 0){
             throw ConfigurationException("histo_source: given histogram depends on parameters, which is not allowed");
         }
-        hf->apply_functor(copy_to<Histogram1D>(data[*oit]), ParValues());
+        size_t nbins;
+        double xmin, xmax;
+        hf->get_histogram_dimensions(nbins, xmin, xmax);
+        data[*oit].reset(nbins, xmin, xmax);
+        hf->add_with_coeff_to(data[*oit], 1.0, ParValues());
     }
     if(cfg.setting.exists("rvobs-values")){
         ParValues rvobs_values;

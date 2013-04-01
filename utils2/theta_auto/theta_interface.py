@@ -263,14 +263,14 @@ class ProducerBase(ModuleBase):
         self.override_distribution_cfg = None
         self.name = name
         if model is not None:
-            signal_prior_cfg = _signal_prior_dict(signal_prior)
+            signal_prior_dist = _signal_prior_dist(signal_prior)
             parameters = set(model.get_parameters(signal_processes))
             if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
             else: dist = model.distribution
             if 'beta_signal' in parameters:
-                bkg_parameters = set(parameters)
-                bkg_parameters.discard('beta_signal')
-                self.override_distribution_cfg = {'type': 'product_distribution', 'distributions': [dist.get_cfg(bkg_parameters), signal_prior_cfg]}
+                dist = dist.copy()
+                dist = Distribution.merge(dist, signal_prior_dist)
+                self.override_distribution_cfg = dist.get_cfg(parameters)
             else:
                 self.override_distribution_cfg = dist.get_cfg(parameters)
     
@@ -600,6 +600,26 @@ def _signal_prior_dict(spec):
         if type(spec) != dict: raise RuntimeError, "signal_prior specification has to be a string ('flat' / 'fix:X') or a dictionary!"
         signal_prior_dict = spec
     return signal_prior_dict
+
+# return Distribution object instead of dictionary
+def _signal_prior_dist(spec):
+    if spec is None: spec = 'flat'
+    res = Distribution()
+    if spec.startswith('flat'):
+        if spec.startswith('flat:'):
+            res = re.match('flat:\[([^,]+),(.*)\]', spec)
+            if res is None: raise RuntimeError, "signal_prior specification '%s' invalid (does not match range specification syntax)" % spec
+            xmin, xmax = float(res.group(1)), float(res.group(2))
+        else:
+            if spec!='flat': raise RuntimeError, "signal_prior specification '%s' invalid" % spec
+            xmin, xmax = 0.0, float("inf")
+        value = 0.5 * (xmax - xmin)
+        if value==float("inf"): value = 1.0
+        res.set_distribution('beta_signal', 'gauss', value, width = inf, range = [xmin, xmax])
+    elif spec.startswith('fix:'):
+        v = float(spec[4:])
+        res.set_distribution('beta_signal', 'gauss', mean = v, width = 0.0, range = [v,v])
+    return res
 
 
 class DbResult(object):
