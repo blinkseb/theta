@@ -1,4 +1,4 @@
-#include "simplex/newton-utils.hpp"
+#include "plugins/newton-utils.hpp"
 #include "interface/phys.hpp"
 #include "interface/distribution.hpp"
 #include "interface/redirect_stdio.hpp"

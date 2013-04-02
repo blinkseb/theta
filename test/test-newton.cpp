@@ -5,8 +5,7 @@
 #include "interface/variables.hpp"
 #include "interface/random.hpp"
 
-#include "simplex/simplex.hpp"
-#include "simplex/newton.hpp"
+#include "plugins/newton.hpp"
 
 #include <vector>
 #include <iostream>

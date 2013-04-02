@@ -29,9 +29,11 @@ So if running theta-auto twice on the same analysis.py file, theta-auto will not
 
 Running :program:`theta` distributed makes use of the fact that the .cfg files created in the first step are self-contained. Typically you would:
 
-1. call the python methods to create the .cfg files, but prevent the execution of theta. How this is done depends on the method, but many methods have the option "run_theta"
-   which you can set to `False`. In any case, the return value will give you the information about the location of the .cfg files created (or you can just look in the analysis
-   workdir for new .cfg files)
+1. call the python methods to create the .cfg files, but prevent the execution of theta. How this is done depends on the method, but some of the more time-consuming
+   methods have the option ``run_theta`` which you can set to ``False``, e.g. :meth:`~theta_auto.bayesian_quantiles` and the test statistics methods :meth:`~theta_auto.deltanll` and
+   :meth:`~theta_auto.derll`.
+   If setting ``run_theta`` to ``False``, the return value of those methods are instances of :class:`~theta_auto.theta_interface.Run` which
+   you can use to generate theta .cfg files.
 2. use the "gridpack" directory to build a self-contained theta binary .tar.gz file (see also the README file in this directory)
 3. submit jobs to a cluster which use the gridpack and execute "theta <cfg file>" on the worker node. Make sure to copy the resulting .db file back.
 4. copy the .db output file *and* the .cfg file file to the "cache" subdirectory in the analysis workdir

@@ -39,7 +39,7 @@ Configuration ConfigCreator::setup_cfg(const string & cfg_string){
 }
 
 void load_core_plugins(){
-    static bool loaded(false);
+    /*static bool loaded(false);
     if(loaded) return;
     BOOST_TEST_CHECKPOINT("loading core plugin");
     try{
@@ -50,7 +50,7 @@ void load_core_plugins(){
       throw;
     }
     BOOST_TEST_CHECKPOINT("loaded core plugin");
-    loaded = true;
+    loaded = true;*/
 }
 
 bool load_root_plugins(){

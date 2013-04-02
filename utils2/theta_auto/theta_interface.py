@@ -481,8 +481,7 @@ class Minimizer(ModuleBase):
     def get_required_plugins(self, options):
         plugins = set(['core-plugins.so'])
         strategy = options.get('minimizer', 'strategy')
-        if strategy == 'newton_vanilla':  plugins.add('simplex.so')
-        elif strategy == 'lbfgs_vanilla': plugins.add('liblbfgs.so')
+        if strategy == 'newton_vanilla':  pass
         else: plugins.add('root.so')
         return plugins
         
@@ -864,18 +863,22 @@ class MainBase(ModuleBase, DbResult):
         Parameters:
         
         * ``options`` - an instance of :class:`Options` which is passed to the submodules to control some details of the configuration
-        * ``in_background_thread`` - if ``True``, the :program:`theta` this methods returns immediately. Otherwise, theta is executed in a background thread.
+        * ``in_background_thread`` - if ``True``, this methods returns immediately and :program:`theta` is executed in a background thread. Otherwise, the method blocks until
+          :program:`theta` execution is done.
         
-        In case :program:`theta` exists with a failure, a RuntimeException will be thrown. This is done by
-        this method in case `in_background_thread = False`. In case of ``in_background_thread = True``, the exception
-        will be raised in :meth:``Run.wait_for_result_availble``.
+        Communicating errors in :program:`theta` execution are communicated via a RuntimeException.
+        The point at which it is raised depends on the value of ``in_background_thread``:
         
+         * if ``in_background_thread = False``, this method will raise the exception
+         * if ``in_background_thread = True``, this method returns immediately and cannot know about any error in the :program:`theta` execution. Instead, the eception will be raised in
+           :meth:`wait_for_result_available`.
+                 
         Executing multiple instances of the theta program in parallel is usually done like this::
            
-           mains = [] # the list of MainBase instances
+           runs = [] # the list of Run instances
            ...
-           for m in mains: m.run_theta(options, in_background_thread = True)
-           for m in mains: m.wait_for_result_available()
+           for r in runs: r.run_theta(options, in_background_thread = True)
+           for r inruns: r.wait_for_result_available()
         
         The first for-loop spawns the threads which execute theta, so theta is executed in parallel. The second loop waits for all theta executions
         to terminate (either normally or abnormally).
@@ -907,7 +910,7 @@ class MainBase(ModuleBase, DbResult):
         """
         Waits untils :program:`theta` execution terminates.
         
-        This method is only useful after calling :meth:`run_theta` with the parameter ``in_background_thread = True``.
+        This method is only useful after calling :meth:`run_theta` with ``in_background_thread = True``.
         
         Throws and exception in case :program:`theta`  exited with an error.
         """
@@ -922,7 +925,7 @@ class Run(MainBase):
         """
         Note that you usually do not need to construct instances of this class directly. Rather, construct them via
         methods such as :meth:`deltanll` using the parameter ``run_theta = False`` which will give you a list of properly
-        configured ``Run`` instances.
+        configured :class:`Run` instances.
         
         Parameters:
         

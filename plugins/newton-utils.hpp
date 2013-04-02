@@ -1,5 +1,5 @@
-#ifndef SIMPLEX_NEWTON_UTILS_HPP
-#define SIMPLEX_NEWTON_UTILS_HPP
+#ifndef PLUGINS_NEWTON_UTILS_HPP
+#define PLUGINS_NEWTON_UTILS_HPP
 
 // This header defines some utility function used in the newton_minimizer.
 // They could be kept internal to newton.cpp/hpp, but exposing them here enables

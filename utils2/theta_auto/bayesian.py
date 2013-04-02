@@ -7,7 +7,7 @@ from utils import *
 
 
 def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat',
-   options = None, parameter = 'beta_signal', iterations = 10000, seed = 0):
+   options = None, parameter = 'beta_signal', iterations = 10000, run_theta = True, seed = 0):
     """
     Compute bayesian posterior quantiles for a given ensemble
     
@@ -16,15 +16,24 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
     * ``quantiles``: a list a quantiles to compute.
     * ``iterations``: the number of iterations to use in the Markov-Chain Monte-Carlo algorithm
     * ``seed``: the random seed for the MCMC
+    * ``run_theta``: if true, run theta locally. Otherwise, return the :class:`theta_auto.theta_interface.Run` objects
     
-    Returns a dictionary (spid) --> (q) --> (list of results)
-    where ``q`` is one element of ``quantiles`` (i.e., a float value). The list of results are the quantiles.
+    The return value depends on ``run_theta``: if ``True``, the return value is a dictionary::
     
-    ``q`` can also be the special string "accrate" to return the acceptance rate of the Markov Chain. This is
+      spid --> quantile --> list of results
+      
+    where ``spid`` is the signal process group id (see :ref:`what_is_signal`), ``quantile`` is one element of ``quantiles`` (i.e., a float value),
+    and  the list of results are the quantiles.
+    
+    ``qauntile`` can also be the special string "accrate" to return the acceptance rate of the Markov Chain. This is
     a useful diagnotical tool: acceptance rates below 10% or above 35% are usually suspicious.
+    
+    If ``run_theta`` is ``False``, the return value is a dictionary::
+    
+      spid --> run
+      
+    where ``run`` is an instance of type :class:`theta_auto.theta_interface.Run Run`. This can be used to access the configuration files for distributed running etc.
     """
-       
-       
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
     colnames = ['quant__quant%05d' % int(q*10000 + 0.5) for q in quantiles] + ['quant__accrate']
@@ -33,13 +42,15 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
         p = QuantilesProducer(model, signal_processes, nuisance_constraint, signal_prior, parameter = parameter, quantiles = quantiles, iterations = iterations, seed = seed)
         r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
              producers = [p], nuisance_prior_toys = nuisance_prior_toys)
-        r.run_theta(options)
-        res = r.get_products(colnames)
-        result[spid] = {}
-        for i, q in enumerate(quantiles): result[spid][q] = res[colnames[i]]
-        result[spid]['accrate'] = res['quant__accrate']
+        if run_theta:
+            r.run_theta(options)
+            res = r.get_products(colnames)
+            result[spid] = {}
+            for i, q in enumerate(quantiles): result[spid][q] = res[colnames[i]]
+            result[spid]['accrate'] = res['quant__accrate']
+        else:
+            result[spid] = r
     return result
-    
     
 
 def bayesian_nl_posterior_ratio(model, input, n, signal_prior_sb = 'fix:1.0', signal_prior_b = 'fix:0.0', signal_process_groups = None, nuisance_constraint = None,

@@ -67,12 +67,6 @@ public:
 class fixed_gauss: public theta::ConstantHistogramFunction{
 public:
    fixed_gauss(const theta::Configuration & cfg);
-   // note: providing the default constructor doesn't really serve any purpose other than
-   // making it easy to introduce a symbol-dependency for test modules on core-plugins.so (they just have to refer to
-   // this default constructor somewhere), so they can link directly to core-plugins.so without going through the plugin loader.
-   // Without such a dependency, the linker won't link to core-plugins.so even if given on the command line,
-   // and the "-u" command line switch does not seem to do the job on the tested platform.
-   fixed_gauss();
 };
 
 /** \brief A lognormal distribution in one dimension.

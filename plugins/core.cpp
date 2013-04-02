@@ -8,8 +8,6 @@
 using namespace theta;
 using namespace std;
 
-fixed_gauss::fixed_gauss(){}
-
 fixed_poly::fixed_poly(const Configuration & ctx){
     Setting s = ctx.setting;
     double relative_bb_uncertainty = 0.0;

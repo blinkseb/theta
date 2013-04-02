@@ -1,8 +1,8 @@
-#ifndef NEWTON_HPP
-#define NEWTON_HPP
+#ifndef PLUGINS_NEWTON_HPP
+#define PLUGINS_NEWTON_HPP
 
 #include "interface/minimizer.hpp"
-#include "simplex/newton-utils.hpp"
+#include "plugins/newton-utils.hpp"
 #include <vector>
 #include <map>
 

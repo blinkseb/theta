@@ -1,4 +1,4 @@
-#include "simplex/newton.hpp"
+#include "plugins/newton.hpp"
 #include "interface/asimov-utils.hpp"
 #include "interface/phys.hpp"
 #include "interface/plugin.hpp"

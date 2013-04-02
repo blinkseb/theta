@@ -2,6 +2,7 @@
 
 from utils import *
 from theta_interface import *
+import plotutil
 import itertools
 
 def mle(model, input, n, with_error = True, with_covariance = False, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None,
@@ -132,7 +133,7 @@ def pl_interval_coveragetest(model, spid, beta_signal_values = [0.1*i for i in r
     return pd
 
 
-def nll_scan(model, input, n, npoints=101, range = [0.0, 3.0], adaptive_startvalues = True, parameter = 'beta_signal', signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None):
+def nll_scan(model, input, n, npoints=100, range = [0.0, 3.0], adaptive_startvalues = True, parameter = 'beta_signal', signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat', options = None):
     """
     Evalaute the profile likelihood function in ``parameter`` at the values specified by ``npoints`` and ``range``.
     
@@ -144,8 +145,8 @@ def nll_scan(model, input, n, npoints=101, range = [0.0, 3.0], adaptive_startval
       so you have to specify ``npoints >= 2`` and the spacing between points will be ``(range[1] - range[0]) / (npoints - 1)``.
     * ``parameter`` - the model parameter the profile likelihood function is defined in; all other parameters will be "minimized out"
     
-    The return value is a dictionary for which the first-level key is the signal process group id (see :ref:`what_is_signal` for a definition). The value
-    is a list of length ``n`` of :class:`theta_auto.Histogram` instances, containing the negative profile log-likelihood values.
+    The return value is a nested dictionary:: for which the first-level key is the signal process group id (see :ref:`what_is_signal` for a definition). The value
+    is a list of length ``n`` of :class:`~theta_auto.plotutil.plotdat` instances, containing the negative profile log-likelihood values in the scan.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
@@ -156,8 +157,18 @@ def nll_scan(model, input, n, npoints=101, range = [0.0, 3.0], adaptive_startval
                  parameter = parameter, signal_prior = signal_prior, adaptive_startvalues = adaptive_startvalues)],
              nuisance_prior_toys = nuisance_prior_toys)
         r.run_theta(options)
-        res = r.get_products(['nllscan__nll'])
-        result[spid] = map(histogram_from_dbblob, res['nllscan__nll'])
+        res = r.get_products(['nllscan__nll', 'nllscan__maxl'])
+        histos = map(histogram_from_dbblob, res['nllscan__nll'])
+        result[spid] = []
+        for h, maxl in zip(histos, res['nllscan__maxl']):
+            pd = plotutil.plotdata()
+            pd.set_histogram(h)
+            # insert the minimum:
+            imin = 0
+            while pd.x[imin] < maxl and imin < len(pd.x): imin += 1
+            pd.x.insert(imin, maxl)
+            pd.y.insert(imin, 0.0)
+            result[spid].append(pd)
     return result
     
 def zvalue_approx(model, input, n, signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, options = None, eventid_info = False, signal_prior_sb = 'flat'):
