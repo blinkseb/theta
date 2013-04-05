@@ -46,6 +46,10 @@ BOOST_AUTO_TEST_CASE(test_exp){
     const theta::Configuration & cfg = cc.get();
     std::auto_ptr<Function> fp = PluginManager<Function>::build(Configuration(cfg, cfg.setting["f"]));
     const Function & f = *fp;
+    BOOST_CHECK(f.get_parameters().contains(p1));
+    BOOST_CHECK(f.get_parameters().contains(p2));
+    BOOST_CHECK(f.get_parameters().contains(p3));
+    BOOST_CHECK_EQUAL(f.get_parameters().size(), 3);
     ParValues values;
     values.set(p1, 1.0).set(p2, 0.0).set(p3, 0.0);
     double fval = f(values);
@@ -59,6 +63,26 @@ BOOST_AUTO_TEST_CASE(test_exp){
     fval = f(values);
     fval_exp = theta::utils::exp(0.1 * -1.7 - 0.9 * 0.19 - 1.2 * 0.3);
     BOOST_CHECK_EQUAL(fval_exp, fval);
+    
+    
+    values.set(p1, 1.0).set(p2, 1.0).set(p3, 1.0);
+    ParValues der;
+    fval = f.eval_with_derivative(values, der);
+    fval_exp = theta::utils::exp(0.1 + 0.2 + 0.3);
+    BOOST_CHECK_EQUAL(fval_exp, fval);
+    BOOST_REQUIRE(der.contains_all(f.get_parameters()));
+    BOOST_CHECK_EQUAL(der.get(p1), 0.1 * fval_exp);
+    BOOST_CHECK_EQUAL(der.get(p2), 0.2 * fval_exp);
+    BOOST_CHECK_EQUAL(der.get(p3), 0.3 * fval_exp);
+    
+    values.set(p1, -1.0).set(p2, -1.0).set(p3, -1.0);
+    fval = f.eval_with_derivative(values, der);   
+    fval_exp = theta::utils::exp(-0.1 - 0.19 - 0.3);
+    BOOST_CHECK_EQUAL(fval_exp, fval);
+    BOOST_REQUIRE(der.contains_all(f.get_parameters()));
+    BOOST_CHECK_EQUAL(der.get(p1), 0.1 * fval_exp);
+    BOOST_CHECK_EQUAL(der.get(p2), 0.19 * fval_exp);
+    BOOST_CHECK_EQUAL(der.get(p3), 0.3 * fval_exp);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

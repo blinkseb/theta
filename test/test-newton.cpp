@@ -230,7 +230,6 @@ BOOST_AUTO_TEST_CASE(test_rangedf){
    }
 }
 
-
 BOOST_AUTO_TEST_CASE(test_accuracy){
    const size_t n = 2;
    double min_ = -5.0, max_ = 6.0;
@@ -279,7 +278,7 @@ BOOST_AUTO_TEST_CASE(rangedthetaf1d){
     Ranges ranges;
     step.set(pid, 1.0);
     ranges.set(pid, make_pair(-inf, inf));
-    RangedThetaFunction f(thetaf, fixed, step, ranges);
+    RangedThetaFunction f(thetaf, fixed, step, ranges, false);
     
     vector<double> x(1);
     for(int i=0; i<10; ++i){
@@ -326,7 +325,7 @@ BOOST_AUTO_TEST_CASE(rangedthetaf10d){
     // 1. everything free:
     {
         ParValues fixed;
-        RangedThetaFunction f(thetaf, fixed, step, ranges);
+        RangedThetaFunction f(thetaf, fixed, step, ranges, false);
         ParIds fixed_ids = f.get_fixed_parameters();
         BOOST_CHECK(fixed_ids.size() == 0);
         ParIds nonfixed = f.get_nonfixed_parameters();
@@ -338,7 +337,7 @@ BOOST_AUTO_TEST_CASE(rangedthetaf10d){
         step.set(vpids[0], 0.0);
         ranges.set(vpids[0], make_pair(0.0, 0.0));
         fixed.set(vpids[n/2], 0.0);
-        RangedThetaFunction f(thetaf, fixed, step, ranges);
+        RangedThetaFunction f(thetaf, fixed, step, ranges, false);
         ParIds fixed_ids = f.get_fixed_parameters();
         BOOST_REQUIRE(fixed_ids.size() == 2);
         ParIds::const_iterator it = fixed_ids.begin();

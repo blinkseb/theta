@@ -164,6 +164,12 @@ double delta_distribution::eval_nl(const theta::ParValues & vals) const{
     return 0.0;
 }
 
+double delta_distribution::eval_nl_with_derivative(const ParValues & values, ParValues & derivative) const{
+    // calling this function does not make sense: the caller should know that the parameters of this distributions
+    // are "fixed" and a derivative does not exist.
+    throw logic_error("eval_nl_with_derivative for delta_distribution called");
+}
+
 const std::pair<double, double> & delta_distribution::support(const theta::ParId& p) const{
     std::map<theta::ParId, std::pair<double, double> >::const_iterator it=supports.find(p);
     if(it==supports.end()) throw invalid_argument("delta_distribution::support: parameter not found");
@@ -172,7 +178,6 @@ const std::pair<double, double> & delta_distribution::support(const theta::ParId
 
 
 /* START flat_distribution */
-
 flat_distribution::flat_distribution(const theta::Configuration & cfg){
     boost::shared_ptr<VarIdManager> vm = cfg.pm->get<VarIdManager>();
     for(size_t i=0; i<cfg.setting.size(); ++i){
@@ -215,6 +220,16 @@ double flat_distribution::eval_nl(const theta::ParValues & values) const{
         if(it->second.first > val || it->second.second < val) return numeric_limits<double>::infinity();
     }
     return 0.0;
+}
+
+double flat_distribution::eval_nl_with_derivative(const ParValues & values, ParValues & derivative) const{
+    double result = 0.0;
+    for(std::map<theta::ParId, std::pair<double, double> >::const_iterator it = ranges.begin(); it!=ranges.end(); ++it){
+        const double val = values.get(it->first);
+        if(it->second.first > val || it->second.second < val) result = numeric_limits<double>::infinity();
+        derivative.set(it->first, 0.0);
+    }
+    return result;
 }
 
 
@@ -467,6 +482,15 @@ double product_distribution::eval_nl(const ParValues & values) const{
     const boost::ptr_vector<Distribution>::const_iterator end=distributions.end();
     for(boost::ptr_vector<Distribution>::const_iterator it=distributions.begin(); it!=end; ++it){
         result += it->eval_nl(values);
+    }
+    return result;
+}
+
+double product_distribution::eval_nl_with_derivative(const theta::ParValues & values, theta::ParValues & derivative) const{
+    double result = 0.0;
+    const boost::ptr_vector<Distribution>::const_iterator end=distributions.end();
+    for(boost::ptr_vector<Distribution>::const_iterator it=distributions.begin(); it!=end; ++it){
+        result += it->eval_nl_with_derivative(values, derivative);
     }
     return result;
 }

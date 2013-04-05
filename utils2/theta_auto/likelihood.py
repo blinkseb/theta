@@ -141,12 +141,16 @@ def nll_scan(model, input, n, npoints=100, range = [0.0, 3.0], adaptive_startval
     
     Parameters:
     
-    * ``npoints``, ``range`` - the number of points and the range to evaluate the profile likelihood function at. Note that the first and the last point in the range is included,
-      so you have to specify ``npoints >= 2`` and the spacing between points will be ``(range[1] - range[0]) / (npoints - 1)``.
     * ``parameter`` - the model parameter the profile likelihood function is defined in; all other parameters will be "minimized out"
+    * ``npoints``, ``range`` - the number of points and the range for ``parameter`` to evaluate the profile likelihood function at: ``parameter`` is fixed in turn to values
+      ``range[0] + (range[1] - range[0]) / npoints * i`` -- where ``i`` runs from 0 to ``npoints - 1`` --, and all other parameters are "minimized out".
+    * ``adaptive_startvalues`` - if ``True``, the minimizer will use the result of the previous fit as start value for the fit at the next scan point.
+       This usually increases convergence speed, but might cause problems for some models in which the minimization stops too early. This can lead to an artificial structure
+       of the profile likelihood function. If set to ``False``, the fit always starts at the same point (which corresponds to the most aprioi most probable parameter value).
     
-    The return value is a nested dictionary:: for which the first-level key is the signal process group id (see :ref:`what_is_signal` for a definition). The value
-    is a list of length ``n`` of :class:`~theta_auto.plotutil.plotdat` instances, containing the negative profile log-likelihood values in the scan.
+    The return value is a nested dictionary: the first-level key is the signal process group id (see :ref:`what_is_signal` for a definition). The value
+    is a list of length ``n`` of :class:`~theta_auto.plotutil.plotdata` instances, containing the negative profile log-likelihood values in the scan.
+    In addition to those equidistant points of the scan, the point at the minimum of the negative log-likelihood is added, with a y-value of exactly 0.0.
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()

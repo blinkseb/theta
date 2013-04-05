@@ -66,6 +66,7 @@ step_cov = -1
 maxit = -1
 par_eps = -1
 force_cov_positive = False
+second_pass = False
        
 [cls_limits]
 write_debuglog = True
@@ -511,6 +512,10 @@ class Minimizer(ModuleBase):
             if maxit > 0: result['maxit'] = maxit
             force_cov_positive = options.getboolean('newton', 'force_cov_positive')
             if force_cov_positive: result['force_cov_positive'] = True
+            use_nll_der = options.getboolean('newton', 'use_nll_der')
+            if use_nll_der: result['use_nll_der'] = True
+            second_pass = options.getboolean('newton', 'second_pass')
+            if second_pass: result['second_pass'] = True
             return result
         elif strategy == 'lbfgs_vanilla':
             result = {'type': 'lbfgs_minimizer'}

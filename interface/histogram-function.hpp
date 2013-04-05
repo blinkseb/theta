@@ -31,6 +31,15 @@ namespace theta {
         virtual void add_with_coeff_to(Histogram1DWithUncertainties & h, double coeff, const ParValues & values) const = 0;
         virtual void add_with_coeff_to(Histogram1D & h, double coeff, const ParValues & values) const = 0;
         //@}
+        
+        /*
+         * Calculate
+         * result = hf(values)   and
+         * derivatives[p] += coeff * d / dp  hf(values)    for all parameters p in get_parameters()
+         * 
+         * All Histograms "derivatives[p]" for p in get_parameters() MUST be initialized with the correct range and binning; result does not have to be.
+         */
+        virtual void eval_and_add_derivatives(Histogram1D & result, std::map<ParId, Histogram1D> & derivatives, double coeff, const ParValues & values) const;
 
         /** \brief Returns the parameters which this HistogramFunction depends on.
          */
@@ -55,14 +64,13 @@ namespace theta {
     
 
     /** \brief A simple HistogramFunction which always returns the same Histogram, independent of any parameters.
-     *
-     * It does not implement any kind of error, i.e., getRandomFluctuation() returns always the same Histogram.
      */
     class ConstantHistogramFunction: public HistogramFunction{
     public:
 
         virtual void add_with_coeff_to(Histogram1DWithUncertainties & h, double coeff, const ParValues & values) const;
         virtual void add_with_coeff_to(Histogram1D & h, double coeff, const ParValues & values) const;
+        virtual void eval_and_add_derivatives(Histogram1D & result, std::map<ParId, Histogram1D> & derivatives, double coeff, const ParValues & values) const;
         virtual void get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const;
 
     protected:

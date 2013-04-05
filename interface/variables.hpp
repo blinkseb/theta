@@ -263,8 +263,18 @@ namespace theta {
         void fail_get(const ParId & pid) const;
     public:
         /** \brief Default constructor which creates an empty container.
-        */
+         */
         ParValues():values(10, NAN){}
+        
+        /** \brief Constructor allocating enough space for all parameters in pids
+         */
+        explicit ParValues(const ParIds & pids){
+            if(pids.size() > 0){
+                ParIds::const_iterator last = pids.end();
+                --last;
+                values.resize(last->id + 1, NAN);
+            }
+        }
         
         /** \brief Constructor optimized for parameter information from \c vm.
          *
@@ -398,7 +408,7 @@ namespace theta {
         }
 
         /// fast replacement for get which does not perform boundary checking
-        double get_unchecked(const ParId & pid) const{
+        const double & get_unchecked(const ParId & pid) const{
             return values[pid.id];
         }
 
@@ -423,6 +433,52 @@ namespace theta {
          */
         void clear(){
             std::fill(values.begin(), values.end(), NAN);
+        }
+        
+        /** \brief Add values
+         * 
+         * Calculate  this[p] += rhs[p]  for all parameters p in rhs. If
+         * a parameter in rhs is not in this, the behavior is undefined.
+         */
+        void add(const ParValues & rhs){
+            for(size_t i=0; i<rhs.values.size(); ++i){
+                if(std::isnan(rhs.values[i])) continue;
+                theta_assert(i < values.size() && !std::isnan(values[i]));
+                values[i] += rhs.values[i];
+            }
+        }
+        
+        void add_unchecked(const ParId & id, double value){
+            //if(id.id >= values.size() or std::isnan(values[i])) fail_get(id);
+            values[id.id] += value;
+        }
+        
+        /** \brief Reset to a zero value in the given parameters
+         *
+         * Set all values to zero and all others to an undefined value. After calling this function
+         * get_parameters()==pids and get(p)==0 for all p in pids.
+         */
+        void set_zero(const ParIds & pids){
+            // re-allocate:
+            if(pids.size() > 0){
+                ParIds::const_iterator it = pids.end();
+                --it;
+                values.resize(it->id + 1);
+            }
+            else{
+                clear();
+                return;
+            }
+            ParIds::const_iterator it = pids.begin();
+            for(size_t i=0; i<values.size(); ++i){
+                while(it->id < i) ++it; // the last highest it->id is values.size()-1 by the above re-allocation, so this always terminates
+                if(i==it->id){
+                    values[i] = 0.0;
+                }
+                else{
+                    values[i] = NAN;
+                }
+            }
         }
         
         /** \brief get all parameters for which values are set.

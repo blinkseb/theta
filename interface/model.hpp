@@ -116,6 +116,9 @@ namespace theta {
         virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const = 0;
         virtual void get_prediction(Data & result, const ParValues & parameters) const = 0;
         
+        // set h to the prediction of observable oid and der[p] to the derivative w.r.t. p. Zero derivatives need not be filled in der.
+        virtual void get_prediction_with_derivative(const ObsId & oid, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const = 0;
+        
         /** \brief Returns a reference to the parameter distribution
          *
          * The returned Distribution contains (at least) the parameters of this Model.
@@ -186,6 +189,7 @@ namespace theta {
         explicit default_model(const Configuration & cfg);
         virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const;
         virtual void get_prediction(Data & result, const ParValues & parameters) const;
+        virtual void get_prediction_with_derivative(const ObsId & oid, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const;
         virtual std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data) const;
         
         virtual const Function * get_additional_nll_term() const{
@@ -209,7 +213,7 @@ namespace theta {
     
 
     /// A counter for the number of likelihood evaluations.
-    extern atomic_int n_nll_eval;
+    extern atomic_int n_nll_eval, n_nll_eval_with_derivative;
     
 
     /** \brief Function object of a negative log likelihood of a model, given data.

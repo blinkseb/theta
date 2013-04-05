@@ -95,8 +95,15 @@ def add_entry(d, *l):
 #
 # searchpath is the list of paths to look for the root file references form the datacard; it is processed in the given order and the first file found
 # is used (usually, it contains '.' and the datacard path). Note that the filename must be unique across all search paths!
+#
+# rhandling governs how the "rate" part of the shape uncertainty is handled:
+#   * "renormalize-lognormal" will perform the template morphing between the three histograms nominal, plus and minus after they have all been scaled to the "nominal" histogram yield.
+#     After the template morphing, the resulting interpolated histogram is scaled to the nominal yield. The rate part is then handeled as
+#     a log-normal factor in the same parameter as used for the morphing.
+#   * "morph" will perform the template morphing between the nominal, plus and minus histograms without any (additional) rescaling.
 add_shapes_rootfiles = {}
-def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, include_uncertainties, searchpaths = ['.'], variables = {}):
+def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, include_uncertainties, searchpaths = ['.'], variables = {}, rhandling = 'renormalize-lognormal'):
+    assert rhandling in ('renormalize-lognormal', 'morph')
     if filename not in add_shapes_rootfiles:
         path = None
         for s in searchpaths:
@@ -173,20 +180,23 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             print "norm(%s) = %.3f;  %.3f" % (hname_plus, histo_plus.get_value_sum(), histo_plus_uoflow.get_value_sum())
             print "norm(%s) = %.3f;  %.3f" % (hname_minus, histo_minus.get_value_sum(), histo_minus_uoflow.get_value_sum())
             
-        # make the rate uncertainty part of the coefficient function, i.e., normalize plus and minus histograms
-        # to nominal and add a lognormal uncertainty to the coefficient function:
-        lambda_plus = math.log(histo_plus.get_value_sum() / nominal_histogram.get_value_sum()) * uncs[u]
-        lambda_minus = -math.log(histo_minus.get_value_sum() / nominal_histogram.get_value_sum()) * uncs[u]
-        model.get_coeff(theta_obs, theta_proc).add_factor('exp', parameter = u, lambda_plus = lambda_plus, lambda_minus = lambda_minus)
-        f_plus = nominal_histogram.get_value_sum() / histo_plus.get_value_sum()
-        histo_plus = histo_plus.scale(f_plus)
-        f_minus = nominal_histogram.get_value_sum() / histo_minus.get_value_sum()
-        histo_minus = histo_minus.scale(f_minus)
-        hf.set_syst_histos(u, histo_plus, histo_minus, uncs[u])
-        hf.normalize_to_nominal = True
+        if rhandling == 'renormalize-lognormal':
+            # make the rate uncertainty part of the coefficient function, i.e., normalize plus and minus histograms
+            # to nominal and add a lognormal uncertainty to the coefficient function:
+            lambda_plus = math.log(histo_plus.get_value_sum() / nominal_histogram.get_value_sum()) * uncs[u]
+            lambda_minus = -math.log(histo_minus.get_value_sum() / nominal_histogram.get_value_sum()) * uncs[u]
+            model.get_coeff(theta_obs, theta_proc).add_factor('exp', parameter = u, lambda_plus = lambda_plus, lambda_minus = lambda_minus)
+            f_plus = nominal_histogram.get_value_sum() / histo_plus.get_value_sum()
+            histo_plus = histo_plus.scale(f_plus)
+            f_minus = nominal_histogram.get_value_sum() / histo_minus.get_value_sum()
+            histo_minus = histo_minus.scale(f_minus)
+            hf.set_syst_histos(u, histo_plus, histo_minus, uncs[u])
+            hf.normalize_to_nominal = True
+        else:
+            hf.set_syst_histos(u, histo_plus, histo_minus, uncs[u])
  
 
-def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = lambda unc: True, include_mc_uncertainties = False, variables = {}):
+def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = lambda unc: True, include_mc_uncertainties = False, variables = {}, rmorph_method = 'renormalize-lognormal'):
     """
     Build a Model from a text-based datacard as used in LHC Higgs analyses
 
@@ -206,6 +216,9 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     * ``filter_uncertainty`` is a filter function for the uncertainties. The default is to keep all uncertainties
     * ``include_mc_uncertainties`` if ``True`` use the histogram uncertainties of shapes given in root files for Barlow-Beeston light treatment of MC stat. uncertainties
     * ``variables`` is a dictionary for replacing strings in the datacards. For example, use ``variables = {'MASS': '125'}`` to replace each appearance of '$MASS' in the datacard with '125'. Both key and value should be strings.
+    * ``rmorph_method`` controls how the rate part of a shape uncertainty is handled: "renormalize-lognormal" will re-scale the plus and minus histogram to the nominal one,
+      perform the morphing on those histograms, re-scale the morphed histogram to the nominal one and add an exponential (=log-normal) rate factor using the same parameter as is used
+      for the interpolation. Instead "morph" will simply interpolate between the nominal, plus and minus histograms as they are.
     """
     model = Model()
     lines = [l.strip() for l in file(fname)]
@@ -440,13 +453,13 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
             try:
                 if l[1]!='*' and l[1]!=obs: continue
                 if obs not in data_done and l[0] in ('*', 'data_obs', 'DATA'):
-                    add_shapes(model, obs, 'DATA', {}, l[2], l[3], '', include_mc_uncertainties, searchpaths = searchpaths, variables = variables)
+                    add_shapes(model, obs, 'DATA', {}, l[2], l[3], '', include_mc_uncertainties, searchpaths = searchpaths, variables = variables, rhandling = rmorph_method)
                     data_done.add(obs)
                 if l[0]!='*' and l[0]!=proc: continue
                 uncs = {}
                 if obs in shape_systematics: uncs = shape_systematics[obs].get(proc, {})
                 #print "adding shapes for channel %s, process %s, trying file %s, line %s" % (obs, proc, l[2], ' '.join(l))
-                add_shapes(model, obs, proc, uncs, l[2], l[3], l[4], include_mc_uncertainties, searchpaths = searchpaths, variables = variables)
+                add_shapes(model, obs, proc, uncs, l[2], l[3], l[4], include_mc_uncertainties, searchpaths = searchpaths, variables = variables, rhandling = rmorph_method)
                 found_matching_shapeline = True
                 break
             except RuntimeError: pass

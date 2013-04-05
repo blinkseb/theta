@@ -24,13 +24,14 @@ const ObsIds & Model::get_observables() const{
 }
 
 
-atomic_int theta::n_nll_eval;
+atomic_int theta::n_nll_eval, theta::n_nll_eval_with_derivative;
 
 namespace{
 
 struct n_nll_eval_reset{
     n_nll_eval_reset(){
         atomic_set(&n_nll_eval, 0);
+        atomic_set(&n_nll_eval_with_derivative, 0);
     }
 } resetter;
 
@@ -47,6 +48,7 @@ public:
         if(override_distribution) return *override_distribution;
         else return model.get_parameter_distribution();
     }
+    virtual double eval_with_derivative(const ParValues & v, ParValues & der) const;
         
 protected:
     const default_model & model;
@@ -56,17 +58,18 @@ protected:
     
     default_model_nll(const default_model & m, const Data & data);
     
-private:
+protected:
     //cached predictions:
     mutable Data predictions;
 };
-     
+
 // includes additive Barlow-Beeston uncertainties, where the extra nuisance parameters of this method (1 per bin) have been "profiled out".
 class default_model_bbadd_nll: public default_model_nll {
 friend class theta::default_model;
 public:
     using Function::operator();
     virtual double operator()(const ParValues & values) const;
+    virtual double eval_with_derivative(const ParValues & values, ParValues & der) const;
     
 private:
     default_model_bbadd_nll(const default_model & m, const Data & data);
@@ -134,6 +137,37 @@ void default_model::get_prediction(DataWithUncertainties & result, const ParValu
 
 void default_model::get_prediction(Data & result, const ParValues & parameters) const {
     get_prediction_impl<Histogram1D>(result, parameters);
+}
+
+void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const{
+    size_t iobs = 0;
+    while(last_indices[iobs].first != oid) ++iobs;
+    const size_t imin = iobs == 0? 0 : last_indices[iobs-1].second;
+    const size_t imax = last_indices[iobs].second;
+    h.reset(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
+    for(ParIds::const_iterator pit=this->parameters.begin(); pit!=this->parameters.end(); ++pit){
+        der[*pit].reset(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
+    }
+    ParValues coeff_ders(parameters);
+    for(size_t i=imin; i<imax; ++i){
+        // the model prediction for the observable is sum_i  coeff_i * hf_i, so its derivative w.r.t. p
+        // is sum_i dcoeff_i/dp * hf_i + coeff_i * dhf_i / dp
+        Histogram1D hi(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
+        coeff_ders.clear();
+        double coeff = coeffs[i].eval_with_derivative(parameters, coeff_ders);
+        
+        // coeff_i * dhf_i / dp part of derivative:
+        hfs[i].eval_and_add_derivatives(hi, der, coeff, parameters);
+        // update result itself:
+        h.add_with_coeff(coeff, hi);
+        
+        // add the dcoeff_i/dp * hf_i part of derivative:
+        const ParIds & coeff_pids = coeffs[i].get_parameters();
+        for(ParIds::const_iterator pit=coeff_pids.begin(); pit!=coeff_pids.end(); ++pit){
+            //if(!coeff_ders.contains(*pit)) continue;
+            der[*pit].add_with_coeff(coeff_ders.get_unchecked(*pit), hi);
+        }
+    }
 }
 
 std::auto_ptr<NLLikelihood> default_model::get_nllikelihood(const Data & data) const{
@@ -287,6 +321,79 @@ double default_model_nll::operator()(const ParValues & values) const{
     return result;
 }
 
+
+double default_model_nll::eval_with_derivative(const ParValues & values, ParValues & der) const{
+    atomic_inc(&n_nll_eval_with_derivative);
+    double result = 0.0;
+    der.set_zero(model.get_parameters());
+    //1. the model prior first
+    if(override_distribution){
+        result = override_distribution->eval_nl_with_derivative(values, der);
+    }
+    else{
+        result = model.get_parameter_distribution().eval_nl_with_derivative(values, der);
+    }
+    //2., 3. get the [prediction and add the template likelihood
+    const std::vector<std::pair<ObsId, size_t> > & li = model.get_last_indices();
+    for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it){
+        const ObsId & oid = li_it->first;
+        Histogram1D & hpred = predictions[oid];
+        std::map<ParId, Histogram1D> der_pred; // TODO: move initialization to outside of the loop!!
+        model.get_prediction_with_derivative(oid, hpred, der_pred, values);
+        // The negative Poisson log is
+        //  -ln L = p - d * log(p)
+        // where d is the data and p the predicted yield.
+        // Taking the derivative w.r.t. the model parameter theta is
+        // d / dtheta -ln L = dp / dtheta * (1 - d / p)
+        const double * pred_data = hpred.get_data();
+        const double * data_data = data[oid].get_data();
+        const size_t nbins = hpred.get_nbins();
+        for(size_t i = 0; i<nbins; ++i){
+            const double d = data_data[i];
+            const double pred = pred_data[i];
+            result += pred;
+            if(d > 0.0){
+                if(pred <= 0.0){
+                    result = numeric_limits<double>::infinity();
+                }
+                result -= d * utils::log(pred);
+            }
+        }
+        for(map<ParId, Histogram1D>::const_iterator der_it=der_pred.begin(); der_it!=der_pred.end(); ++der_it){
+            const double * dpred_dpid = der_it->second.get_data();
+            for(size_t i = 0; i<nbins; ++i){
+                const double d = data_data[i];
+                const double pred = pred_data[i];
+                if(pred > 0.0){
+                    der.add_unchecked(der_it->first, dpred_dpid[i] * (1 - d / pred));
+                }
+                // otherwise: if d==0.0 we have nothing to add; if d >0 the result is infinity and the derivative does not
+                // really make sense anyway ...
+            }
+        }
+    }
+    
+    //4. the likelihood part for the real-valued observables, if set:
+    const Distribution * rvobs_dist = model.get_rvobservable_distribution();
+    if(rvobs_dist){
+        ParValues all_values(values);
+        all_values.set(data.get_rvobs_values());
+        ParValues der_tmp(model.get_parameters());
+        result += rvobs_dist->eval_nl_with_derivative(all_values, der_tmp);
+        der.add(der_tmp);
+    }
+    //5. The additional likelihood terms, if set:
+    const Function * additional_term = model.get_additional_nll_term();
+    if(additional_term){
+       ParValues der_tmp(model.get_parameters());
+       result += additional_term->eval_with_derivative(values, der_tmp);
+       der.add(der_tmp);
+    }
+    return result;    
+}
+
+
+
 // bbadd
 default_model_bbadd_nll::default_model_bbadd_nll(const default_model & m, const Data & dat):
      default_model_nll(m, dat){
@@ -333,6 +440,7 @@ double default_model_bbadd_nll::operator()(const ParValues & values) const{
                 result -= d * utils::log(new_pred);
             }
         }
+        
     }
     //4. the likelihood part for the real-valued observables, if set:
     const Distribution * rvobs_dist = model.get_rvobservable_distribution();
@@ -347,6 +455,102 @@ double default_model_bbadd_nll::operator()(const ParValues & values) const{
         result += (*additional_term)(values);
     }
     return result;
+}
+
+
+double default_model_bbadd_nll::eval_with_derivative(const ParValues & values, ParValues & der) const{
+    atomic_inc(&n_nll_eval_with_derivative);
+    double result = 0.0;
+    der.set_zero(model.get_parameters());
+    //1. the model prior first
+    if(override_distribution){
+        result = override_distribution->eval_nl_with_derivative(values, der);
+    }
+    else{
+        result = model.get_parameter_distribution().eval_nl_with_derivative(values, der);
+    }
+    //2., 3. get the prediction and add the template likelihood
+    model.get_prediction(predictions_wu, values);
+    const std::vector<std::pair<ObsId, size_t> > & li = model.get_last_indices();
+    for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it){
+        const ObsId & oid = li_it->first;
+        Histogram1D & hpred = predictions[oid];
+        const Histogram1DWithUncertainties & hpred_wu = predictions_wu[oid];
+        std::map<ParId, Histogram1D> der_pred; // TODO: move initialization to outside of the loop!!
+        model.get_prediction_with_derivative(oid, hpred, der_pred, values);
+        // The negative Poisson log is
+        //  -ln L = p - d * log(p)
+        // where d is the data and p the predicted yield.
+        // Taking the derivative w.r.t. the model parameter theta is
+        // d / dtheta -ln L = dp / dtheta * (1 - d / p)
+        const double * pred_data = hpred.get_data();
+        const double * data_data = data[oid].get_data();
+        const size_t nbins = hpred.get_nbins();
+        for(size_t ibin = 0; ibin<nbins; ++ibin){
+            const double p = pred_data[ibin];
+            const double d = data_data[ibin];
+            const double p_unc2 = hpred_wu.get_uncertainty2(ibin);
+            double beta = 0.0;
+            if(p_unc2 > 0.0){
+                double dummy;
+                theta::utils::roots_quad(dummy, beta, p + p_unc2, p_unc2 * (p - d));
+                result += 0.5 * beta * beta / p_unc2;
+            }
+            const double new_pred = beta + p;
+            // As special case, new_pred == 0.0 can happen (for p == p_unc2 and data == 0). In this case,
+            // the log-term can be skipped as it has vanishing contribution to the nll.
+            result += new_pred;
+            if(d > 0.0){
+                if(new_pred <= 0.0){
+                    return numeric_limits<double>::infinity();
+                }
+                result -= d * utils::log(new_pred);
+            }
+        }
+        for(map<ParId, Histogram1D>::const_iterator der_it=der_pred.begin(); der_it!=der_pred.end(); ++der_it){
+            const double * dpred_dpid = der_it->second.get_data();
+            for(size_t i = 0; i<nbins; ++i){
+                const double d = data_data[i];
+                const double p = pred_data[i];
+                const double p_unc2 = hpred_wu.get_uncertainty2(i);
+                double beta = 0.0;
+                if(p_unc2 > 0.0){
+                    double dummy;
+                    theta::utils::roots_quad(dummy, beta, p + p_unc2, p_unc2 * (p - d));
+                }
+                const double new_pred = beta + p;
+                if(new_pred > 0.0){
+                    // calculate the derivative of new_pred w.r.t. pid:
+                    double dnewpred_dpid = 0.5 * dpred_dpid[i] * (1 + (p - p_unc2) / sqrt(pow(p - p_unc2, 2) + 4 * d * p_unc2));
+                    der.add_unchecked(der_it->first, dnewpred_dpid * (1 - d / new_pred));
+                    if(p_unc2 > 0.0){
+                        double dbeta_dpid = dnewpred_dpid - dpred_dpid[i];
+                        der.add_unchecked(der_it->first, beta / p_unc2 * dbeta_dpid);
+                    }
+                }
+                // otherwise: if d==0.0 we have nothing to add; if d >0 the result is infinity and the derivative does not
+                // really make sense anyway ...
+            }
+        }
+    }
+    
+    //4. the likelihood part for the real-valued observables, if set:
+    const Distribution * rvobs_dist = model.get_rvobservable_distribution();
+    if(rvobs_dist){
+        ParValues all_values(values);
+        all_values.set(data.get_rvobs_values());
+        ParValues der_tmp(model.get_parameters());
+        result += rvobs_dist->eval_nl_with_derivative(all_values, der_tmp);
+        der.add(der_tmp);
+    }
+    //5. The additional likelihood terms, if set:
+    const Function * additional_term = model.get_additional_nll_term();
+    if(additional_term){
+       ParValues der_tmp(model.get_parameters());
+       result += additional_term->eval_with_derivative(values, der_tmp);
+       der.add(der_tmp);
+    }
+    return result;    
 }
 
 REGISTER_PLUGIN_DEFAULT(default_model)

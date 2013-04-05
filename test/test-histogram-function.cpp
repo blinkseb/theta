@@ -203,6 +203,46 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
     double der = (eps - eps_minus) / (2e-8);
     BOOST_ASSERT(fabs(der - (0.12 + 0.17)/2) < 1e-8);
     
+    // check derivative:
+    Histogram1D h1;
+    map<ParId, Histogram1D> ders;
+    pv.set(delta, 0.0);
+    ders[delta].reset(nbins, -1, 1);
+    hf->eval_and_add_derivatives(h1, ders, 1.0, pv);
+    BOOST_CHECK_CLOSE(h1.get(0), 1.0, 1e-10);
+    BOOST_CHECK_CLOSE(ders[delta].get(0), (0.12 + 0.17)/2, 1e-10);
+    // non-trivial coeff:
+    ders[delta].reset();
+    double coeff = M_PI;
+    hf->eval_and_add_derivatives(h1, ders, coeff, pv);
+    BOOST_CHECK_CLOSE(h1.get(0), 1.0, 1e-10);
+    BOOST_CHECK_CLOSE(ders[delta].get(0), (0.12 + 0.17)/2 * coeff, 1e-10);
+    // non-trivial content before calling:
+    ders[delta].reset();
+    ders[delta].set(0, coeff);
+    h1.set(0, 0.0);
+    hf->eval_and_add_derivatives(h1, ders, coeff, pv);
+    BOOST_CHECK_CLOSE(h1.get(0), 1.0, 1e-10);
+    BOOST_CHECK_CLOSE(ders[delta].get(0), coeff + (0.12 + 0.17)/2 * coeff, 1e-10);
+    
+    // non-trivial deltas:
+    double dvals[] = {-10.0, -2.0, -1.1, -0.7, -0.2, 0.2, 0.8, 1.7, 5.0};
+    const double s_eps = sqrt(numeric_limits<double>::epsilon());
+    for(size_t i=0; i<sizeof(dvals) / sizeof(double); ++i){
+        double dval = dvals[i];
+        cout << "dval = " << dval << endl;
+        pv.set(delta, dval);
+        ders[delta].reset();
+        hf->eval_and_add_derivatives(h1, ders, 1.0, pv);
+        // get numerical derivative:
+        double h0 = h1.get(0);
+        double dval_plus = dval + s_eps;
+        pv.set(delta, dval_plus);
+        double hplus = apply(*hf, pv).get(0);
+        der = (hplus - h0) / (dval_plus - dval);
+        BOOST_CHECK_CLOSE(der, ders[delta].get(0), 1e-5);
+    }
+        
     // h2:
     std::auto_ptr<HistogramFunction> hf2 = PluginManager<HistogramFunction>::build(Configuration(cfg, cfg.setting["histo2"]));
     pv.set(delta, 0.0);
@@ -216,33 +256,6 @@ BOOST_AUTO_TEST_CASE(cubiclinear_histomorph){
     BOOST_CHECK(close_to_relative(h.get_uncertainty(0), 0.1 / 1.12));
 }
 
-/*
-BOOST_AUTO_TEST_CASE(copy_to_functor){
-	Histogram1D h(100, -1.0, 1.0);
-	Histogram1D h2(101, -1.0, 1.0);
-	for(int i=0; i<100; ++i){
-		h.set(i, i*i);
-		h2.set(i, -i);
-	}
-	h2.set(100, 0.0);
-	BOOST_ASSERT(!histos_equal(h, h2));
-	copy_to<Histogram1D> f(h);
-	f(h2);
-	BOOST_REQUIRE(h.get_nbins()==101);
-	BOOST_REQUIRE(histos_equal(h, h2));
-
-#ifdef CXX11
-	h = Histogram1D(100, -1.0, 1.0);
-	for(int i=0; i<100; ++i){
-	    h.set(i, i*i);
-	}
-	f(h);
-	f(std::move(h2));
-	BOOST_REQUIRE(h.get_nbins()==101);
-	BOOST_REQUIRE(h2.get_nbins()==100);
-#endif
-}
-*/
 
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -9,15 +9,15 @@ using namespace std;
 using namespace theta;
 using namespace newton_internal;
 
-double RangedFunction::eval_with_derivative(const vector<double> & x0, vector<double> & grad, int ipar) const{
+double RangedFunction::eval_with_derivative(const vector<double> & x0, vector<double> & grad) const{
     const size_t n = ndim();
     theta_assert(x0.size()==n);
-    theta_assert(ipar < static_cast<int>(n));
+    //theta_assert(ipar < static_cast<int>(n));
     vector<double> x(x0);
     grad.resize(n);
     double f0 = operator()(x);
     for(size_t i=0; i<n; ++i){
-        if(ipar >= 0 and static_cast<int>(i)!=ipar) continue;
+        //if(ipar >= 0 and static_cast<int>(i)!=ipar) continue;
         double x0i = x0[i];
         const double sigma = step[i];
         theta_assert(sigma > 0);
@@ -64,30 +64,31 @@ size_t RangedFunction::trunc_to_range(vector<double> & x) const{
 
 RangedFunction::~RangedFunction(){}
 
-RangedThetaFunction::RangedThetaFunction(const Function & f_, const ParValues & pv_fixed_values, const ParValues & pv_step, const Ranges & ranges): f(f_){
+RangedThetaFunction::RangedThetaFunction(const Function & f_, const ParValues & pv_fixed_values, const ParValues & pv_step, const Ranges & ranges, bool use_f_derivative_):
+                f(f_), use_f_derivative(use_f_derivative_){
     epsilon_f = numeric_limits<double>::epsilon();
     const ParIds & pids = f.get_parameters();
-    values.resize(pids.size());
     step.reserve(pids.size());
-    nonfixed_indices.reserve(pids.size());
+    nonfixed_pids.reserve(pids.size());
     range_min.reserve(pids.size());
     range_max.reserve(pids.size());
     size_t i=0;
     for(ParIds::const_iterator pit=pids.begin(); pit!=pids.end(); ++pit, ++i){
         if(pv_fixed_values.contains(*pit)){
-            values[i] = pv_fixed_values.get_unchecked(*pit);
             fixed_parameters.insert(*pit);
+            pvs.set(*pit, pv_fixed_values.get_unchecked(*pit));
         }
         else{
             const pair<double, double> & range = ranges.get(*pit);
             if(pv_step.get(*pit)==0.0){
                 theta_assert(range.first == range.second);
-                values[i] = range.first;
                 fixed_parameters.insert(*pit);
+                pvs.set(*pit, range.first);
             }
             else{
-                nonfixed_indices.push_back(i);
+                //nonfixed_indices.push_back(i);
                 nonfixed_parameters.insert(*pit);
+                nonfixed_pids.push_back(*pit);
                 step.push_back(pv_step.get(*pit));
                 theta_assert(step.back() > 0.0);
                 range_min.push_back(range.first);
@@ -111,16 +112,34 @@ const ParIds & RangedThetaFunction::get_nonfixed_parameters() const{
 }
     
 size_t RangedThetaFunction::ndim() const{
-    return nonfixed_indices.size();
+    return nonfixed_pids.size();
 }
 
 // vals are the ndim() non-fixed parameters in conversion order defined by pids_ as passed to the constructor.
 double RangedThetaFunction::operator()(const vector<double> & vals) const {
     //theta_assert(vals.size() == nonfixed_indices.size());
-    for(size_t i=0; i<nonfixed_indices.size(); ++i){
-        values[nonfixed_indices[i]] = vals[i];
+    for(size_t i=0; i<nonfixed_pids.size(); ++i){
+        pvs.set(nonfixed_pids[i], vals[i]);
+        //values[nonfixed_indices[i]] = vals[i];
     }
-    return f(&values[0]);
+    return f(pvs);
+}
+
+double RangedThetaFunction::eval_with_derivative(const std::vector<double> & x0, std::vector<double> & grad) const{
+    if(use_f_derivative){
+        for(size_t i=0; i<nonfixed_pids.size(); ++i){
+            pvs.set(nonfixed_pids[i], x0[i]);
+        }
+        double result = f.eval_with_derivative(pvs, pv_der);
+        // convert back:
+        for(size_t i=0; i<nonfixed_pids.size(); ++i){
+            grad[i] = pv_der.get(nonfixed_pids[i]);
+        }
+        return result;
+    }
+    else{
+        return RangedFunction::eval_with_derivative(x0, grad);
+    }
 }
 
 namespace newton_internal{

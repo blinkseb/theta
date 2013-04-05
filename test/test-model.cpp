@@ -135,11 +135,8 @@ BOOST_AUTO_TEST_CASE(model0){
     m->get_prediction(pred, values);
     s = pred[obs0];
     Data data;
-    BOOST_CHECKPOINT("check");
     data[obs0] = s.get_values_histogram();
-    BOOST_CHECKPOINT("check2");
     std::auto_ptr<NLLikelihood> nll = m->get_nllikelihood(data);
-    BOOST_CHECKPOINT("check3");
     double x[2];
     x[0] = 0.9;
     x[1] = 1.9;
@@ -153,6 +150,36 @@ BOOST_AUTO_TEST_CASE(model0){
     BOOST_CHECKPOINT("check4");
     BOOST_CHECK(nll10 < nll11);
     BOOST_CHECK(nll10 < nll09);
+    
+    //test the model derivative:
+    values.set(beta1, 1.0).set(beta2, 1.0);
+    map<ParId, Histogram1D> ders;
+    Histogram1D h1d;
+    m->get_prediction_with_derivative(obs0, h1d, ders, values);
+    BOOST_REQUIRE_EQUAL(h1d.get_nbins(), nbins);
+    BOOST_REQUIRE_EQUAL(ders[beta1].get_nbins(), nbins);
+    BOOST_REQUIRE_EQUAL(ders[beta2].get_nbins(), nbins);
+    // the derivative w.r.t. beta should be the signal and background histos:
+    for(size_t i=0; i<nbins; ++i){
+        BOOST_CHECK_EQUAL(ders[beta1].get(i), signal.get(i));
+        BOOST_CHECK_EQUAL(ders[beta2].get(i), background.get(i));
+        BOOST_CHECK_EQUAL(h1d.get(i), signal.get(i) + background.get(i));
+    }
+    
+    m->get_prediction(data, values);
+    nll = m->get_nllikelihood(data);
+    ParValues der;
+    double nll0 = nll->eval_with_derivative(values, der);
+    BOOST_CHECK(der.contains(beta1));
+    BOOST_CHECK(der.contains(beta2));
+    double nll1 = (*nll)(values);
+    BOOST_CHECK_EQUAL(nll0, nll1);
+    BOOST_CHECK_EQUAL(der.get(beta1), 0.0);
+    BOOST_CHECK_EQUAL(der.get(beta2), 0.0);
+    values.set(beta1, 1.1);
+    nll->eval_with_derivative(values, der);
+    BOOST_CHECK(der.get(beta1)!=0.0);
+    BOOST_CHECK(der.get(beta2)!=0.0);
 }
 
 BOOST_AUTO_TEST_CASE(model_unc){

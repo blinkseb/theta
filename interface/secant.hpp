@@ -89,6 +89,8 @@ double brent(const FT & f, double a, double b, double xtol, double fa, double fb
         if(fabs(a-b) <= xtol){
             return (a + b) / 2;
         }
+        if(fabs(fa) <= f_accuracy) return a;
+        if(fabs(fb) <= f_accuracy) return b;
         double s;
         if(fabs(fa - fc) < f_accuracy && fabs(fb - fc) < f_accuracy){
             s = a * fb * fc / (fa - fb) / (fa - fc) + b * fa * fc / (fb - fa) / (fb - fc) + c * fa * fb / (fc - fa) / (fc - fb);

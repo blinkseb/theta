@@ -74,6 +74,8 @@ namespace theta{
          * \return The density at \c values.
          */
         virtual double eval_nl(const ParValues & values) const = 0;
+        
+        virtual double eval_nl_with_derivative(const ParValues & values, ParValues & derivative) const;
 
         /** \brief Get the support of a parameter
          *
@@ -109,11 +111,12 @@ namespace theta{
     
     class EmptyDistribution: public Distribution{
     public:
-    	virtual void sample(ParValues & result, Random & rnd) const{}
-    	virtual void mode(ParValues & result) const{}
-    	virtual const std::pair<double, double> & support(const ParId & p) const;
-    	virtual double eval_nl(const ParValues & values) const { return 0.0;}
-    	virtual ~EmptyDistribution();
+        virtual void sample(ParValues & result, Random & rnd) const{}
+        virtual void mode(ParValues & result) const{}
+        virtual const std::pair<double, double> & support(const ParId & p) const;
+        virtual double eval_nl(const ParValues & values) const { return 0.0;}
+        virtual double eval_nl_with_derivative(const ParValues & values, ParValues & derivative) const{return 0.0; }
+        virtual ~EmptyDistribution();
     };
 
 

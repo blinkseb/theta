@@ -9,10 +9,14 @@ REGISTER_PLUGIN_BASETYPE(theta::Distribution);
 
 Distribution::~Distribution(){}
 
+double Distribution::eval_nl_with_derivative(const ParValues & values, ParValues & derivative) const{
+    throw Exception("not implemented for " + demangle(typeid(*this).name()));
+}
+
 EmptyDistribution::~EmptyDistribution(){}
 
 const std::pair<double, double> & EmptyDistribution::support(const ParId & p) const{
-	throw invalid_argument("called EmptyDistribution::support");
+    throw invalid_argument("called EmptyDistribution::support");
 }
 
 
@@ -20,7 +24,7 @@ Ranges::Ranges(const std::map<ParId, std::pair<double, double> > & ranges_): ran
 }
 
 Ranges::Ranges(const theta::Distribution & dist){
-	set_from(dist);
+    set_from(dist);
 }
 
 void Ranges::set_from(const theta::Distribution & dist){

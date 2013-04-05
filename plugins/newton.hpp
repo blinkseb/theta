@@ -75,7 +75,8 @@ public:
         int debug; // 0 = print nothing; 1 = details of linesearch; 2 = current x and g; 4 = current h (implies 2)   or "or" of those. Any value > 0 will print some minimal info.
         bool improve_cov, force_cov_positive;
         double step_cov;
-        options(): maxit(10000), par_eps(1e-4), debug(0), improve_cov(false), force_cov_positive(false), step_cov(0.1){}
+        bool second_pass;
+        options(): maxit(10000), par_eps(1e-4), debug(0), improve_cov(false), force_cov_positive(false), step_cov(0.1), second_pass(false){}
     };
 
     newton_minimizer(const options & opts_);
@@ -88,6 +89,7 @@ public:
 private:
     std::auto_ptr<newton_internal::Linesearch> ls;
     options opts;
+    bool use_nll_der;
 };
 
 #endif

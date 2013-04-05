@@ -328,7 +328,15 @@ int main(int argc, char** argv) {
         theta::out << "(exiting on SIGINT)" << endl;
     }
     if(!quiet){
-        theta::out << "Total number of likelihood evaluations: " << atomic_get(&n_nll_eval) << endl;
+        unsigned long n = atomic_get(&n_nll_eval);
+        unsigned long nwd = atomic_get(&n_nll_eval_with_derivative);
+        if(n != 0){
+            theta::out << "Total number of likelihood evaluations: " << n;
+            if(nwd != 0){
+                theta::out << "; with derivative: " << nwd;
+            }
+            theta::out << endl;
+        }
     }
     return 0;
 }

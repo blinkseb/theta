@@ -28,9 +28,11 @@ class multiply: public theta::Function{
 public:
     multiply(const theta::Configuration & cfg);
     virtual double operator()(const theta::ParValues & v) const;
+    virtual double eval_with_derivative(const theta::ParValues & v, theta::ParValues & der) const;
 private:
     std::vector<theta::ParId> v_pids;
     double literal_factor;
     boost::ptr_vector<theta::Function> functions;
+    bool multiple_f_per_par;
 };
 

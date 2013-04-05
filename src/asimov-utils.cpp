@@ -99,7 +99,9 @@ ParValues get_widths(const ParValues & start, const Ranges & ranges, const theta
                low_is_fl0 = true;
             }
             else{
-               result.set(pid, fabs(pid_mode - secant(pid_mode, support.second, 0.0, -0.5, f2, 0.05, f)));
+               //double sol = secant(pid_mode, support.second, 0.0, -0.5, f2, 0.05, f);
+               double sol = brent(f, pid_mode, support.second, 0.0, -0.5, f2, 0.05);
+               result.set(pid, fabs(pid_mode - sol));
                continue;
             }
         }
@@ -113,7 +115,9 @@ ParValues get_widths(const ParValues & start, const Ranges & ranges, const theta
                high_is_fl0 = true;
             }
             else{
-               result.set(pid, fabs(pid_mode - secant(support.first, pid_mode, 0.0, f2, -0.5, 0.05, f)));
+               //double sol = secant(support.first, pid_mode, 0.0, f2, -0.5, 0.05, f);
+               double sol = brent(f, support.first, pid_mode, 0.0, f2, -0.5, 0.05);
+               result.set(pid, fabs(pid_mode - sol));
                continue;
             }
         }
@@ -149,7 +153,9 @@ ParValues get_widths(const ParValues & start, const Ranges & ranges, const theta
                         std::swap(flow, fhigh);
                     }
                     theta_assert(xlow <= xhigh);
-                    result.set(pid, fabs(pid_mode - secant(xlow, xhigh, 0.0, flow, fhigh, 0.05, f)));
+                    //double sol = secant(xlow, xhigh, 0.0, flow, fhigh, 0.05, f);
+                    double sol = brent(f, xlow, xhigh, 0.0, flow, fhigh, 0.05);
+                    result.set(pid, fabs(pid_mode - sol));
                     found = true;
                     break;
                 }

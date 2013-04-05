@@ -170,7 +170,8 @@ public:
             fa = f1d(a);
             delta *= 2;
         }
-        theta_assert(fa >= fbest and a < cbest);
+        theta_assert(fa >= fbest);
+        theta_assert(a < cbest);
         // note that in rare cases, a can become negative, but that's Ok.
         
         // 1.c. find b > cbest with f(xb) > f(xbest)
@@ -228,11 +229,11 @@ std::ostream & operator<<(std::ostream & out, const Matrix & m){
 // PROBLEM: operator<< is defined globally
 
 
-newton_minimizer::newton_minimizer(const newton_minimizer:: options & opts_): opts(opts_){
+newton_minimizer::newton_minimizer(const newton_minimizer:: options & opts_): opts(opts_), use_nll_der(false){
     ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug & 1));
 }
 
-newton_minimizer::newton_minimizer(const Configuration & cfg){
+newton_minimizer::newton_minimizer(const Configuration & cfg): use_nll_der(false){
     Setting s = cfg.setting;
     if(s.exists("maxit")){
         opts.maxit = s["maxit"];
@@ -252,13 +253,19 @@ newton_minimizer::newton_minimizer(const Configuration & cfg){
     if(s.exists("debug")){
         opts.debug = s["debug"];
     }
+    if(s.exists("use_nll_der")){
+        use_nll_der = s["use_nll_der"];
+    }
+    if(s.exists("second_pass")){
+        opts.second_pass = s["second_pass"];
+    }
     ls.reset(new IntervalLinesearch(opts.par_eps, opts.debug & 1));
 }
 
 
 MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const theta::FunctionInfo & info_, const theta::ParValues & fixed_parameters){
     const NewtonFunctionInfo & info = dynamic_cast<const NewtonFunctionInfo &>(info_);
-    RangedThetaFunction f(f_, fixed_parameters, info.get_step(), info.get_ranges());
+    RangedThetaFunction f(f_, fixed_parameters, info.get_step(), info.get_ranges(), use_nll_der);
     f.set_epsilon_f(info.get_epsilon_f());
     const ParIds & all_pids = f_.get_parameters();
     const ParIds & fixed_pids = f.get_fixed_parameters();
@@ -503,14 +510,25 @@ MinimizationResult newton_minimizer::minimize2(const theta::Function & f_, const
 MinimizationResult newton_minimizer::minimize(const theta::Function & f_, const theta::ParValues & start,
                                               const theta::ParValues & step, const Ranges & ranges){
     ParValues fixed_parameters;
-    RangedThetaFunction f(f_, fixed_parameters, step, ranges);
+    RangedThetaFunction f(f_, fixed_parameters, step, ranges, use_nll_der);
     // get epsilon_f:
     vector<double> x0(f.ndim());
     start.fill(&x0[0], f.get_nonfixed_parameters());
     double epsilon_f = f_accuracy(f, x0, 0);
     if(opts.debug) out << "epsilon_f = " << epsilon_f << endl;
     NewtonFunctionInfo info(start, step, ranges, fixed_parameters, epsilon_f);
-    return minimize2(f_, info, fixed_parameters);
+    try{
+        MinimizationResult minres = minimize2(f_, info, fixed_parameters);
+        if(opts.second_pass){
+            NewtonFunctionInfo info2(minres.values, step, ranges, fixed_parameters, epsilon_f);
+            minres = minimize2(f_, info2, fixed_parameters);
+        }
+        return minres;
+    }
+    catch(const logic_error & ex){
+        // log_errors can occur in case the function to minimize returns inf or nan. Treat this as a MinimizationException:
+        throw MinimizationException(string("logic errors during minimization: ") + ex.what());
+    }
 }
 
 boost::shared_ptr<theta::FunctionInfo> newton_minimizer::create_nll_function_info(const theta::Model & m,
@@ -519,7 +537,7 @@ boost::shared_ptr<theta::FunctionInfo> newton_minimizer::create_nll_function_inf
     boost::shared_ptr<FunctionInfo> info = Minimizer::create_nll_function_info(m, override_parameter_distribution, fixed_parameters);
     // get epsilon_f for the asimov likelihood:
     asimov_data_nll nll(m, override_parameter_distribution, fixed_parameters);
-    RangedThetaFunction f(nll, fixed_parameters, info->get_step(), info->get_ranges());
+    RangedThetaFunction f(nll, fixed_parameters, info->get_step(), info->get_ranges(), use_nll_der);
     const size_t n = f.ndim();
     vector<double> x0(n);
     ParValues start = info->get_start();

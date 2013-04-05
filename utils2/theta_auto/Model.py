@@ -591,11 +591,11 @@ class Histogram(object, utils.Copyable):
         """
         Returns whether or not this histogram has the same range and binning as other.
         """
-        res = xmin, xmax, len(values) == other.xmin, other.xmax, len(other.values)
+        res = self.xmin, self.xmax, len(self.values) == other.xmin, other.xmax, len(other.values)
         if not res: return False
-        if x_low is not None:
+        if self.x_low is not None:
             if other.x_low is None: return False
-            for xl1, xl2 in zip(x_low, other.x_low):
+            for xl1, xl2 in zip(self.x_low, other.x_low):
                 if xl1 != xl2: return False
         return True
         

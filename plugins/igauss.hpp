@@ -38,6 +38,7 @@ public:
     virtual void mode(theta::ParValues & result) const;
     virtual double eval_nl(const theta::ParValues & values) const;
     virtual const std::pair<double, double> & support(const theta::ParId & p) const;
+    virtual double eval_nl_with_derivative(const theta::ParValues & values, theta::ParValues & derivative) const;
 private:
     // build two separate structures: one if mu is a parameter, one if mu is a constant
     struct parset_muconstant{

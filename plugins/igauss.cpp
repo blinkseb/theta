@@ -93,6 +93,41 @@ double igauss::eval_nl(const ParValues & values) const{
     return result;
 }
 
+double igauss::eval_nl_with_derivative(const theta::ParValues & values, theta::ParValues & derivative) const{
+    double result = 0;
+    BOOST_FOREACH(const parset_muconstant & ps, mconst){
+        const double val = values.get_unchecked(ps.parameter);
+        if(val < ps.range_low || val > ps.range_high){
+            result = std::numeric_limits<double>::infinity();
+            derivative.set(ps.parameter, 0.0);
+        }
+        else if(ps.sigma == 0.0 or std::isinf(ps.sigma)){
+            derivative.set(ps.parameter, 0.0);
+        }
+        else{
+            const double d = (val - ps.mu) / ps.sigma;
+            derivative.set(ps.parameter, d / ps.sigma);
+            result += 0.5 * d * d;
+        }
+    }
+    BOOST_FOREACH(const parset_muvar & ps, mvar){
+        const double val = values.get_unchecked(ps.parameter);
+        if(val < ps.range_low || val > ps.range_high){
+            result = std::numeric_limits<double>::infinity();
+            derivative.set(ps.parameter, 0.0);
+        }
+        else if(ps.sigma == 0.0 or std::isinf(ps.sigma)){
+            derivative.set(ps.parameter, 0.0);
+        }
+        else{
+            const double d = (val - values.get_unchecked(ps.mu)) / ps.sigma;
+            derivative.set(ps.parameter, d / ps.sigma);
+            result += 0.5 * d * d;
+        }
+    }
+    return result;
+}
+
 const std::pair<double, double> & igauss::support(const ParId & p) const{
     return ranges.get(p);
 }

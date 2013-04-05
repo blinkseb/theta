@@ -64,7 +64,9 @@ namespace theta {
         }
         
         /// Declare destructor virtual as polymorphic access to derived classes will happen.
-        virtual ~Function(){}
+        virtual ~Function();
+        
+        virtual double eval_with_derivative(const ParValues & v, ParValues & der) const;
         
     protected:
         /** \brief The parameters this function depends on
@@ -77,14 +79,7 @@ namespace theta {
         mutable ParValues pv; //saving this class-wide and not in operator()(const double*) saves quiet some time ...
         mutable std::vector<ParId> vpids; // will be filled in operator()(const double *)
         
-        void fill_vpids() const {
-            theta_assert(vpids.size()==0);
-            vpids.reserve(par_ids.size());
-            size_t i=0;
-            for(ParIds::const_iterator it=par_ids.begin(); it!=par_ids.end(); ++it, ++i){
-                vpids.push_back(*it);
-            }
-        }
+        void fill_vpids() const;
     };
     
     /** \brief Function which returns the value of one specific parameter

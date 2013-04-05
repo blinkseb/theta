@@ -47,7 +47,7 @@ public:
     virtual size_t ndim() const = 0;
     
     /// Evaluate the function and its derivatives. ipar is -1 to calculate all derivatives, or the index to x0 / grad
-    virtual double eval_with_derivative(const std::vector<double> & x0, std::vector<double> & grad, int ipar = -1) const;
+    virtual double eval_with_derivative(const std::vector<double> & x0, std::vector<double> & grad) const;
     
     /// Truncate x to the range this function is defined on. Returns the number of entries changed in x.
     size_t trunc_to_range(std::vector<double> & x) const;
@@ -65,11 +65,12 @@ class RangedThetaFunction: public RangedFunction{
 private:
     const theta::Function & f;
     theta::ParIds fixed_parameters, nonfixed_parameters;
+    bool use_f_derivative;
     
-    std::vector<size_t> nonfixed_indices; // the non-fixed parameters, as index into *all* parameters for f, indexed by the external (nonfixed) parameters.
+    std::vector<theta::ParId> nonfixed_pids;
     
-    // values contains *all* parameters of f, using f.get_parameters() as index conversion convention
-    mutable std::vector<double> values;
+    // pvs for *all* parameters of f
+    mutable theta::ParValues pvs, pv_der;
 public:
     
     /** \brief Construct from a theta::Function and ranges
@@ -77,7 +78,7 @@ public:
      * The range and steps of the RangedFunction are set according to step and ranges. Any parameter given in \c fixed_values
      * will make this parameter fixed; the value given in \c fixed_values overrides the settings via step and ranges.
      */
-    RangedThetaFunction(const theta::Function & f, const theta::ParValues & fixed_values, const theta::ParValues & step, const theta::Ranges & ranges);
+    RangedThetaFunction(const theta::Function & f, const theta::ParValues & fixed_values, const theta::ParValues & step, const theta::Ranges & ranges, bool use_f_derivative);
     
     /// Set the value for epsilon_f explicitly.
     void set_epsilon_f(double newval);
@@ -90,6 +91,8 @@ public:
     
     /// Get the number of (non-fixed) parameters
     virtual size_t ndim() const;
+    
+    virtual double eval_with_derivative(const std::vector<double> & x0, std::vector<double> & grad) const;
     
     // evaluate the theta::Function, as a function of the non-fixed parameters.
     virtual double operator()(const std::vector<double> & vals) const;

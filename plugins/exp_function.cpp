@@ -60,4 +60,30 @@ double exp_function::operator()(const theta::ParValues & values) const{
     return theta::utils::exp(exponent_total);
 }
 
+double exp_function::eval_with_derivative(const ParValues & values, ParValues & der) const{
+    double exponent_total = 0.0;
+    size_t n = lambdas_s.size();
+    for(size_t i=0; i<n; ++i){
+        exponent_total += lambdas_s[i] * values.get_unchecked(v_pids_s[i]);
+    }
+    n = v_pids_pm.size();
+    for(size_t i=0; i<n; ++i){
+        double val = values.get_unchecked(v_pids_pm[i]);
+        int offset = val > 0 ? 0: 1;
+        exponent_total += lambdas_plusminus[2*i + offset] * val;
+    }
+    const double result = theta::utils::exp(exponent_total);
+    n = lambdas_s.size();
+    for(size_t i=0; i<n; ++i){
+        der.set(v_pids_s[i], lambdas_s[i] * result);
+    }
+    n = v_pids_pm.size();
+    for(size_t i=0; i<n; ++i){
+        double val = values.get_unchecked(v_pids_pm[i]);
+        int offset = val > 0 ? 0: 1;
+        der.set(v_pids_pm[i], lambdas_plusminus[2*i + offset] * result);
+    }
+    return result;
+}
+
 REGISTER_PLUGIN(exp_function)

@@ -62,6 +62,7 @@ public:
     
     virtual void add_with_coeff_to(theta::Histogram1DWithUncertainties & hres, double coeff, const theta::ParValues & values) const;
     virtual void add_with_coeff_to(theta::Histogram1D & hres, double coeff, const theta::ParValues & values) const;
+    virtual void eval_and_add_derivatives(theta::Histogram1D & result, std::map<theta::ParId, theta::Histogram1D> & derivatives, double coeff, const theta::ParValues & values) const;
     virtual void get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const;
     
 private:

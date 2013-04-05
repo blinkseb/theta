@@ -39,6 +39,8 @@ public:
     exp_function(const theta::Configuration & cfg);
     /// overloaded evaluation operator of theta::Function
     virtual double operator()(const theta::ParValues & v) const;
+    
+    virtual double eval_with_derivative(const theta::ParValues & v, theta::ParValues & der) const;
 };
 
 
