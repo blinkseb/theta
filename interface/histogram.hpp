@@ -18,7 +18,7 @@ namespace theta{
 class DoubleVector{
 private:
     double * data;
-    size_t n_data;
+    size_t n_data, n_alloc; // n_alloc was actually allocated, n_data is the (user-visible) number of elements. Like std::vector.size versus capacity
     
 public:
     

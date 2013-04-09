@@ -97,6 +97,7 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
     size_t nbins = 0;
     double xmin = NAN, xmax = NAN;
     bool first = true;
+    ParIds obs_pids;
     for(size_t i = imin; i < imax; ++i){
         if(first){
             hfs[i].get_histogram_dimensions(nbins, xmin, xmax);
@@ -116,8 +117,12 @@ void default_model::set_prediction(const ObsId & obs_id, boost::ptr_vector<Funct
         }
         parameters.insert_all(hfs[i].get_parameters());
         parameters.insert_all(coeffs[i].get_parameters());
+        obs_pids.insert_all(hfs[i].get_parameters());
+        obs_pids.insert_all(coeffs[i].get_parameters());
     }
+    obs_parameters.push_back(obs_pids);
     theta_assert(histo_dimensions.size() == last_indices.size());
+    theta_assert(histo_dimensions.size() == obs_parameters.size());
 }
 
 template<typename HT>
@@ -142,9 +147,12 @@ void default_model::get_prediction(Data & result, const ParValues & parameters) 
 }
 
 void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const{
-    // TODO: optimize this oid to iobs conversion!
     size_t iobs = 0;
     while(last_indices[iobs].first != oid) ++iobs;
+    get_prediction_with_derivative(iobs, h, der, parameters);
+}
+
+void default_model::get_prediction_with_derivative(size_t iobs, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const{
     const size_t imin = iobs == 0? 0 : last_indices[iobs-1].second;
     const size_t imax = last_indices[iobs].second;
     h.reset(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
@@ -172,11 +180,14 @@ void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1
     }
 }
 
-void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1DWithUncertainties & h,
-                                            std::map<ParId, Histogram1DWithUncertainties > & der, const ParValues & parameters) const{
-    // TODO: see TODOs above
+void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1DWithUncertainties & h, std::map<ParId, Histogram1DWithUncertainties> & der, const ParValues & parameters) const{
     size_t iobs = 0;
     while(last_indices[iobs].first != oid) ++iobs;
+    get_prediction_with_derivative(iobs, h, der, parameters);
+}
+
+void default_model::get_prediction_with_derivative(size_t iobs, Histogram1DWithUncertainties & h,
+                                            std::map<ParId, Histogram1DWithUncertainties > & der, const ParValues & parameters) const{
     const size_t imin = iobs == 0? 0 : last_indices[iobs-1].second;
     const size_t imax = last_indices[iobs].second;
     h.reset(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
@@ -509,17 +520,25 @@ double default_model_bbadd_nll::eval_with_derivative(const ParValues & values, P
     //2., 3. get the prediction and add the template likelihood
     model.get_prediction(predictions_wu, values);
     const std::vector<std::pair<ObsId, size_t> > & li = model.get_last_indices();
-    for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it){
+    size_t iobs = 0;
+    for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it, ++iobs){
         const ObsId & oid = li_it->first;
         Histogram1DWithUncertainties & hpred_wu = predictions_wu[oid];
-        model.get_prediction_with_derivative(oid, hpred_wu, der_pred_wu, values);
+        model.get_prediction_with_derivative(iobs, hpred_wu, der_pred_wu, values);
         // The negative Poisson log is
         //  -ln L = p - d * log(p)
         // where d is the data and p the predicted yield.
         // Taking the derivative w.r.t. the model parameter theta is
         // d / dtheta -ln L = dp / dtheta * (1 - d / p)
         size_t ider = 0; // ider: count parameters: update the result only for ider==0; update derivatives in "der" always
-        for(map<ParId, Histogram1DWithUncertainties>::const_iterator der_it=der_pred_wu.begin(); der_it!=der_pred_wu.end(); ++der_it, ++ider){
+        const ParIds & obs_parameters = model.get_parameters(iobs);
+        map<ParId, Histogram1DWithUncertainties>::const_iterator der_it=der_pred_wu.begin();
+        for(ParIds::const_iterator pit=obs_parameters.begin(); pit!=obs_parameters.end(); ++pit, ++ider){
+            // obs_parameters only contains a subset of all the model parameters, and der_pred_wu contains *all* model parameters
+            // So we can skip through der_pred_wu we find pit:
+            while(der_it->first < *pit) ++der_it;
+            //theta_assert(der_it != der_pred_wu.end());
+            
             const double * data_data = data[oid].get_data();
             const double * dpred_dpid = der_it->second.get_data();
             const size_t nbins = hpred_wu.get_nbins();
@@ -527,11 +546,12 @@ double default_model_bbadd_nll::eval_with_derivative(const ParValues & values, P
                 const double p = hpred_wu.get(ibin);
                 const double d = data_data[ibin];
                 const double p_unc2 = hpred_wu.get_uncertainty2(ibin);
+                // sqrt-expression appearing in the solution of the quadratic eq. for beta. We
+                // need this a couple of times, so save it for later:
+                const double S = sqrt((p - p_unc2)*(p - p_unc2) + 4 * d * p_unc2); 
                 double beta = 0.0;
                 if(p_unc2 > 0.0){
-                    double dummy;
-                    theta::utils::roots_quad(dummy, beta, p + p_unc2, p_unc2 * (p - d));
-                    //beta = 0.5 * (- p -p_unc2 + sqrt((p - p_unc2)*(p - p_unc2) + 4 * d * p_unc2));
+                    beta = 0.5 * (-p -p_unc2 + S);
                     if(ider == 0){
                         result += 0.5 * beta * beta / p_unc2;
                     }
@@ -550,7 +570,7 @@ double default_model_bbadd_nll::eval_with_derivative(const ParValues & values, P
                 }
                 if(new_pred > 0.0){
                     // calculate the derivative of new_pred w.r.t. pid:
-                    double dnewpred_dpid = 0.5 * dpred_dpid[ibin] * (1 + (p - p_unc2) / sqrt((p - p_unc2) * (p - p_unc2) + 4 * d * p_unc2));
+                    double dnewpred_dpid = 0.5 * dpred_dpid[ibin] * (1 + (p - p_unc2) / S);
                     der.add_unchecked(der_it->first, dnewpred_dpid * (1 - d / new_pred));
                     if(p_unc2 > 0.0){
                         double dbeta_dpid = dnewpred_dpid - dpred_dpid[ibin];

@@ -13,8 +13,7 @@ using namespace theta;
 using std::invalid_argument;
 
 namespace{
-
-   double * allocate_doubles(size_t n){
+  double * allocate_doubles(size_t n){
       double * result = 0;
       const size_t n_orig = n;
       //always allocate an even number of bins:
@@ -38,34 +37,38 @@ namespace{
 }
 
 
-DoubleVector::DoubleVector(size_t n): data(0), n_data(n){
-    if(n_data > 0){
-       data = allocate_doubles(n_data);
-       set_all_values(0.0);
-    }
+DoubleVector::DoubleVector(size_t n): data(0), n_data(n), n_alloc(0){
+    realloc(n_data);
+    set_all_values(0.0);
 }
 
 DoubleVector::~DoubleVector(){
     free_doubles(data);
 }
 
-DoubleVector::DoubleVector(const DoubleVector & rhs): data(0), n_data(rhs.n_data){
-   if(n_data > 0){
-       data = allocate_doubles(n_data);
-       std::copy(rhs.data, rhs.data + n_data, data);
-   }
+DoubleVector::DoubleVector(const DoubleVector & rhs): data(0), n_data(rhs.n_data), n_alloc(0){
+    realloc(n_data);
+    std::copy(rhs.data, rhs.data + n_data, data);
 }
 
-
+// note: this is the only method which actually sets the data member and does the allocation.
 void DoubleVector::realloc(size_t n){
-    if(n == n_data) return;
-    free_doubles(data);
-    if(n > 0){
-        data = allocate_doubles(n);
-    }else{
-        data = 0;
-    }
+    if(n == n_data && n_alloc >= n_data && data != 0) return;
     n_data = n;
+    if(n_alloc < n){
+        free_doubles(data);
+        if(n > 0){
+            data = allocate_doubles(n);
+        }else{
+            data = 0;
+        }
+        n_alloc = n;
+    }
+    else{
+        if(n%2 > 0){
+            data[n] = 0.0;
+        }
+    }
 }
 
 Histogram1D::Histogram1D(size_t b, double x_min, double x_max) : DoubleVector(b), xmin(x_min), xmax(x_max) {

@@ -176,6 +176,7 @@ namespace theta {
         // for each observable, save the last index into hfs / coeffs:
         std::vector<std::pair<ObsId, size_t> > last_indices;
         std::vector<hdim> histo_dimensions; // same size as last_indices
+        std::vector<ParIds> obs_parameters; // same size as last_indices; obs_parameters[i] saves which parameters the observable last_indices[i].first depends on
 
         std::auto_ptr<Distribution> parameter_distribution;
         std::auto_ptr<Distribution> rvobservable_distribution;
@@ -210,11 +211,22 @@ namespace theta {
             return rvobservable_distribution.get();
         }
         
+        
+        virtual ~default_model();  
+        
+        // some special function for defaul_model_nll. They are not necessary, but provided for optimization purposes:
         const std::vector<std::pair<ObsId, size_t> > & get_last_indices() const{
             return last_indices;
         }
         
-        virtual ~default_model();  
+        using Model::get_parameters;
+        const ParIds & get_parameters(size_t iobs) const{
+            return obs_parameters[iobs];
+        }
+        
+        void get_prediction_with_derivative(size_t iobs, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const;
+        void get_prediction_with_derivative(size_t iobs, Histogram1DWithUncertainties & h,
+                                            std::map<ParId, Histogram1DWithUncertainties > & der, const ParValues & parameters) const;
     };
     
 
