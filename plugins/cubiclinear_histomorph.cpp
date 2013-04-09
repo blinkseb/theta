@@ -92,6 +92,65 @@ void add_with_coeff_filtered(double * lhs, double coeff, const double * rhs, con
 
 }
 
+
+
+void cubiclinear_histomorph::eval_and_add_derivatives(theta::Histogram1DWithUncertainties & result, std::map<theta::ParId, theta::Histogram1DWithUncertainties> & derivatives,
+                                          double coeff, const theta::ParValues & values) const{
+    if(normalize_to_nominal){
+        throw invalid_argument("cubiclinear_histomorph: derivatives with normalize_to_nominal not supported");
+    }
+    // note: the uncertainties do not depend on the parameters, so this is basically the same as the other eval_and_add_derivatives, with
+    // the only excpetion that we start with h0_wu instead of h0.
+    // TODO: implement this via common code as add_with_coeff!
+    result = h0_wu;
+    const size_t n_sys = hplus_diff.size();
+    for (size_t isys = 0; isys < n_sys; isys++) {
+        const double delta = values.get_unchecked(vid[isys]) * parameter_factors[isys];
+        if(delta==0.0) continue;
+        //linear extrapolation beyond 1 sigma:
+        if(fabs(delta) > 1){
+            const Histogram1D & t_sys = delta > 0 ? hplus_diff[isys] : hminus_diff[isys];
+            result.add_with_coeff(fabs(delta), t_sys);
+        }
+        else{
+            //cubic interpolation:
+            const double d2 = delta * delta;
+            const double d3 = d2 * fabs(delta);
+            result.add_with_coeff(0.5*delta, diff[isys]);
+            result.add_with_coeff(d2 - 0.5 * d3, sum[isys]);
+        }
+    }
+    double h_sum = 0.0;
+    const size_t n = result.get_nbins();
+    vector<bool> zero_truncated(n, false);
+    for(size_t i=0; i < n; ++i){
+        double val = result.get(i);
+        if(val < 0.0){
+            result.set(i, 0.0); // note: leave non-zero uncertainty(!)
+            zero_truncated[i] = true;
+        }
+        else{
+            h_sum += val;
+        }
+    }
+    // 3. 
+    for (size_t isys = 0; isys < n_sys; isys++) {
+        const double delta = values.get_unchecked(vid[isys]) * parameter_factors[isys];
+        const double sd = delta < 0? -1:1;
+        if(fabs(delta) > 1){
+            const Histogram1D & t_sys = delta > 0 ? hplus_diff[isys] : hminus_diff[isys];
+            //derivatives[vid[isys]].add_with_coeff(sd * coeff, t_sys);
+            add_with_coeff_filtered(derivatives[vid[isys]].get_data(), sd * coeff, t_sys.get_data(), zero_truncated);
+        }
+        else{
+            const double d2 = delta * delta;
+            derivatives[vid[isys]].add_with_coeff(0.5 * coeff, diff[isys]);
+            derivatives[vid[isys]].add_with_coeff((2 * delta - 1.5 * d2 * sd) * coeff, sum[isys]);
+        }
+    }
+}
+
+
 void cubiclinear_histomorph::eval_and_add_derivatives(theta::Histogram1D & result, std::map<theta::ParId, theta::Histogram1D> & derivatives,
                                                       double coeff, const theta::ParValues & values) const{
     // 3 passes over the systematic histograms:
@@ -123,7 +182,7 @@ void cubiclinear_histomorph::eval_and_add_derivatives(theta::Histogram1D & resul
         }
     }
     double h_sum = 0.0;
-    const size_t n = h.get_nbins();
+    const size_t n = result.get_nbins();
     vector<bool> zero_truncated(n, false);
     for(size_t i=0; i < n; ++i){
         double val = result.get(i);
@@ -135,15 +194,6 @@ void cubiclinear_histomorph::eval_and_add_derivatives(theta::Histogram1D & resul
             h_sum += val;
         }
     }
-    double f = 1.0;
-    if(normalize_to_nominal && h_sum > 0.0){
-       f = h0_sum / h_sum;
-    }
-    // 2.
-    /*vector<double> dsdp(n_sys); // vid defines mapping between indices and ParId
-    if(normalize_to_nominal){
-        //TODO: fill dsdp
-    }*/
     // 3. 
     for (size_t isys = 0; isys < n_sys; isys++) {
         const double delta = values.get_unchecked(vid[isys]) * parameter_factors[isys];
@@ -151,15 +201,13 @@ void cubiclinear_histomorph::eval_and_add_derivatives(theta::Histogram1D & resul
         if(fabs(delta) > 1){
             const Histogram1D & t_sys = delta > 0 ? hplus_diff[isys] : hminus_diff[isys];
             //derivatives[vid[isys]].add_with_coeff(sd * f * coeff, t_sys);
-            add_with_coeff_filtered(derivatives[vid[isys]].get_data(), sd * f * coeff, t_sys.get_data(), zero_truncated);
+            add_with_coeff_filtered(derivatives[vid[isys]].get_data(), sd * coeff, t_sys.get_data(), zero_truncated);
         }
         else{
             const double d2 = delta * delta;
-            derivatives[vid[isys]].add_with_coeff2(0.5 * coeff * f, diff[isys], (2 * delta - 1.5 * d2 * sd) * coeff * f, sum[isys]);
+            derivatives[vid[isys]].add_with_coeff2(0.5 * coeff, diff[isys], (2 * delta - 1.5 * d2 * sd) * coeff, sum[isys]);
         }
-        //TODO: also add result * d f / d p in case of normalize_to_nominal.
     }
-    if(f!=1.0) result *= f;
 }
 
 void cubiclinear_histomorph::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{

@@ -10,6 +10,7 @@
 #include "libconfig/libconfig.h++"
 
 #include <iostream>
+#include <iomanip>
 
 #include <boost/test/unit_test.hpp>
 
@@ -17,14 +18,48 @@ using namespace theta;
 using namespace std;
 
 namespace{
-    Histogram1DWithUncertainties apply(const HistogramFunction & hf, const ParValues & values){
-        size_t nbins;
-        double xmin, xmax;
-        hf.get_histogram_dimensions(nbins, xmin, xmax);
-        Histogram1DWithUncertainties result(nbins, xmin, xmax);
-        hf.add_with_coeff_to(result, 1.0, values);
-        return result;
+Histogram1DWithUncertainties apply(const HistogramFunction & hf, const ParValues & values){
+    size_t nbins;
+    double xmin, xmax;
+    hf.get_histogram_dimensions(nbins, xmin, xmax);
+    Histogram1DWithUncertainties result(nbins, xmin, xmax);
+    hf.add_with_coeff_to(result, 1.0, values);
+    return result;
+}
+
+
+// if the relative or(!) absolute difference is < eps
+bool close(const Histogram1DWithUncertainties & lhs, const Histogram1DWithUncertainties & rhs, bool verbose = false, double eps = 1e-7){
+    if(lhs.get_nbins() != rhs.get_nbins()){
+        if(verbose){
+            cout << "nbins different" << endl;
+        }
+        return false;
     }
+    for(size_t i=0; i<lhs.get_nbins(); ++i){
+        double diff = fabs(lhs.get(i) - rhs.get(i));
+        if(diff < eps) continue;
+        double reldiff = diff / max(fabs(lhs.get(i)), fabs(rhs.get(i)));
+        if(reldiff < eps) continue;
+        if(verbose){
+            cout << "bin " << i << " has large difference in value: lhs=" << setprecision(20) << lhs.get(i) << " rhs=" << setprecision(20) << rhs.get(i) << endl;
+        }
+        return false;
+    }
+    for(size_t i=0; i<lhs.get_nbins(); ++i){
+        double diff = fabs(lhs.get_uncertainty2(i) - rhs.get_uncertainty2(i));
+        if(diff < eps) continue;
+        double reldiff = diff / max(fabs(lhs.get_uncertainty2(i)), fabs(rhs.get_uncertainty2(i)));
+        if(reldiff < eps) continue;
+        if(verbose){
+            cout << "bin " << i << " has large difference in uncertainty2: lhs=" << setprecision(20) << lhs.get_uncertainty2(i) << " rhs=" << setprecision(20) << rhs.get_uncertainty2(i) << endl;
+        }
+        return false;
+    }
+    return true;
+}
+    
+    
 }
 
 
@@ -253,11 +288,8 @@ BOOST_AUTO_TEST_CASE(model_unc){
     values.set(beta3, 1.0);
     Histogram1DWithUncertainties s;
     DataWithUncertainties pred;
-    BOOST_CHECKPOINT("");
     m->get_prediction(pred, values);
-    BOOST_CHECKPOINT("");
     s = pred[obs0];
-    BOOST_CHECKPOINT("");
     //s should be signal only:
     BOOST_CHECK(close_to_relative(s.get(0), 300.0));
     BOOST_CHECK(close_to_relative(s.get(1), 300.0));
@@ -281,6 +313,77 @@ BOOST_AUTO_TEST_CASE(model_unc){
     BOOST_CHECK(close_to_relative(s.get_uncertainty(1), sqrt(20*20 + 2 * 10*10)));
     BOOST_CHECK(close_to_relative(s.get_uncertainty(2), sqrt(10*10 + 2 * 5*5)));
     BOOST_CHECK(close_to_relative(s.get_uncertainty(3), sqrt(10*10 + 2 * 5*5)));
+    
+    // check model derivative:
+    values.set(beta1, 1.0).set(beta2, 1.0).set(beta3, 1.0);
+    map<ParId, Histogram1DWithUncertainties> ders;
+    m->get_prediction_with_derivative(obs0, s, ders, values);
+    BOOST_REQUIRE_EQUAL(ders.size(), 3);
+    // The derivative values should be eual to the flat-histo, the derivative uncertainties-squared should
+    // be 2*flat_histo.unc2
+    const Histogram1DWithUncertainties flat_histo = get_constant_histogram(Configuration(cfg, cfg.setting["flat-histo"]));
+    double beta_value = 1.0;
+    Histogram1DWithUncertainties der_expected(flat_histo);
+    for(size_t i=0; i<nbins; ++i){
+        der_expected.set_unc2(i, flat_histo.get(i), flat_histo.get_uncertainty2(i) * 2.0 * beta_value);
+    }
+    BOOST_CHECK(close(der_expected, ders[beta1]));
+    BOOST_CHECK(close(der_expected, ders[beta2]));
+    BOOST_CHECK(close(der_expected, ders[beta3]));
+    
+    //some non-trivial point:
+    beta_value = 1.7;
+    values.set(beta1, beta_value);
+    m->get_prediction_with_derivative(obs0, s, ders, values);
+    der_expected = flat_histo;
+    for(size_t i=0; i<nbins; ++i){
+        der_expected.set_unc2(i, flat_histo.get(i), flat_histo.get_uncertainty2(i) * 2.0 * beta_value);
+    }
+    BOOST_CHECK(close(der_expected, ders[beta1]));
+    
+    // check nll derivative:
+    values.set(beta1, 1.0).set(beta2, 1.0).set(beta3, 1.0);
+    Data adata;
+    m->get_prediction(adata, values);
+    std::auto_ptr<NLLikelihood> nll = m->get_nllikelihood(adata);
+    double nll0, nllp, h;
+    nll0 = (*nll)(values);
+    ParValues der;
+    double nll0_2 = nll0 = nll->eval_with_derivative(values, der);
+    BOOST_CHECK_EQUAL(nll0, nll0_2);
+    BOOST_REQUIRE(der.contains(beta1) && der.contains(beta2) && der.contains(beta3));
+    
+    const double s_eps = 1e-6;
+    values.set(beta1, 1.0 + s_eps);
+    h = (1.0 + s_eps) - 1.0;
+    nllp = (*nll)(values);
+    double numder = (nllp - nll0) / h;
+    cout << numder << " " << der.get(beta1) << endl;
+    // derivative at the minimum should be very close to 0.0:
+    BOOST_CHECK_SMALL(der.get(beta1), 1e-8);
+    BOOST_CHECK_SMALL(der.get(beta2), 1e-8);
+    BOOST_CHECK_SMALL(der.get(beta3), 1e-8);
+    BOOST_CHECK_SMALL(numder - der.get(beta1), 1e-4);
+    
+    values.set(beta1, 1.0);
+    values.set(beta2, 1.0 + s_eps);
+    nllp = (*nll)(values);
+    numder = (nllp - nll0) / h;
+    cout << numder << " " << der.get(beta2) << endl;
+    BOOST_CHECK_SMALL(numder - der.get(beta2), 1e-4);
+    
+    // go away from the minimum:
+    double v0 = 1.5;
+    values.set(beta1, v0);
+    nll0 = (*nll)(values);
+    values.set(beta1, v0 + s_eps);
+    nllp = (*nll)(values);
+    h = (v0 + s_eps) - v0;
+    numder = (nllp - nll0) / h;
+    nll->eval_with_derivative(values, der);
+    BOOST_CHECK_CLOSE(der.get(beta1), numder, 1e-4);
+    cout << numder << " " << der.get(beta1) << endl;
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()

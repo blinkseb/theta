@@ -11,6 +11,10 @@ void HistogramFunction::eval_and_add_derivatives(Histogram1D & result, std::map<
     throw Exception("not implemented for " + demangle(typeid(this).name()));
 }
 
+void HistogramFunction::eval_and_add_derivatives(Histogram1DWithUncertainties & result, std::map<ParId, Histogram1DWithUncertainties> & derivatives, double coeff, const ParValues & values) const{
+    throw Exception("not implemented for " + demangle(typeid(this).name()));
+}
+
 void ConstantHistogramFunction::add_with_coeff_to(Histogram1D & hres, double coeff, const ParValues & values) const{
     hres.add_with_coeff(coeff, h);
 }
@@ -23,6 +27,13 @@ void ConstantHistogramFunction::eval_and_add_derivatives(Histogram1D & result, s
     result = h;
     // derivative is 0.0, so don't add anything ...
 }
+
+
+void ConstantHistogramFunction::eval_and_add_derivatives(Histogram1DWithUncertainties & result, std::map<ParId, Histogram1DWithUncertainties> & derivatives, double coeff, const ParValues & values) const{
+    result = h_wu;
+    // derivative is 0.0, so don't add anything ...
+}
+
         
 void ConstantHistogramFunction::get_histogram_dimensions(size_t & nbins, double & xmin, double & xmax) const{
     nbins = h.get_nbins();

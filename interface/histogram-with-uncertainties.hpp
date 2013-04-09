@@ -100,6 +100,10 @@ public:
     double * get_data(){
         return values.get_data();
     }
+    
+    const double * get_data() const{
+        return values.get_data();
+    }
 
     const DoubleVector & get_values() const{
         return values;
@@ -200,6 +204,27 @@ public:
         values.add_with_coeff(c, other);
     }
     //@}
+    
+    /** \brief Add with coefficient, but only for the value, not the uncertainties
+     * 
+     * Calculate this += c * rhs, but only changing the values of this, and only reading the values of rhs, not
+     * the uncertainties.
+     */
+    void add_with_coeff_values(double c, const Histogram1DWithUncertainties & rhs){
+        values.add_with_coeff(c, rhs.values);
+    }
+    
+    /** \brief Add the squared uncertainties
+     * 
+     * calculate this->unc2 += c * rhs.unc2  where "unc2" is the histogram of squarted uncertainties
+     *
+     */
+    void add_with_coeff_unc2(double c, const Histogram1DWithUncertainties & rhs){
+        if(rhs.nontrivial_unc){
+            set_nontrivial_unc();
+            sq_uncertainties.add_with_coeff(c, rhs.sq_uncertainties);
+        }
+    }
 
     /** \brief check compatibility of \c this to the \c other Histogram.
      *

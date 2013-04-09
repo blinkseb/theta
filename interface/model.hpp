@@ -118,6 +118,10 @@ namespace theta {
         
         // set h to the prediction of observable oid and der[p] to the derivative w.r.t. p. Zero derivatives need not be filled in der.
         virtual void get_prediction_with_derivative(const ObsId & oid, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const = 0;
+        // get the derivative of the prediction w.r.t. all parameters, with uncertainties.
+        // The derivative of the *squared* uncertainties is calculated and stored in the squared uncertainties of der[p].
+        virtual void get_prediction_with_derivative(const ObsId & oid, Histogram1DWithUncertainties & h,
+                                                    std::map<ParId, Histogram1DWithUncertainties > & der, const ParValues & parameters) const = 0;
         
         /** \brief Returns a reference to the parameter distribution
          *
@@ -190,6 +194,8 @@ namespace theta {
         virtual void get_prediction(DataWithUncertainties & result, const ParValues & parameters) const;
         virtual void get_prediction(Data & result, const ParValues & parameters) const;
         virtual void get_prediction_with_derivative(const ObsId & oid, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const;
+        virtual void get_prediction_with_derivative(const ObsId & oid, Histogram1DWithUncertainties & h,
+                                                    std::map<ParId, Histogram1DWithUncertainties > & der, const ParValues & parameters) const;
         virtual std::auto_ptr<NLLikelihood> get_nllikelihood(const Data & data) const;
         
         virtual const Function * get_additional_nll_term() const{

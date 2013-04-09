@@ -61,6 +61,7 @@ protected:
 protected:
     //cached predictions:
     mutable Data predictions;
+    mutable std::map<ParId, Histogram1D> der_pred;
 };
 
 // includes additive Barlow-Beeston uncertainties, where the extra nuisance parameters of this method (1 per bin) have been "profiled out".
@@ -74,6 +75,7 @@ public:
 private:
     default_model_bbadd_nll(const default_model & m, const Data & data);
     mutable DataWithUncertainties predictions_wu;
+    mutable std::map<ParId, Histogram1DWithUncertainties> der_pred_wu;
 };
 
 } // anon. namespace
@@ -140,6 +142,7 @@ void default_model::get_prediction(Data & result, const ParValues & parameters) 
 }
 
 void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1D & h, std::map<ParId, Histogram1D> & der, const ParValues & parameters) const{
+    // TODO: optimize this oid to iobs conversion!
     size_t iobs = 0;
     while(last_indices[iobs].first != oid) ++iobs;
     const size_t imin = iobs == 0? 0 : last_indices[iobs-1].second;
@@ -164,8 +167,43 @@ void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1
         // add the dcoeff_i/dp * hf_i part of derivative:
         const ParIds & coeff_pids = coeffs[i].get_parameters();
         for(ParIds::const_iterator pit=coeff_pids.begin(); pit!=coeff_pids.end(); ++pit){
-            //if(!coeff_ders.contains(*pit)) continue;
             der[*pit].add_with_coeff(coeff_ders.get_unchecked(*pit), hi);
+        }
+    }
+}
+
+void default_model::get_prediction_with_derivative(const ObsId & oid, Histogram1DWithUncertainties & h,
+                                            std::map<ParId, Histogram1DWithUncertainties > & der, const ParValues & parameters) const{
+    // TODO: see TODOs above
+    size_t iobs = 0;
+    while(last_indices[iobs].first != oid) ++iobs;
+    const size_t imin = iobs == 0? 0 : last_indices[iobs-1].second;
+    const size_t imax = last_indices[iobs].second;
+    h.reset(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
+    for(ParIds::const_iterator pit=this->parameters.begin(); pit!=this->parameters.end(); ++pit){
+        der[*pit].reset(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
+    }
+    ParValues coeff_ders(parameters);
+    for(size_t i=imin; i<imax; ++i){
+        // the model prediction for the observable is sum_i  coeff_i * hf_i, so its derivative w.r.t. p
+        // is sum_i dcoeff_i/dp * hf_i + coeff_i * dhf_i / dp.
+        //
+        // For the i-th component squared uncertainties, we have
+        // d unc2_i / dp = 2 * coeff_i * dcoeff_i / dp  * unc2_i    +    coeff_i^2 * d / dp unc2_i
+        Histogram1DWithUncertainties hi(histo_dimensions[iobs].nbins, histo_dimensions[iobs].xmin, histo_dimensions[iobs].xmax);
+        coeff_ders.clear();
+        double coeff = coeffs[i].eval_with_derivative(parameters, coeff_ders);
+        
+        // coeff_i * dhf_i / dp part of derivative, and the "coeff_i^2 * d / dp unc2_i" part for the derivatives:
+        hfs[i].eval_and_add_derivatives(hi, der, coeff, parameters);
+        // update result itself:
+        h.add_with_coeff(coeff, hi);
+        
+        // add the dcoeff_i/dp * hf_i part of the derivative values and the   "2 * coeff_i * dcoeff_i / dp  * unc2_i" for the squared uncertainties:
+        const ParIds & coeff_pids = coeffs[i].get_parameters();
+        for(ParIds::const_iterator pit=coeff_pids.begin(); pit!=coeff_pids.end(); ++pit){
+            der[*pit].add_with_coeff_values(coeff_ders.get_unchecked(*pit), hi);
+            der[*pit].add_with_coeff_unc2(2.0 * coeff_ders.get_unchecked(*pit) * coeff, hi);
         }
     }
 }
@@ -338,7 +376,6 @@ double default_model_nll::eval_with_derivative(const ParValues & values, ParValu
     for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it){
         const ObsId & oid = li_it->first;
         Histogram1D & hpred = predictions[oid];
-        std::map<ParId, Histogram1D> der_pred; // TODO: move initialization to outside of the loop!!
         model.get_prediction_with_derivative(oid, hpred, der_pred, values);
         // The negative Poisson log is
         //  -ln L = p - d * log(p)
@@ -474,62 +511,52 @@ double default_model_bbadd_nll::eval_with_derivative(const ParValues & values, P
     const std::vector<std::pair<ObsId, size_t> > & li = model.get_last_indices();
     for(std::vector<std::pair<ObsId, size_t> >::const_iterator li_it=li.begin(); li_it!=li.end(); ++li_it){
         const ObsId & oid = li_it->first;
-        Histogram1D & hpred = predictions[oid];
-        const Histogram1DWithUncertainties & hpred_wu = predictions_wu[oid];
-        std::map<ParId, Histogram1D> der_pred; // TODO: move initialization to outside of the loop!!
-        model.get_prediction_with_derivative(oid, hpred, der_pred, values);
+        Histogram1DWithUncertainties & hpred_wu = predictions_wu[oid];
+        model.get_prediction_with_derivative(oid, hpred_wu, der_pred_wu, values);
         // The negative Poisson log is
         //  -ln L = p - d * log(p)
         // where d is the data and p the predicted yield.
         // Taking the derivative w.r.t. the model parameter theta is
         // d / dtheta -ln L = dp / dtheta * (1 - d / p)
-        const double * pred_data = hpred.get_data();
-        const double * data_data = data[oid].get_data();
-        const size_t nbins = hpred.get_nbins();
-        for(size_t ibin = 0; ibin<nbins; ++ibin){
-            const double p = pred_data[ibin];
-            const double d = data_data[ibin];
-            const double p_unc2 = hpred_wu.get_uncertainty2(ibin);
-            double beta = 0.0;
-            if(p_unc2 > 0.0){
-                double dummy;
-                theta::utils::roots_quad(dummy, beta, p + p_unc2, p_unc2 * (p - d));
-                result += 0.5 * beta * beta / p_unc2;
-            }
-            const double new_pred = beta + p;
-            // As special case, new_pred == 0.0 can happen (for p == p_unc2 and data == 0). In this case,
-            // the log-term can be skipped as it has vanishing contribution to the nll.
-            result += new_pred;
-            if(d > 0.0){
-                if(new_pred <= 0.0){
-                    return numeric_limits<double>::infinity();
-                }
-                result -= d * utils::log(new_pred);
-            }
-        }
-        for(map<ParId, Histogram1D>::const_iterator der_it=der_pred.begin(); der_it!=der_pred.end(); ++der_it){
+        size_t ider = 0; // ider: count parameters: update the result only for ider==0; update derivatives in "der" always
+        for(map<ParId, Histogram1DWithUncertainties>::const_iterator der_it=der_pred_wu.begin(); der_it!=der_pred_wu.end(); ++der_it, ++ider){
+            const double * data_data = data[oid].get_data();
             const double * dpred_dpid = der_it->second.get_data();
-            for(size_t i = 0; i<nbins; ++i){
-                const double d = data_data[i];
-                const double p = pred_data[i];
-                const double p_unc2 = hpred_wu.get_uncertainty2(i);
+            const size_t nbins = hpred_wu.get_nbins();
+            for(size_t ibin = 0; ibin<nbins; ++ibin){
+                const double p = hpred_wu.get(ibin);
+                const double d = data_data[ibin];
+                const double p_unc2 = hpred_wu.get_uncertainty2(ibin);
                 double beta = 0.0;
                 if(p_unc2 > 0.0){
                     double dummy;
                     theta::utils::roots_quad(dummy, beta, p + p_unc2, p_unc2 * (p - d));
-                }
-                const double new_pred = beta + p;
-                if(new_pred > 0.0){
-                    // calculate the derivative of new_pred w.r.t. pid:
-                    double dnewpred_dpid = 0.5 * dpred_dpid[i] * (1 + (p - p_unc2) / sqrt(pow(p - p_unc2, 2) + 4 * d * p_unc2));
-                    der.add_unchecked(der_it->first, dnewpred_dpid * (1 - d / new_pred));
-                    if(p_unc2 > 0.0){
-                        double dbeta_dpid = dnewpred_dpid - dpred_dpid[i];
-                        der.add_unchecked(der_it->first, beta / p_unc2 * dbeta_dpid);
+                    //beta = 0.5 * (- p -p_unc2 + sqrt((p - p_unc2)*(p - p_unc2) + 4 * d * p_unc2));
+                    if(ider == 0){
+                        result += 0.5 * beta * beta / p_unc2;
                     }
                 }
-                // otherwise: if d==0.0 we have nothing to add; if d >0 the result is infinity and the derivative does not
-                // really make sense anyway ...
+                const double new_pred = beta + p;
+                // As special case, new_pred == 0.0 can happen (for p == p_unc2 and data == 0). In this case,
+                // the log-term can be skipped as it has vanishing contribution to the nll.
+                if(ider == 0){
+                    result += new_pred;
+                    if(d > 0.0){
+                        if(new_pred <= 0.0){
+                            return numeric_limits<double>::infinity();
+                        }
+                        result -= d * utils::log(new_pred);
+                    }
+                }
+                if(new_pred > 0.0){
+                    // calculate the derivative of new_pred w.r.t. pid:
+                    double dnewpred_dpid = 0.5 * dpred_dpid[ibin] * (1 + (p - p_unc2) / sqrt((p - p_unc2) * (p - p_unc2) + 4 * d * p_unc2));
+                    der.add_unchecked(der_it->first, dnewpred_dpid * (1 - d / new_pred));
+                    if(p_unc2 > 0.0){
+                        double dbeta_dpid = dnewpred_dpid - dpred_dpid[ibin];
+                        der.add_unchecked(der_it->first, beta / p_unc2 * dbeta_dpid - 0.5 * beta * beta / (p_unc2 * p_unc2) * der_it->second.get_uncertainty2(ibin));
+                    }
+                }
             }
         }
     }
