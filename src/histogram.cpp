@@ -27,7 +27,12 @@ namespace{
       //for the add_fast routine, which might use SSE optimizations, we need this alignment. And
       // while we at it, we should make sure double is as expected:
       BOOST_STATIC_ASSERT(sizeof(double)==8);
+      #ifdef __APPLE__
+      // note: Mac OS does not have memalign, but does 16-byte alignment anyway. This is all we need, so just use malloc directly in this case:
+      result = reinterpret_cast<double*>(malloc(sizeof(double)*n));
+      #else
       result = reinterpret_cast<double*>(memalign(2 * sizeof(double), sizeof(double) * n)); // note: while it is not guaranteed that we can call "free" on the result, that's ok for most systems.
+      #endif
       if(result==0){
         throw std::bad_alloc();
       }
