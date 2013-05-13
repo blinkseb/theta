@@ -25,6 +25,9 @@ else
    endif
 endif
 
+
+PLATFORM:=$(shell uname)
+
 ifneq ($(shell echo -n $$CMSSW_BASE),)
    HAVE_SCRAM:=yes
 endif
@@ -65,13 +68,24 @@ else
    endif
 endif
 
-
 #check options for consistentcy:
-ifneq ($(BUILD_ARCH),x86_64)
+ifneq ($(PLATFORM),Linux)
    ifneq ($(OPTIONS_GENERIC_ARCH),yes)
-       DUMMY := $(warning build platform is not x86_64, setting OPTIONS_GENERIC_ARCH to yes)
+       DUMMY := $(warning platform is not Linux. Setting OPTIONS_GENERIC_ARCH to yes)
        OPTIONS_GENERIC_ARCH:=yes
    endif
+endif
+
+
+ifneq ($(BUILD_ARCH),x86_64)
+   ifneq ($(OPTIONS_GENERIC_ARCH),yes)
+       DUMMY := $(warning build machine architecture is not x86_64, setting OPTIONS_GENERIC_ARCH to yes)
+       OPTIONS_GENERIC_ARCH:=yes
+   endif
+endif
+
+ifeq ($(OPTIONS_GENERIC_ARCH),yes)
+  OPTIONS_USE_AMDLIBM:=no
 endif
 
 
