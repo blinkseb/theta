@@ -7,7 +7,13 @@
 #include <sstream>
 #include <limits>
 #include <new>
+
+#ifdef __APPLE__
+#include <malloc/malloc.h>
+#else
 #include <malloc.h>
+#endif
+
 
 using namespace theta;
 using std::invalid_argument;

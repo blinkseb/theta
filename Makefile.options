@@ -7,7 +7,7 @@
 # "make" to make sure all changes are picked up.
 
 # If yes, build tests from the "test" subdirectory
-OPTIONS_BUILD_TESTS := yes
+OPTIONS_BUILD_TESTS := no
 
 # If yes, use amdlibm for some math functions instead of libm, most notably "exp" and "log",
 # resulting in some speed gain.
