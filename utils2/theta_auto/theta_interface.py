@@ -67,6 +67,7 @@ maxit = -1
 par_eps = -1
 force_cov_positive = False
 second_pass = False
+use_nll_der = False
        
 [cls_limits]
 write_debuglog = True

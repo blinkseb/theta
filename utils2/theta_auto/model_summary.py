@@ -6,7 +6,7 @@ from Model import *
 import plotutil
 import utils
 
-def model_summary(model, create_plots = True, all_nominal_templates = False, shape_templates = False, lnmode = '1sigma'):
+def model_summary(model, create_plots = True, all_nominal_templates = False, shape_templates = False, lnmode = 'sym'):
     """
     Write a html summary of the statistical model to the ``report`` object (see :ref:`report`).
     
