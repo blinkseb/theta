@@ -30,7 +30,7 @@ endif
 
 
 ../lib/libtheta.so: $(libobjects)
-	@$(LINK_SO)
+	@$(LINK_SO) -lconfig
 
 
 clean-subdir:

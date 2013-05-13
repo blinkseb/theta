@@ -2,7 +2,7 @@ include ./Makefile.options
 -include ./Makefile.options.local
 
 #order matters
-DIRS = src libconfig plugins root bin test
+DIRS = libconfig src plugins root bin test
 
 ifeq ($(OPTIONS_BUILD_LLVM),yes)
    DIRS += llvm

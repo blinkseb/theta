@@ -120,7 +120,7 @@ endif
 COMPILE = echo creating $@; $(CXX) -c $(EXTRA_COMPILE)
 LINK_EXE = echo linking $@; $(CXX) -o $@ $+ $(OPTIONS_LDFLAGS_EXE) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib $(LIBS) $(SQLITE_LIBS) $(BOOST_LIBS)
 LINK_EXE_NOLIBS = echo linking $@; $(CXX) -o $@ $+ $(OPTIONS_LDFLAGS_EXE) -Wl,-R,'$$ORIGIN/../lib' -rdynamic -L../lib
-LINK_SO = echo linking $@; $(CXX) -o $@ $+ $(OPTIONS_LDFLAGS_SO) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic $(BOOST_LIBS)
+LINK_SO = echo linking $@; $(CXX) -o $@ $+ $(OPTIONS_LDFLAGS_SO) -Wl,-R,'$$ORIGIN/../lib' -shared -rdynamic -L../lib $(BOOST_LIBS)
 
 .bin/%.o: %.cpp
 	@$(COMPILE) $(FLAGSCPP) -o $@ $<
