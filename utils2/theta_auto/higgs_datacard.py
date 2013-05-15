@@ -146,14 +146,18 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
         nominal_histogram_uoflow = rf.get_histogram(hname, include_uncertainties, include_uoflow = True)
         print "norm(%s) = %.3f;  %.3f" % (hname, nominal_histogram.get_value_sum(), nominal_histogram_uoflow.get_value_sum())
     # check that histogram in rootfile matches definition in datacard (allow deviations up to 1% / 1e-4 absolute):
+    nominal_is_zero = False
     if old_nominal_histogram.get_value_sum() > 0.0 or nominal_histogram.get_value_sum() > 0.0:
         if utils.reldiff(old_nominal_histogram.get_value_sum(), nominal_histogram.get_value_sum()) > 0.01 and abs(old_nominal_histogram.get_value_sum() - nominal_histogram.get_value_sum()) > 1e-4:
             raise RuntimeError, "add_shapes: histogram normalisation given in datacard and from root file differ by more than >1% (and absolute difference is > 1e-4)"
     else:
-        print "WARNING: channel '%s' process '%s': yield is 0." % (obs, proc)
+        print "WARNING: channel '%s' process '%s': yield is 0. Process will ALWAYS have 0 contribution; please delete it from datacard." % (obs, proc)
+        nominal_is_zero = True
+    # even for nominal_is_zero, make sure to set the histogram to ensure that the binning is correct:
     hf.set_nominal_histo(nominal_histogram, reset_binning = True)
     model.reset_binning(theta_obs, nominal_histogram[0], nominal_histogram[1], len(nominal_histogram[2]))
     if len(uncs) == 0: return
+    if nominal_is_zero: return
     for u in uncs:
         theta_unc = transform_name_to_theta(u)
         if '$DIRECTION_' in hname_with_systematics:
