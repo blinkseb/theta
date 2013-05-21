@@ -326,7 +326,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                if histo.fill_color is not None:
                     if histo.fill_xrange is None:
                         ax.fill_between(new_x, new_y, [0] * len(new_y), lw=histo.lw, color=histo.color, facecolor = histo.fill_color)
-                        legend_items.append((histo.legend_order, matplotlib.patches.Rectangle((0, 0), 1, 1, fc=histo.fill_color, ec=histo.color, lw=histo.lw), histo.legend))
+                        if histo.legend is not None: legend_items.append((histo.legend_order, matplotlib.patches.Rectangle((0, 0), 1, 1, fc=histo.fill_color, ec=histo.color, lw=histo.lw), histo.legend))
                     else:
                         x_clipped = [histo.fill_xrange[0]]
                         y_clipped = []
@@ -342,7 +342,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                                     break
                         ax.fill_between(x_clipped, y_clipped, [histo.fill_to_y] * len(y_clipped), lw=0, color=None, facecolor = histo.fill_color)
                         ax.plot(new_x, new_y, histo.fmt, lw=histo.lw, color=histo.color)
-                        legend_items.append((histo.legend_order, matplotlib.patches.Rectangle((0, 0), 1, 1, fc=histo.fill_color, ec=histo.color, lw=histo.lw), histo.legend))
+                        if histo.legend is not None: legend_items.append((histo.legend_order, matplotlib.patches.Rectangle((0, 0), 1, 1, fc=histo.fill_color, ec=histo.color, lw=histo.lw), histo.legend))
                         #legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, lw=histo.lw), histo.legend))
                else:
                    ax.plot(new_x, new_y, histo.fmt, lw=histo.lw, color=histo.color)

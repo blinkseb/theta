@@ -47,7 +47,7 @@ else
       BOOST_INCLUDE:=
       #on some systems, boost libraries have a "-mt" suffix. This is a dirty hack. If you know better, tell me:
       BS:=
-      ifeq ($(shell test -e /usr/lib/libboost_system-mt.so && echo -n A),A)
+      ifeq ($(shell if test -e /usr/lib/libboost_system-mt.so -o -e /usr/lib64/libboost_system-mt.so; then echo -n A; fi)$,A)
          BS:=-mt
       endif
       BOOST_LIBS := -lboost_filesystem$(BS) -lboost_regex$(BS) -lboost_program_options$(BS) -lboost_thread$(BS) -lboost_system$(BS) -lboost_iostreams$(BS)
