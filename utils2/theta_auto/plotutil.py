@@ -19,6 +19,8 @@ import numpy as np
 
 import math, StringIO
 
+import theta_auto
+
 def add_xlabel(axes, text, *args, **kwargs):
     label = axes.set_xlabel(text, size='large', ha='right', *args, **kwargs)
     label.set_position((1.0, 0.03))
@@ -86,11 +88,14 @@ class plotdata:
         self.draw_histo = True
         self.draw_line = True
         
-    # create new data by making a histogram from xmin to xmax with nbins from the given values
-    # which should be a iterable yielding floats.
-    # If errors is True, yerrors is set to sqrt(n) in each bin.
-    # if include_uoflow is True, values under (over) the range are inserted in the first (last) bin.
+    
     def histogram(self, values, xmin, xmax, nbins, errors = False, include_uoflow = False):
+        """
+        create new data by making a histogram from xmin to xmax with nbins from the given values
+        which should be a iterable yielding floats.
+        If errors is True, yerrors is set to sqrt(n) in each bin.
+        if include_uoflow is True, values under (over) the range are inserted in the first (last) bin.
+        """
         xmin, xmax = float(xmin), float(xmax)
         self.xmax = xmax
         self.x = [xmin + (xmax - xmin) / nbins * i for i in range(nbins)]
@@ -153,6 +158,16 @@ class plotdata:
         self.y = histo.get_values()
         self.yerrors = histo.get_uncertainties()
         self.xerrors = None
+    
+    
+    def histo(self):
+        """
+        Return current x,y data as :class:`theta_auto.Histogram` instance
+        """
+        ye = self.yerrors[:] if self.yerrors is not None else None
+        # note: copy all data!
+        return theta_auto.Histogram(self.x[0], self.xmax, self.y[:], ye, x_low = self.x[:])
+    
     
     # replace x, y and bands by a smoothed version, obtained by cubic interpolation
     # evaluated n times more points than original

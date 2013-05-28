@@ -13,19 +13,23 @@ for b, db in result['s']['beta_signal']:
     delta_bs.append(db)
     pulls.append((1 - b)/db)
     
-pd = plotdata()
-pd.histogram(bs, 0.0, 2.0, 30, include_uoflow = True)
-plot(pd, 'bs', 'ntoys', 'beta_signal.pdf')
+pdbs = plotdata()
+pdbs.histogram(bs, 0.0, 2.0, 30, include_uoflow = True)
+plot(pdbs, 'bs', 'ntoys', 'beta_signal.pdf')
 
-pd.histogram(delta_bs, 0.0, 1.0, 30, include_uoflow = True)
-plot(pd, 'dbs', 'ntoys', 'delta_beta_signal.pdf')
+pdd = plotdata()
+pdd.histogram(delta_bs, 0.0, 1.0, 30, include_uoflow = True)
+plot(pdd, 'dbs', 'ntoys', 'delta_beta_signal.pdf')
 
-
-pd.histogram(pulls, -3.0, 3.0, 100, include_uoflow = True)
-plot(pd, 'pull', 'ntoys', 'pull.pdf')
+pdp = plotdata()
+pdp.histogram(pulls, -3.0, 3.0, 100, include_uoflow = True)
+plot(pdp, 'pull', 'ntoys', 'pull.pdf')
     
 
 # to write the data to a file, use e.g.:
-#pd.write_txt('pull.txt')
+pdp.write_txt('pull.txt')
+
+# to write it to a root file:
+write_histograms_to_rootfile({'pull': pdp.histo(), 'bs': pdbs.histo(), 'delta_bs': pdd.histo()}, 'mle_histos.root')
     
 
