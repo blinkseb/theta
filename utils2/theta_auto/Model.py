@@ -761,6 +761,13 @@ class HistogramFunction:
     def get_minus_histo(self, par): return self.syst_histos[par][1]
     def get_factor(self, par): return self.factors[par]
     
+    def rebin(self, factor):
+        assert self.histrb[2] % factor == 0
+        self.nominal_histo = self.nominal_histo.rebin(factor)
+        for p in self.syst_histos:
+            self.syst_histos[p] = self.syst_histos[p][0].rebin(factor), self.syst_histos[p][1].rebin(factor)
+        self.histrb = self.histrb[0], self.histrb[1], self.histrb[2] / factor
+    
     def remove_parameter(self, par_name):
         assert par_name in self.parameters
         self.parameters.discard(par_name)

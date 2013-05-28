@@ -179,6 +179,13 @@ class TestSqlite(unittest.TestCase):
         self.assertEqual(len(res), 2)
         self.assertTrue('col1000' in res and 'col2000' in res)
         
+        
+        
+class TestModel(unittest.TestCase):
+    def test_rebin(self):
+        model = test_model.gaussoverflat(100, 1000)
+        model.rebin('obs', 2)
+        
 class TestRootModel(unittest.TestCase):
     
     @staticmethod
@@ -238,6 +245,7 @@ class TestRootModel(unittest.TestCase):
         self.assertEqual(model.processes, set(['s', 'b']))
         self.assertEqual(set(model.get_parameters(['s'])), set(['beta_signal']))
         self.assertEqual(set(model.observables.keys()), set(['chan1', 'chan2']))
+        
     
     def test_mc_uncertainties(self):
         model = build_model_from_rootfile(self.fn)
@@ -290,9 +298,9 @@ bayes = unittest.TestLoader().loadTestsFromTestCase(TestBayes)
 mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
 sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
-#alltests = unittest.TestSuite([mletests])
-#alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, mcmc, cls, sqlite])
-alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite])
+model = unittest.TestLoader().loadTestsFromTestCase(TestModel)
+#alltests = unittest.TestSuite([model])
+alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite, model])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)
