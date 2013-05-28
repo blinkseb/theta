@@ -307,7 +307,9 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
         if histo.bands is not None:
             for band in histo.bands:
                 if histo.bands_fill:
-                    ax.fill_between(histo.x, band[0], band[1], lw=histo.band_lw, facecolor=band[2], color=band[2])
+                    if len(band) > 3: c = band[3]
+                    else: c = band[2]
+                    ax.fill_between(histo.x, band[0], band[1], lw=histo.band_lw, facecolor=band[2], color=c)
                 else:
                     xs = histo.x + [x for x in reversed(histo.x)]
                     ys = band[0] + [y for y in reversed(band[1])]
@@ -346,7 +348,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                         #legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, lw=histo.lw), histo.legend))
                else:
                    ax.plot(new_x, new_y, histo.fmt, lw=histo.lw, color=histo.color)
-                   legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, lw=histo.lw, ls = histo.fmt), histo.legend))
+                   if histo.legend is not None: legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, lw=histo.lw, ls = histo.fmt), histo.legend))
                legend_added = True
             # if histo.yerrors is set, draw with errorbars, shifted by 1/2 binwidth ...
             if histo.yerrors is not None:
@@ -367,7 +369,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                     ax.plot(x_centers, ys, marker = histo.marker, markersize=histo.markersize, ls='None', mew = 0.0, mfc = histo.color)
                     ax.errorbar(x_centers, ys, yerrors, ecolor = histo.color, capsize = histo.capsize, lw = histo.lw, fmt = None)
                     if not legend_added:
-                        legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, marker=histo.marker, markevery=(1,10), mew=0.0, markersize=histo.markersize, lw=histo.lw), histo.legend))
+                        if histo.legend is not None: legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, marker=histo.marker, markevery=(1,10), mew=0.0, markersize=histo.markersize, lw=histo.lw), histo.legend))
                         legend_added = True
                 else:
                     new_x = [histo.x[0]]
@@ -379,14 +381,16 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                         new_y_high += [y + ye]*2
                     ax.fill_between(new_x, new_y_high, new_y_low, lw=histo.lw, color = histo.color, facecolor = histo.fill_color, alpha = histo.yerrors_fill_alpha)
                     if not legend_added:
-                        legend_items.append((histo.legend_order, matplotlib.patches.Rectangle((0, 0), 1, 1, fc=histo.fill_color, ec=histo.color, lw=histo.lw, alpha = histo.yerrors_fill_alpha), histo.legend))
+                        if histo.legend is not None: legend_items.append((histo.legend_order, matplotlib.patches.Rectangle((0, 0), 1, 1, fc=histo.fill_color, ec=histo.color, lw=histo.lw, alpha = histo.yerrors_fill_alpha), histo.legend))
                         legend_added = True
-        else:
+        else: # i.e. as_function:
             if histo.yerrors is not None:
                 if histo.yerrors_mode == 'bars':
                     lw = histo.lw
                     if histo.draw_line is False: lw = 0
-                    ax.errorbar(histo.x, histo.y, histo.yerrors, elinewidth = histo.lw, lw=lw, label=histo.legend, color=histo.color, marker=histo.marker, markersize=histo.markersize)                    
+                    larg = {}
+                    if histo.legend is not None: larg = {'label': histo.legend}
+                    ax.errorbar(histo.x, histo.y, histo.yerrors, elinewidth = histo.lw, lw=lw, color=histo.color, marker=histo.marker, markersize=histo.markersize, **larg)
                 elif histo.yerrors_mode == 'area':
                     y_high = [y + yerror for (y, yerror) in zip(histo.y, histo.yerrors)]
                     y_low = [y - yerror for (y, yerror) in zip(histo.y, histo.yerrors)]
@@ -398,7 +402,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                     ax.fill_between(histo.x, histo.y, [histo.fill_to_y] * len(histo.y), lw=histo.lw, label=histo.legend, color=histo.color, facecolor = histo.fill_color)
                 else:
                     ax.plot(histo.x, histo.y, histo.fmt, lw=histo.lw, color=histo.color, marker=histo.marker, markersize=histo.markersize)
-                    legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, ls = histo.fmt, lw=histo.lw), histo.legend))
+                    if histo.legend is not None: legend_items.append((histo.legend_order, matplotlib.lines.Line2D((0, 1, 2), (0, 0, 0), color=histo.color, ls = histo.fmt, lw=histo.lw), histo.legend))
     legend_items = [(h,l) for (o,h,l) in sorted(legend_items, cmp = lambda x,y: cmp(x[0], y[0]))]
     if draw_legend:
         handles, labels = ax.get_legend_handles_labels()

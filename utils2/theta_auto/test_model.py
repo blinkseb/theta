@@ -7,9 +7,10 @@ from Model import *
 # b_uncertainty is the absolute uncertainty on b.
 #
 # If s2 is not None, will return a model with two signal processes, "s" and "s2"
-def simple_counting(s, n_obs, b=0.0, b_uncertainty=0.0, s2 = None):
+def simple_counting(s, n_obs=None, b=0.0, b_uncertainty=0.0, s2 = None):
     model = Model()
-    model.set_data_histogram('obs', Histogram(0.0, 1.0, [float(n_obs)]))
+    if n_obs is not None:
+        model.set_data_histogram('obs', Histogram(0.0, 1.0, [float(n_obs)]))
     hf_s = HistogramFunction()
     hf_s.set_nominal_histo(Histogram(0.0, 1.0, [float(s)]))
     model.set_histogram_function('obs', 's', hf_s)
