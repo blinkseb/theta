@@ -609,7 +609,7 @@ def _signal_prior_dict(spec):
 # return Distribution object instead of dictionary
 def _signal_prior_dist(spec):
     if spec is None: spec = 'flat'
-    res = Distribution()
+    dist = Distribution()
     if spec.startswith('flat'):
         if spec.startswith('flat:'):
             res = re.match('flat:\[([^,]+),(.*)\]', spec)
@@ -620,11 +620,11 @@ def _signal_prior_dist(spec):
             xmin, xmax = 0.0, float("inf")
         value = 0.5 * (xmax - xmin)
         if value==float("inf"): value = 1.0
-        res.set_distribution('beta_signal', 'gauss', value, width = inf, range = [xmin, xmax])
+        dist.set_distribution('beta_signal', 'gauss', value, width = inf, range = [xmin, xmax])
     elif spec.startswith('fix:'):
         v = float(spec[4:])
-        res.set_distribution('beta_signal', 'gauss', mean = v, width = 0.0, range = [v,v])
-    return res
+        dist.set_distribution('beta_signal', 'gauss', mean = v, width = 0.0, range = [v,v])
+    return dist
 
 
 class DbResult(object):

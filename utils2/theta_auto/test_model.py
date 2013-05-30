@@ -26,6 +26,21 @@ def simple_counting(s, n_obs=None, b=0.0, b_uncertainty=0.0, s2 = None):
         if b_uncertainty > 0: model.add_lognormal_uncertainty('bunc', 1.0 * b_uncertainty / b, 'b')
     return model
     
+# 2 signals in 2 bins (one in each), modeled as one observable
+def counting_2signals(s1= 3.33, s2 = 10., nobs = [110.0, 120.0], b = [100.0, 100.0]):
+    model = Model()
+    model.set_data_histogram('obs', Histogram(0.0, 1.0, nobs))
+    hf_s = HistogramFunction()
+    hf_s.set_nominal_histo(Histogram(0.0, 1.0, [float(s1), 0.0]))
+    model.set_histogram_function('obs', 's1', hf_s)
+    hf_s = HistogramFunction()
+    hf_s.set_nominal_histo(Histogram(0.0, 1.0, [0.0, float(s2)]))
+    model.set_histogram_function('obs', 's2', hf_s)
+    model.set_signal_process_groups({'twos': {'beta1': ['s1'], 'beta2': ['s2']}})
+    hf_b = HistogramFunction()
+    hf_b.set_nominal_histo(Histogram(0.0, 1.0, b))
+    model.set_histogram_function('obs', 'b', hf_b)
+    return model
     
 # signals are the signal yields, backgrounds are the background yields
 # b_uncertainty1, b_uncertainty2 and b_uncertainty3 are either None or an array
@@ -80,6 +95,8 @@ def simple_counting_shape(s, n_obs, b=0.0, b_plus=0.0, b_minus=0.0):
     return model
 
 
+
+    
 # simple counting model with s signal events, no background, but an BB uncertainty on the signal of s_uncertainty (an absolute uncertainty)
 def simple_counting_bb(s, s_uncertainty, n_obs):
     model = Model()

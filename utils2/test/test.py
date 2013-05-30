@@ -54,6 +54,16 @@ class TestMle(unittest.TestCase):
         expected_chi2 = sum(map(lambda (mu, n): (mu - n)**2 / mu, zip(s, n_obs)))
         self.assertAlmostEqual(res['s']['__chi2'][0], expected_chi2, places = 1)
         
+        
+    def test_signal_prior(self):
+        res = mle(self.model_nobkg, 'toys:1.0', 10, signal_prior = 'flat:[0,1]')
+        bs = [x[0] for x in res['s']['beta_signal']]
+        self.assertTrue(all(map(lambda x: x<=1.0 and x>=0.0, bs)))
+        
+        res = mle(self.model_nobkg, 'toys:1.0', 10, signal_prior = 'fix:0.7')
+        bs = [x[0] for x in res['s']['beta_signal']]
+        self.assertTrue(all(map(lambda x: x<=0.7001 and x>=0.6999, bs)))
+        
     def test_cov(self):
         res = mle(self.model_bunc, 'toys-asimov:1.0', 1, with_covariance = True)
         self.assertTrue('s' in res)
@@ -184,7 +194,17 @@ class TestSqlite(unittest.TestCase):
 class TestModel(unittest.TestCase):
     def test_rebin(self):
         model = test_model.gaussoverflat(100, 1000)
+        mle(model, 'toys-asimov:1.0', 1)
         model.rebin('obs', 2)
+        mle(model, 'toys-asimov:1.0', 1)
+        
+    """
+    def test_2signals(self):
+        model = test_model.counting_2signals()
+        res = mle(model, 'data', 1, signal_prior = {'type': 'flat_distribution', 'beta1': {'range': [0, inf], 'fix-sample-value': 1.0}, 'beta2': {'range': [0, inf], 'fix-sample-value': 1.0}})
+        print res
+    """
+        
         
 class TestRootModel(unittest.TestCase):
     
@@ -299,7 +319,7 @@ mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
 sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
 model = unittest.TestLoader().loadTestsFromTestCase(TestModel)
-#alltests = unittest.TestSuite([model])
+#alltests = unittest.TestSuite([mletests])
 alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite, model])
 
 # verbose version:

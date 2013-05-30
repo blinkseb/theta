@@ -247,6 +247,7 @@ def cls_limits(model, use_data = True, signal_process_groups = None, nuisance_pr
             if data['index'][i] == 0: observed_limit[spid] = data['limit'][i], data['limit_uncertainty'][i]
             else: expected_limits[spid].append(data['limit'][i])
         expected_limits[spid].sort()
+        if len(expected_limits[spid])==0: del expected_limits[spid]
 
     spids = signal_process_groups.keys()
     x_to_sp = get_x_to_sp(spids)
