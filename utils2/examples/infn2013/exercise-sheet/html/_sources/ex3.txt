@@ -75,12 +75,10 @@ for b=5.2, n=6, the limits do not coincide.
 **3.d. Prior Sensitivity Analysis**
 One of the criticisms on the Bayesian method is the subjectiveness (arbitrariness) of the prior, especially for the prior of the parameter of interest (here: s or :math:`mu`).
 While one usually tries to use an "uninformed" prior which does not "prefer" apriori any particular values, this is still hard in practice: we used a flat prior in s in 3.a., but
-we could also have used a prior that is flat in sqrt(s) instead of flat in s. (This can be motivated e.g. if
-you want to measure a theory coupling strength with is proportional to sqrt(cross section) and you want to use a flat prior in this coupling, not in the cross section). A flat
-prior in sqrt(s) corresponds to a prior density in s which is proportional to s (again, this is an improper prior).
+we could also have used a prior that is flat in some other variable related to s, which could correspond to a prior proportional to s (again, this is an improper prior).
 
 By multiplying the posterior point-wise with the new (improper) prior :math:`p(s)=s`, calculate the updated posterior for the counting experiment
-with b=5.2, n=6; this is implemented in the method ``apply_linear_prior``.
+with b=5.2, n=6; this is implemented in the method ``apply_prior``.
 
 **Question**: How does the posterior (qualitatively) change when applying this prior; what is the new limit?
 

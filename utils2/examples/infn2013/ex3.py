@@ -79,7 +79,7 @@ def get95up(xpost, ypost):
 # 3.d.
 
 # updates the (x,y) posterior data by multiplying it with a prior p(x)=x
-def apply_linear_prior(x,y):
+def apply_prior(x,y):
     for i in range(len(x)):
         y[i] *= x[i]
 

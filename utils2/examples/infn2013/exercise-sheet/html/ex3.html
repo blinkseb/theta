@@ -109,11 +109,9 @@ for b=5.2, n=6, the limits do not coincide.</p>
 <p><strong>3.d. Prior Sensitivity Analysis</strong>
 One of the criticisms on the Bayesian method is the subjectiveness (arbitrariness) of the prior, especially for the prior of the parameter of interest (here: s or <img class="math" src="_images/math/6690e784718c1361117cfcd64ea7dbb49095d0d8.png" alt="mu"/>).
 While one usually tries to use an &#8220;uninformed&#8221; prior which does not &#8220;prefer&#8221; apriori any particular values, this is still hard in practice: we used a flat prior in s in 3.a., but
-we could also have used a prior that is flat in sqrt(s) instead of flat in s. (This can be motivated e.g. if
-you want to measure a theory coupling strength with is proportional to sqrt(cross section) and you want to use a flat prior in this coupling, not in the cross section). A flat
-prior in sqrt(s) corresponds to a prior density in s which is proportional to s (again, this is an improper prior).</p>
+we could also have used a prior that is flat in some other variable related to s, which could correspond to a prior proportional to s (again, this is an improper prior).</p>
 <p>By multiplying the posterior point-wise with the new (improper) prior <img class="math" src="_images/math/a375c99d16ddf3ff3fbe5b7ada32c3968d4bbada.png" alt="p(s)=s"/>, calculate the updated posterior for the counting experiment
-with b=5.2, n=6; this is implemented in the method <tt class="docutils literal"><span class="pre">apply_linear_prior</span></tt>.</p>
+with b=5.2, n=6; this is implemented in the method <tt class="docutils literal"><span class="pre">apply_prior</span></tt>.</p>
 <p><strong>Question</strong>: How does the posterior (qualitatively) change when applying this prior; what is the new limit?</p>
 </div>
 

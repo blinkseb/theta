@@ -80,7 +80,7 @@ def ex3d():
     plot_xy(x, y, 'post6_52-flatprior.pdf')
     l = get95up(x, y)
     print  "Bayesian limit for flat prior: %.3g" % l
-    apply_linear_prior(x, y)
+    apply_prior(x, y)
     l = get95up(x, y)
     plot_xy(x, y, 'post6_52-linearprior.pdf')
     print  "Bayesian limit for linear prior: %.3g" % l
@@ -88,6 +88,3 @@ def ex3d():
     
 #ex3d()
     
-
-
-
