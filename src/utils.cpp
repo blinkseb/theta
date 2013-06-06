@@ -29,16 +29,11 @@ std::string replace_theta_dir(const std::string & path) {
 
 void fill_theta_dir(char** argv){
     if(argv!=0){
-        // in case the path is absolute:
         fs::path guessed_self_path = argv[0];
-        if(fs::is_regular_file(guessed_self_path)){
-            theta_dir = fs::system_complete(guessed_self_path.parent_path().parent_path()).string();
-            return;
-        }
-        // in case it is relative:
-        guessed_self_path = fs::current_path() / argv[0];
-        if(fs::is_regular_file(guessed_self_path)){
-            theta_dir = fs::system_complete(guessed_self_path.parent_path().parent_path()).string();
+        boost::system::error_code ec;
+        fs::path binary_path = fs::canonical(argv[0], fs::current_path(), ec);
+        if(ec.value()==0){        
+            theta_dir = binary_path.parent_path().parent_path().string();
             return;
         }
     }
