@@ -20,6 +20,43 @@
 
 namespace fs = boost::filesystem;
 
+
+namespace{
+    
+// note: newer boost::filesystem versions have fs::path::canonical, but that's not available on
+// older boioist versions, so at least resolve "." and ".." in guessing theta_dir:
+fs::path resolve_dots(const fs::path & p){
+    std::vector<fs::path::const_iterator> components;
+    for(fs::path::iterator it=p.begin(); it!=p.end(); ++it){
+        if(it->string()=="."){
+            continue;
+        }
+        if(it->string()==".."){
+            // remove last component:
+            if(components.size() == 0){
+                throw std::invalid_argument("to many ..");
+            }
+            components.pop_back();
+            continue;
+        }
+        components.push_back(it);
+    }
+    fs::path result;
+    for(std::vector<fs::path::const_iterator>::const_iterator cit=components.begin(); cit!=components.end(); ++cit){
+        result /= **cit;
+    }
+    std::string ps = p.string();
+    if(ps.size()>0 && ps[ps.size()-1]=='/'){
+        result /= "/";
+    }
+    return result;
+}
+    
+    
+}
+
+
+
 namespace theta{ namespace utils{
 
 
@@ -30,10 +67,9 @@ std::string replace_theta_dir(const std::string & path) {
 void fill_theta_dir(char** argv){
     if(argv!=0){
         fs::path guessed_self_path = argv[0];
-        boost::system::error_code ec;
-        fs::path binary_path = fs::canonical(argv[0], fs::current_path(), ec);
-        if(ec.value()==0){        
-            theta_dir = binary_path.parent_path().parent_path().string();
+        if(fs::is_regular_file(guessed_self_path)){
+            fs::path cp = resolve_dots(fs::system_complete(guessed_self_path));
+            theta_dir = cp.parent_path().parent_path().string();
             return;
         }
     }
