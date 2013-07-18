@@ -22,16 +22,26 @@ namespace fs = boost::filesystem;
 
 
 namespace{
-    
+//note: these functions are useful to have compatibility
+// with both V2 and V3 of boost::filesystem
+// as in V2, path::filename returns a string whereas in
+// V3, path::filename returns a path.
+std::string to_string(const std::string & s){
+    return s;
+}
+std::string to_string(const fs::path & p){
+    return p.string();
+}
+
 // note: newer boost::filesystem versions have fs::path::canonical, but that's not available on
-// older boioist versions, so at least resolve "." and ".." in guessing theta_dir:
+// older boost versions, so at least resolve "." and ".." in guessing theta_dir:
 fs::path resolve_dots(const fs::path & p){
     std::vector<fs::path::const_iterator> components;
     for(fs::path::iterator it=p.begin(); it!=p.end(); ++it){
-        if(it->string()=="."){
+        if(to_string(*it)=="."){
             continue;
         }
-        if(it->string()==".."){
+        if(to_string(*it)==".."){
             // remove last component:
             if(components.size() == 0){
                 throw std::invalid_argument("to many ..");
@@ -51,8 +61,7 @@ fs::path resolve_dots(const fs::path & p){
     }
     return result;
 }
-    
-    
+
 }
 
 
