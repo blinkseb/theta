@@ -227,6 +227,8 @@ class plotdata:
         sio = StringIO.StringIO()
         self.write_txt(sio)
         return sio.getvalue()
+
+    def __repr__(self): return str(self)
     
     def read_txt(self, infile):
         """
