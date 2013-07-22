@@ -143,8 +143,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
         if _debug: print "note: did not find histogram %s in %s" % (hname, rf.get_filename())
         raise RuntimeError, "did not find histo"
     if _debug:
-        nominal_histogram_uoflow = rf.get_histogram(hname, include_uncertainties, include_uoflow = True)
-        print "norm(%s) = %.3f;  %.3f" % (hname, nominal_histogram.get_value_sum(), nominal_histogram_uoflow.get_value_sum())
+        print "norm(%s) = %.3f" % (hname, nominal_histogram.get_value_sum())
     # check that histogram in rootfile matches definition in datacard (allow deviations up to 1% / 1e-4 absolute):
     nominal_is_zero = False
     if old_nominal_histogram.get_value_sum() > 0.0 or nominal_histogram.get_value_sum() > 0.0:
@@ -179,10 +178,8 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             if _debug: print "note: did not find histogram %s in %s" % (hname_minus, rf.get_filename())
             raise RuntimeError, "did not find histo"
         if _debug:
-            histo_plus_uoflow = rf.get_histogram(hname_plus, include_uncertainties, include_uoflow = True)
-            histo_minus_uoflow = rf.get_histogram(hname_minus, include_uncertainties, include_uoflow = True)
-            print "norm(%s) = %.3f;  %.3f" % (hname_plus, histo_plus.get_value_sum(), histo_plus_uoflow.get_value_sum())
-            print "norm(%s) = %.3f;  %.3f" % (hname_minus, histo_minus.get_value_sum(), histo_minus_uoflow.get_value_sum())
+            print "norm(%s) = %.3f" % (hname_plus, histo_plus.get_value_sum())
+            print "norm(%s) = %.3f" % (hname_minus, histo_minus.get_value_sum())
             
         if rhandling == 'renormalize-lognormal':
             # make the rate uncertainty part of the coefficient function, i.e., normalize plus and minus histograms
@@ -446,29 +443,34 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     if '*' in shape_observables: shape_observables = set(channel_labels)
     data_done = set()
     searchpaths = ['.', os.path.dirname(fname)]
+    if _debug: print "adding shapes now ..."
     # loop over processes and observables:
     for icol in range(n_cols):
         obs = channels_for_table[icol]
+        if _debug: print "adding shape for channel '%s'" % obs
         if obs not in shape_observables: continue
         proc = processes_for_table[icol]
         found_matching_shapeline = False
         # try all lines in turn, until adding the shapes from that file succeeds:
         for l in shape_lines: # l = (process, channel, file, histogram, histogram_with_systematics)
             try:
+                if _debug: print "   shape line: %s" % str(l)
                 if l[1]!='*' and l[1]!=obs: continue
                 if obs not in data_done and l[0] in ('*', 'data_obs', 'DATA'):
-                    add_shapes(model, obs, 'DATA', {}, l[2], l[3], '', include_mc_uncertainties, searchpaths = searchpaths, variables = variables, rhandling = rmorph_method)
-                    data_done.add(obs)
+                    try:
+                        add_shapes(model, obs, 'DATA', {}, l[2], l[3], '', include_mc_uncertainties, searchpaths = searchpaths, variables = variables, rhandling = rmorph_method)
+                        data_done.add(obs)
+                    except RuntimeError: pass # ignore missing data
                 if l[0]!='*' and l[0]!=proc: continue
                 uncs = {}
                 if obs in shape_systematics: uncs = shape_systematics[obs].get(proc, {})
-                #print "adding shapes for channel %s, process %s, trying file %s, line %s" % (obs, proc, l[2], ' '.join(l))
+                if _debug: print "adding shapes for channel %s, process %s, trying file %s, line %s" % (obs, proc, l[2], ' '.join(l))
                 add_shapes(model, obs, proc, uncs, l[2], l[3], l[4], include_mc_uncertainties, searchpaths = searchpaths, variables = variables, rhandling = rmorph_method)
                 found_matching_shapeline = True
                 break
             except RuntimeError: pass
         if not found_matching_shapeline:
-            raise RuntimeError, "did not find the histogram for for channel '%s', process '%s'" % (obs, proc)
+            raise RuntimeError, "did not find the histogram for channel '%s', process '%s'" % (obs, proc)
     model.set_signal_processes([transform_name_to_theta(proc) for proc in signal_processes])
     if include_mc_uncertainties: model.bb_uncertainties = True
     return model
