@@ -587,14 +587,17 @@ def _signal_prior_dict(spec):
     if spec is None: spec = 'flat'
     if type(spec) == str:
         if spec.startswith('flat'):
+	    value = None
             if spec.startswith('flat:'):
-                res = re.match('flat:\[([^,]+),(.*)\]', spec)
+                res = re.match('flat:\[([^,]+),(.*)\](:.*)?', spec)
                 if res is None: raise RuntimeError, "signal_prior specification '%s' invalid (does not match range specification syntax)" % spec
                 xmin, xmax = float(res.group(1)), float(res.group(2))
+                svalue = res.group(3)
+		if svalue is not None: value = float(svalue[1:])
             else:
                 if spec!='flat': raise RuntimeError, "signal_prior specification '%s' invalid" % spec
                 xmin, xmax = 0.0, float("inf")
-            value = 0.5 * (xmax - xmin)
+            if value is None: value = 0.5 * (xmax - xmin)
             if value==float("inf"): value = 1.0
             signal_prior_dict = {'type': 'flat_distribution', 'beta_signal': {'range': [xmin, xmax], 'fix-sample-value': value}}
         elif spec.startswith('fix:'):
@@ -611,14 +614,17 @@ def _signal_prior_dist(spec):
     if spec is None: spec = 'flat'
     dist = Distribution()
     if spec.startswith('flat'):
+	value = None
         if spec.startswith('flat:'):
-            res = re.match('flat:\[([^,]+),(.*)\]', spec)
+            res = re.match('flat:\[([^,]+),(.*)\](:.*)?', spec)
             if res is None: raise RuntimeError, "signal_prior specification '%s' invalid (does not match range specification syntax)" % spec
             xmin, xmax = float(res.group(1)), float(res.group(2))
+            svalue = res.group(3)
+            if svalue is not None: value = float(svalue[1:])
         else:
             if spec!='flat': raise RuntimeError, "signal_prior specification '%s' invalid" % spec
             xmin, xmax = 0.0, float("inf")
-        value = 0.5 * (xmax - xmin)
+        if value is None: value = 0.5 * (xmax - xmin)
         if value==float("inf"): value = 1.0
         dist.set_distribution('beta_signal', 'gauss', value, width = inf, range = [xmin, xmax])
     elif spec.startswith('fix:'):

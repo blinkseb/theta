@@ -21,6 +21,7 @@ The provided functions in this module can be used to:
  
 As all of these methods make use of Markov-Chain Monte-Carlo, all the options in the "[mcmc]" section apply, discussed in :ref:`options_class`.
 
+
 Expected and observed limits
 ============================
 .. autofunction:: bayesian_limits

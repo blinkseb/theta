@@ -22,8 +22,9 @@ Many python methods in ``theta-auto`` have similar arguments:
    ``model.signal_process_groups``. See :ref:`what_is_signal` for details.
  * ``signal_prior`` is a string specifying the prior for beta_signal to use in the likelihood function. Valid values are
    - "fix:X", where X is the floating point value to fix beta_signal to
-   - "flat" for a flat prior on the interval [0, infinity]
-   - "flat:[X,Y]" where X, Y are floating point values (including "-inf", "inf") for a flat prior on the interval [X, Y]
+   - "flat" for a flat prior on the interval [0, infinity] and a default value of 1.0.
+   - "flat:[X,Y]" where X, Y are floating point values (including "-inf", "inf") for a flat prior on the interval [X, Y]. The default/start value is the mean of X and Y; in case of an infinite range, it is 1.0.
+   - "flat:[X,Y]:Z", as above, but use "Z" as the default value.
  * ``nuisance_constraint`` the :class:Distribution instance to use in the likelihood function for the nuisance parameters. The default value ``None`` will use ``model.distribution``,
    ``nuisance_constraint`` does not have to define a prior for all model parameters:
    if ``nuisance_constraint`` does not define a prior for a certain parameter, the one from ``model.distribution`` is used. This makes it easier to "partially override" ``model.distribution``

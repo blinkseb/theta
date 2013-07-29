@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 import config, os.path, math
 from theta_interface import *
+import likelihood
 import Report
 from utils import *
 
 
 
 def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_groups = None, nuisance_constraint = None, nuisance_prior_toys = None, signal_prior = 'flat',
-   options = None, parameter = 'beta_signal', iterations = 10000, run_theta = True, seed = 0):
+   options = None, parameter = 'beta_signal', iterations = 10000, run_theta = True, seed = 0, hint_method = 'asimov-ll'):
     """
     Compute bayesian posterior quantiles for a given ensemble
     
@@ -17,6 +18,9 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
     * ``iterations``: the number of iterations to use in the Markov-Chain Monte-Carlo algorithm
     * ``seed``: the random seed for the MCMC
     * ``run_theta``: if true, run theta locally. Otherwise, return the :class:`theta_auto.theta_interface.Run` objects
+    * ``hint_method`` controls the start point of the Markov-Chain in ``beta_signal``. If ``None``, the start value is chosen according to ``signal_prior`` (the
+      default "flat" means to use ``beta_signal=1.0``). The only other currently supported option is "asimov-ll" which uses the profile likelihood limit for asimov data as a starting point.
+      Note that 'asimov-ll' can only be used with flat signal priors.
     
     The return value depends on ``run_theta``: if ``True``, the return value is a dictionary::
     
@@ -39,8 +43,18 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
     colnames = ['quant__quant%05d' % int(q*10000 + 0.5) for q in quantiles] + ['quant__accrate']
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
-        p = QuantilesProducer(model, signal_processes, nuisance_constraint, signal_prior, parameter = parameter, quantiles = quantiles, iterations = iterations, seed = seed)
-        r = Run(model, signal_processes, signal_prior = signal_prior, input = input, n = n,
+        if hint_method == 'asimov-ll':
+            if not signal_prior.startswith('flat'): raise RuntimeError, "hint_method = 'asimov-ll' can only be used with flat priors on signal"
+            print "running profile likelihood as hint ..."
+            res = likelihood.pl_interval(model, 'toys-asimov:0.0', 1, cls = [0.9], signal_process_groups = {spid: signal_processes}, options = options, signal_prior = signal_prior)
+            hint = res[spid][0.9][0][1]
+            if ':' in signal_prior: my_signal_prior = '%s:%.3g' % (signal_prior, hint)
+            else: my_signal_prior = 'flat:[-inf,inf]:%.3g' % hint
+            print 'my_signal_prior: ', my_signal_prior
+        else:
+            my_signal_prior = signal_prior
+        p = QuantilesProducer(model, signal_processes, nuisance_constraint, my_signal_prior, parameter = parameter, quantiles = quantiles, iterations = iterations, seed = seed)
+        r = Run(model, signal_processes, signal_prior = my_signal_prior, input = input, n = n,
              producers = [p], nuisance_prior_toys = nuisance_prior_toys)
         if run_theta:
             r.run_theta(options)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from theta_auto.test_model import *
 
-#clean_workdir()
+clean_workdir()
 
 import unittest
 import time
@@ -161,7 +161,16 @@ class TestBayes(unittest.TestCase):
         quants1 = sorted(res1['s'][0.95])
         #print "real time elapsed: ", time0, time1
         #print "expected limits: ", quants0[len(quants0) / 2], quants1[len(quants1) / 2]
-        
+    
+    def test_bayesian_quantiles2(self):
+        model = simple_counting(s = 10000., n_obs = 11.0, b = 8.0, b_uncertainty = 2.0)
+        q0 = bayesian_quantiles(model, 'data', 100)
+        q0 = sorted(q0['s'][0.95])
+        q1 = bayesian_quantiles(model, 'data', 100, hint_method = None)
+        q1 = sorted(q1['s'][0.95])
+        #print "without hint:", q1
+        #print "with hint: ", q0
+    
         
     def test_bayesian_posterior_model_prediction(self):
         res = bayesian_posterior_model_prediction(self.model, 'data', 10)
@@ -319,7 +328,7 @@ mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
 sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
 model = unittest.TestLoader().loadTestsFromTestCase(TestModel)
-#alltests = unittest.TestSuite([mletests])
+#alltests = unittest.TestSuite([bayes])
 alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite, model])
 
 # verbose version:
