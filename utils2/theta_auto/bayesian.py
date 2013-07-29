@@ -45,12 +45,10 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
     for spid, signal_processes in signal_process_groups.iteritems():
         if hint_method == 'asimov-ll':
             if not signal_prior.startswith('flat'): raise RuntimeError, "hint_method = 'asimov-ll' can only be used with flat priors on signal"
-            print "running profile likelihood as hint ..."
             res = likelihood.pl_interval(model, 'toys-asimov:0.0', 1, cls = [0.9], signal_process_groups = {spid: signal_processes}, options = options, signal_prior = signal_prior)
             hint = res[spid][0.9][0][1]
             if ':' in signal_prior: my_signal_prior = '%s:%.3g' % (signal_prior, hint)
             else: my_signal_prior = 'flat:[-inf,inf]:%.3g' % hint
-            print 'my_signal_prior: ', my_signal_prior
         else:
             my_signal_prior = signal_prior
         p = QuantilesProducer(model, signal_processes, nuisance_constraint, my_signal_prior, parameter = parameter, quantiles = quantiles, iterations = iterations, seed = seed)
