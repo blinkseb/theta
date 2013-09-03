@@ -265,11 +265,11 @@ class ProducerBase(ModuleBase):
         self.override_distribution_cfg = None
         self.name = name
         if model is not None:
-            signal_prior_dist = _signal_prior_dist(signal_prior)
             parameters = set(model.get_parameters(signal_processes))
             if override_distribution is not None: dist = Distribution.merge(model.distribution, override_distribution)
             else: dist = model.distribution
             if 'beta_signal' in parameters:
+                signal_prior_dist = _signal_prior_dist(signal_prior)
                 dist = dist.copy()
                 dist = Distribution.merge(dist, signal_prior_dist)
                 self.override_distribution_cfg = dist.get_cfg(parameters)

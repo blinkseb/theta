@@ -48,7 +48,7 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
             res = likelihood.pl_interval(model, 'toys-asimov:0.0', 1, cls = [0.9], signal_process_groups = {spid: signal_processes}, options = options, signal_prior = signal_prior)
             hint = res[spid][0.9][0][1]
             if ':' in signal_prior: my_signal_prior = '%s:%.3g' % (signal_prior, hint)
-            else: my_signal_prior = 'flat:[-inf,inf]:%.3g' % hint
+            else: my_signal_prior = 'flat:[0,inf]:%.3g' % hint
         else:
             my_signal_prior = signal_prior
         p = QuantilesProducer(model, signal_processes, nuisance_constraint, my_signal_prior, parameter = parameter, quantiles = quantiles, iterations = iterations, seed = seed)
@@ -119,15 +119,17 @@ def bayesian_limits(model, what = 'all', input_expected = 'toys:0', **options):
     """
     if 'n' in options: del options['n']
     if 'input' in options: del options['input']
-    n = options.get('n_toy', 1000)
+    n_toy = options.get('n_toy', 1000)
+    n_data = options.get('n_data', 10)
+    if 'n_toy' in options: del options['n_toy']
+    if 'n_data' in options: del options['n_data']
     plot_expected, plot_observed = None, None
     if what in ('expected', 'all'):
-        expected_limits = bayesian_quantiles(model, input = input_expected, n = n, **options)
+        expected_limits = bayesian_quantiles(model, input = input_expected, n = n_toy, **options)
         plot_expected = limit_band_plot(expected_limits, True)
     if what in ('observed', 'all'):
         assert model.has_data()
-        n = options.get('n_data', 10)
-        observed_limits = bayesian_quantiles(model, input = 'data', n = n, **options)
+        observed_limits = bayesian_quantiles(model, input = 'data', n = n_data, **options)
         plot_observed = limit_band_plot(observed_limits, False)
     # catch the case where the routines return None (e.g., if run_theta = False)
     report_limit_band_plot(plot_expected, plot_observed, 'Bayesian', 'bayesian')

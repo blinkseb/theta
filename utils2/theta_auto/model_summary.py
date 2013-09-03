@@ -6,7 +6,7 @@ from Model import *
 import plotutil
 import utils
 
-def model_summary(model, create_plots = True, all_nominal_templates = False, shape_templates = False, lnmode = 'sym'):
+def model_summary(model, create_plots = True, all_nominal_templates = False, shape_templates = False, lnmode = 'sym', plotargs = {}, dump_histos = False):
     """
     Write a html summary of the statistical model to the ``report`` object (see :ref:`report`).
     
@@ -193,7 +193,7 @@ def model_summary(model, create_plots = True, all_nominal_templates = False, sha
     model_summary_nuisance(model.distribution, os.path.join(config.workdir, "model_summary_nuisance.thtml"))
 
     # figures:
-    if create_plots: model_plots(model, all_nominal_templates = all_nominal_templates, shape_templates = shape_templates)
+    if create_plots: model_plots(model, all_nominal_templates = all_nominal_templates, shape_templates = shape_templates, plotargs = plotargs, dump_histos = dump_histos)
 
     # build the index.html:
     config.report.new_section('General Model Info', file(os.path.join(config.workdir, 'model_summary_general.thtml')).read())
@@ -238,7 +238,7 @@ def model_summary_nuisance(dist, fname):
     print >> f, t.html()
     f.close()
     
-    
+"""
 # creates plots at certain parameter values
 def model_plots_at(model, par_values, signal_stacked = False):
     plotdir = os.path.join(config.workdir, 'plots')
@@ -306,12 +306,12 @@ def model_plots_at(model, par_values, signal_stacked = False):
         plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack%s.png' % (o, h)), xmin=xmin, xmax=xmax)
         text += "<p>Observable '%s':<br /><img src=\"plots/%s_stack%s.png\" /></p>" % (o, o, h)
     config.report.new_section('Model Plots at parameter values', text)
-       
+"""    
     
 
 # creates plots and model_plots.thtml
 # observable units is a dictionary (observable name) --> (caption to use for plots)
-def model_plots(model, all_nominal_templates = False, shape_templates = False):
+def model_plots(model, all_nominal_templates = False, shape_templates = False, plotargs = {}, dump_histos = False):
     plotdir = os.path.join(config.workdir, 'plots')
     observables = sorted(list(model.observables.keys()))
     processes = sorted(list(model.processes))
@@ -367,10 +367,11 @@ def model_plots(model, all_nominal_templates = False, shape_templates = False):
         plotutil.make_stack(background_pds)
         plots = background_pds + signal_pds
         if data_pd is not None: plots.append(data_pd)
-        plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack.png' % o), xmin=xmin, xmax=xmax)
+        plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack.png' % o), xmin=xmin, xmax=xmax, **plotargs)
         print >> f, "<p>Observable '%s':<br /><img src=\"plots/%s_stack.png\" /></p>" % (o, o)
        
     if all_nominal_templates:
+        if dump_histos: df = open('dump.txt', 'w')
         print >> f, "<h2>All 'nominal' Templates</h2>"
         print >> f, "<p>Everything normalized to expectation, i.e., to the normalization in the template input file, possibly scaled via the python script file.</p>"
         for o in observables:
@@ -384,7 +385,7 @@ def model_plots(model, all_nominal_templates = False, shape_templates = False):
                 pd.y = data[:]
                 pd.color = signal_colors[0]
                 xlabel = o
-                plotutil.plot([pd], xlabel, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_%s.png' % (o, p)), xmin=xmin, xmax=xmax)
+                plotutil.plot([pd], xlabel, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_%s.png' % (o, p)), xmin=xmin, xmax=xmax, **plotargs)
                 print >> f, '<p>Observable "%s", Process "%s":<br/><img src="plots/%s_%s.png"/></p>' % (o, p, o, p)
             # make also one plot with all signal processes, and normalization versus ordering:
             pd_norm = plotutil.plotdata()
@@ -399,6 +400,15 @@ def model_plots(model, all_nominal_templates = False, shape_templates = False):
                 if p not in model.signal_processes: continue
                 hf = model.get_histogram_function(o,p)
                 if hf is None: continue
+                if dump_histos:
+                    h = hf.get_nominal_histo()
+                    df.write('\n')
+                    df.write('%s %s\n' % (o, p))
+                    df.write(' '.join(['%.3f' % n for n in h.get_values()]))
+                    df.write('\n')
+                    if h.get_uncertainties() is not None:
+                        df.write(' '.join(['%.3f' % n for n in h.get_uncertainties()]))
+                        df.write('\n')
                 xmin, xmax, data = hf.get_nominal_histo()
                 x_to_y[utils.extract_number(p)] = sum(data)
                 binwidth = (xmax - xmin) / len(data)
@@ -411,8 +421,8 @@ def model_plots(model, all_nominal_templates = False, shape_templates = False):
             for x in sorted(x_to_y.keys()):
                 pd_norm.x.append(x)
                 pd_norm.y.append(x_to_y[x])
-            plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_signals.png' % o), xmin=xmin, xmax=xmax)
-            plotutil.plot([pd_norm], 'signal process', '$N$', os.path.join(plotdir, '%s_norm_vs_signals.png' % o))
+            plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_signals.png' % o), xmin=xmin, xmax=xmax, **plotargs)
+            plotutil.plot([pd_norm], 'signal process', '$N$', os.path.join(plotdir, '%s_norm_vs_signals.png' % o), **plotargs)
             print >> f, '<p>Observable "%s", all signals: <br/><img src="plots/%s_signals.png"/></p>' % (o, o)
             print >> f, '<p>Observable "%s", signal normalization: <br/><img src="plots/%s_norm_vs_signals.png"/></p>' % (o, o)
     # (end if all_nominal_templates)
