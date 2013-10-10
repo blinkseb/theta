@@ -81,6 +81,13 @@ def add_entry(d, *l):
 
 
 
+# Exception class used to indicate that something was not found (e.g. file or histogram wityin the file)
+class NotFoundException(RuntimeError): pass
+
+# Exception class to indicate that some real inconsistency has been found; the program should probably be aborted:
+class InconsistentDataException(RuntimeError): pass
+
+
 
 # This method replaces the one-bin data-histogram of the model predictions for the given
 # observable and process by a morphing histogram function using the root histogram from filename.
@@ -110,7 +117,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             if os.path.isfile(os.path.join(s, filename)):
                 path = s
                 break
-        if path is None: raise RuntimeError, "did not find file '%s' in the paths %s" % (filename, str(searchpaths))
+        if path is None: raise NotFoundException, "did not find file '%s' in the paths %s" % (filename, str(searchpaths))
         add_shapes_rootfiles[filename] = rootfile(os.path.join(path, filename))
     rf = add_shapes_rootfiles[filename]
     theta_obs = transform_name_to_theta(obs)
@@ -128,7 +135,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             histo = rf.get_histogram(hname_tmp, include_uncertainties = False)
         if histo is None:
             if _debug: print "note: did not find data histogram in %s" % rf.get_filename()
-            raise RuntimeError, "did not find histo"
+            raise NotFoundException, "did not find histo"
         model.set_data_histogram(theta_obs, histo, reset_binning = True)
         return
     hf = model.get_histogram_function(theta_obs, theta_proc)
@@ -141,14 +148,15 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
     nominal_histogram = rf.get_histogram(hname, include_uncertainties = include_uncertainties)
     if nominal_histogram is None:
         if _debug: print "note: did not find histogram %s in %s" % (hname, rf.get_filename())
-        raise RuntimeError, "did not find histo"
+        raise NotFoundException, "did not find histo"
     if _debug:
         print "norm(%s) = %.3f" % (hname, nominal_histogram.get_value_sum())
     # check that histogram in rootfile matches definition in datacard (allow deviations up to 1% / 1e-4 absolute):
     nominal_is_zero = False
     if old_nominal_histogram.get_value_sum() > 0.0 or nominal_histogram.get_value_sum() > 0.0:
         if utils.reldiff(old_nominal_histogram.get_value_sum(), nominal_histogram.get_value_sum()) > 0.01 and abs(old_nominal_histogram.get_value_sum() - nominal_histogram.get_value_sum()) > 1e-4:
-            raise RuntimeError, "add_shapes: histogram normalisation given in datacard and from root file differ by more than >1% (and absolute difference is > 1e-4)"
+            raise InconsistentDataException("add_shapes: histogram normalisation given in datacard and from root file differ by more than 1%% "
+                         "(and absolute difference is > 1e-4) for channel %s, process %s (histogram name '%s')" % (obs, proc, hname))
     else:
         print "WARNING: channel '%s' process '%s': yield is 0. Process will ALWAYS have 0 contribution; please delete it from datacard." % (obs, proc)
         nominal_is_zero = True
@@ -172,11 +180,11 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
         histo_plus = rf.get_histogram(hname_plus, include_uncertainties = include_uncertainties)
         if histo_plus is None:
             if _debug: print "note: did not find histogram %s in %s" % (hname_plus, rf.get_filename())
-            raise RuntimeError, "did not find histo"
+            raise NotFoundException, "did not find histo"
         histo_minus = rf.get_histogram(hname_minus, include_uncertainties = include_uncertainties)
         if histo_minus is None:
             if _debug: print "note: did not find histogram %s in %s" % (hname_minus, rf.get_filename())
-            raise RuntimeError, "did not find histo"
+            raise NotFoundException, "did not find histo"
         if _debug:
             print "norm(%s) = %.3f" % (hname_plus, histo_plus.get_value_sum())
             print "norm(%s) = %.3f" % (hname_minus, histo_minus.get_value_sum())
@@ -468,9 +476,9 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
                 add_shapes(model, obs, proc, uncs, l[2], l[3], l[4], include_mc_uncertainties, searchpaths = searchpaths, variables = variables, rhandling = rmorph_method)
                 found_matching_shapeline = True
                 break
-            except RuntimeError: pass
+            except NotFoundException: pass # ignore the case that some histo has not been found for now; raise a RuntimeError later if no line matched
         if not found_matching_shapeline:
-            raise RuntimeError, "did not find the histogram for channel '%s', process '%s'" % (obs, proc)
+            raise RuntimeError, "Did not find all the (nominal / systematics) histogram for channel '%s', process '%s'" % (obs, proc)
     model.set_signal_processes([transform_name_to_theta(proc) for proc in signal_processes])
     if include_mc_uncertainties: model.bb_uncertainties = True
     return model
