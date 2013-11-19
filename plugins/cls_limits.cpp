@@ -807,16 +807,20 @@ cls_limits::cls_limits(const Configuration & cfg): vm(cfg.pm->get<VarIdManager>(
         if(s.exists("expected_bands")){
             expected_bands = s["expected_bands"];
         }
+        
+        // for data_source and data_source_expected: redirect the products of these to
+        //   nowhere:
+        boost::shared_ptr<ProductsSink> sink = cfg.pm->get<ProductsSink>();
+        cfg.pm->set("default", boost::shared_ptr<ProductsSink>(new BlackholeProductsSink()));
         if(s.exists("data_source")){
-            boost::shared_ptr<ProductsSink> sink = cfg.pm->get<ProductsSink>();
-            cfg.pm->set("default", boost::shared_ptr<ProductsSink>(new BlackholeProductsSink()));
             data_source = PluginManager<DataSource>::build(Configuration(cfg, s["data_source"]));
-            cfg.pm->set("default", sink);
             data_source->fill(data_source_data);
         }
         if(s.exists("data_source_expected")){
             data_source_expected = PluginManager<DataSource>::build(Configuration(cfg, s["data_source_expected"]));
         }
+        cfg.pm->set("default", sink);
+        
         if(s.exists("reltol_limit")) reltol_limit = s["reltol_limit"];
         if(s.exists("limit_hint")){
             limit_hint.first = s["limit_hint"][0];

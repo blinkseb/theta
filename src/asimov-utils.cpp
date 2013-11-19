@@ -153,7 +153,6 @@ ParValues get_widths(const ParValues & start, const Ranges & ranges, const theta
                         std::swap(flow, fhigh);
                     }
                     theta_assert(xlow <= xhigh);
-                    //double sol = secant(xlow, xhigh, 0.0, flow, fhigh, 0.05, f);
                     double sol = brent(f, xlow, xhigh, 0.0, flow, fhigh, 0.05);
                     result.set(pid, fabs(pid_mode - sol));
                     found = true;

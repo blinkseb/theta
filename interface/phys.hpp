@@ -71,7 +71,7 @@ namespace theta {
     protected:
         /** \brief The parameters this function depends on
          *
-         * Has to be set by derived classes in thewir constructor
+         * Has to be set by derived classes in their constructor
          */
         ParIds par_ids;
         

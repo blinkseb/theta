@@ -31,7 +31,12 @@ void mle::produce(const theta::Data & data, const theta::Model & model) {
         const Distribution & d = nll->get_parameter_distribution();
         ranges.set_from(d);
         d.mode(start);
-        step.set(asimov_likelihood_widths(model, override_parameter_distribution));
+        try{
+           step.set(asimov_likelihood_widths(model, override_parameter_distribution));
+        }
+        catch(const Exception & ex){
+           throw logic_error("mle: could not initialize step size with asimov likelihood widths: " + ex.message);
+        }
         start_step_ranges_init = true;
     }
     MinimizationResult minres = minimizer->minimize(*nll, start, step, ranges);

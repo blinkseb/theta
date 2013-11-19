@@ -329,7 +329,7 @@ class PosteriorProducer(ProducerBase):
     def get_cfg(self, options):
         result = {'type': 'mcmc_posterior_histo', 'iterations': self.iterations, 'smooth': self.smooth, 'parameters': self.histogram_specs.keys()}
         for (p, (nbins, xmin, xmax)) in self.histogram_specs.iteritems():
-            result['histo_%s' % p] = {'range': [xmin, xmax], 'nbins': nbins}
+            result['histo_%s' % p] = {'range': [float(xmin), float(xmax)], 'nbins': nbins}
         result.update(self.get_cfg_base(options))
         return result
     

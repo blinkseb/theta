@@ -204,41 +204,49 @@ sqlite_database::sqlite_table::~sqlite_table(){
     if(not table_created) create_table();
 }
 
-//NOTE: If coding for multiple threads accessing a single sqlite database,
-// we would have to do explicit locking between the insert statement execution
-// and this function call to ensure that we get the correct id here.
 
 void sqlite_database::sqlite_table::add_row(const Row & row){
     if(not table_created) create_table();
     const size_t n_tables = insert_statements.size();
     theta_assert(n_tables > 0);
-    map<Column, column_info>::const_iterator column_it = column_infos.begin();
     for(size_t itable=0; itable < n_tables; ++itable){
+        map<Column, column_info>::const_iterator column_it = column_infos.begin();
         int icol = 0; // 0-based index of the column in the current table
-        for(; icol < db->maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
-            if(column_it->second.type == typeDouble){
-                sqlite3_bind_double(insert_statements[itable], icol+1, row.get_column_double(column_it->first));
+        try{// try for catching missing data in the row
+            for(; icol < db->maxcol_per_table && column_it != column_infos.end(); ++icol, ++column_it){
+                if(column_it->second.type == typeDouble){
+                    sqlite3_bind_double(insert_statements[itable], icol+1, row.get_column_double(column_it->first));
+                }
+                else if(column_it->second.type == typeInt){
+                    sqlite3_bind_int(insert_statements[itable], icol+1, row.get_column_int(column_it->first));
+                }
+                else if(column_it->second.type == typeString){
+                    const string & s = row.get_column_string(column_it->first);
+                    sqlite3_bind_text(insert_statements[itable], icol+1, s.c_str(), s.size(), SQLITE_TRANSIENT);
+                }
+                else if(column_it->second.type == typeHisto){
+                    const Histogram1D & h = row.get_column_histogram(column_it->first);
+                    boost::scoped_array<double> blob_data(new double[h.get_nbins()+4]);
+                    blob_data[0] = h.get_xmin();
+                    blob_data[1] = h.get_xmax();
+                    //set underflow to 0.0:
+                    blob_data[2] = 0.0;
+                    std::copy(h.get_data(), h.get_data() + h.size(), &blob_data[3]);
+                    //set overflow to 0.0:
+                    blob_data[h.get_nbins()+3] = 0.0;
+                    size_t nbytes = sizeof(double) * (h.get_nbins() + 4);
+                    sqlite3_bind_blob(insert_statements[itable], icol+1, &blob_data[0], nbytes, SQLITE_TRANSIENT);
+                }
             }
-            else if(column_it->second.type == typeInt){
-                sqlite3_bind_int(insert_statements[itable], icol+1, row.get_column_int(column_it->first));
+        }
+        catch(DatabaseException & ex){ 
+            stringstream ss;
+            ss << "error '" << ex.message << "' in sqlite_table::add_row";
+            if(column_it != column_infos.end()){
+                ss << " icol = " << icol << " column name: " << column_it->second.name;
             }
-            else if(column_it->second.type == typeString){
-                const string & s = row.get_column_string(column_it->first);
-                sqlite3_bind_text(insert_statements[itable], icol+1, s.c_str(), s.size(), SQLITE_TRANSIENT);
-            }
-            else if(column_it->second.type == typeHisto){
-                const Histogram1D & h = row.get_column_histogram(column_it->first);
-                boost::scoped_array<double> blob_data(new double[h.get_nbins()+4]);
-                blob_data[0] = h.get_xmin();
-                blob_data[1] = h.get_xmax();
-                //set underflow to 0.0:
-                blob_data[2] = 0.0;
-                std::copy(h.get_data(), h.get_data() + h.size(), &blob_data[3]);
-                //set overflow to 0.0:
-                blob_data[h.get_nbins()+3] = 0.0;
-                size_t nbytes = sizeof(double) * (h.get_nbins() + 4);
-                sqlite3_bind_blob(insert_statements[itable], icol+1, &blob_data[0], nbytes, SQLITE_TRANSIENT);
-            }
+            ex.message = ss.str();
+            throw ex;
         }
         int res = sqlite3_step(insert_statements[itable]);
         sqlite3_reset(insert_statements[itable]);
