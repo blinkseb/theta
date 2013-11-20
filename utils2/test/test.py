@@ -206,15 +206,40 @@ class TestModel(unittest.TestCase):
         mle(model, 'toys-asimov:1.0', 1)
         model.rebin('obs', 2)
         mle(model, 'toys-asimov:1.0', 1)
+
+class TestPriorUncertainty(unittest.TestCase):
+    def test_pu(self):
+        model = test_model.multichannel_counting([0., 0.], backgrounds = [1000., 2000.], b_uncertainty1 = [0.1, 0.1])
+        res = prior_uncertainty(model)
+        mean0, unc0 = res['s']['obs0']['ntot']
+        mean1, unc1 = res['s']['obs1']['ntot']
+        self.assertTrue((mean0 - 1000.) < 20.)
+        self.assertTrue((mean1 - 2000.) < 40.)
+        # the uncertainty should be about sqrt(1000) + 10% (quadratically added) for
+        # obs0 and sqrt(2000) + 10% for obs1:
+        unc0_expected = math.sqrt(1000. + (100.)**2)
+        unc1_expected = math.sqrt(2000. + (200.)**2)
+        self.assertLess(abs(1 - unc0 / unc0_expected), 0.1)
+        self.assertLess(abs(1 - unc1 / unc1_expected), 0.1)
+
+        hist0 = res['s']['obs0']['hist']
+        hist1 = res['s']['obs1']['hist']
+        self.assertAlmostEqual(hist0.get_values()[0], mean0, 2)
+        self.assertAlmostEqual(hist0.get_uncertainties()[0], unc0, 2)
+        self.assertAlmostEqual(hist1.get_values()[0], mean1, 2)
+        self.assertAlmostEqual(hist1.get_uncertainties()[0], unc1, 2)
+
+        # now the prior uncertainty *without* statistical uncertainties, but including systematic ones.
+        # Note that 'toys-asimov' as default does not vary systematics, so we have to switch that on again by explicitly setting nuisance_prior_toys ...
+        res = prior_uncertainty(model, input = 'toys-asimov:0.0', nuisance_prior_toys = model.distribution)
+        mean0, unc0 = res['s']['obs0']['ntot']
+        mean1, unc1 = res['s']['obs1']['ntot']
+        unc0_expected = 100.
+        unc1_expected = 200.
+        self.assertLess(abs(1 - unc0 / unc0_expected), 0.1)
+        self.assertLess(abs(1 - unc1 / unc1_expected), 0.1)
         
-    """
-    def test_2signals(self):
-        model = test_model.counting_2signals()
-        res = mle(model, 'data', 1, signal_prior = {'type': 'flat_distribution', 'beta1': {'range': [0, inf], 'fix-sample-value': 1.0}, 'beta2': {'range': [0, inf], 'fix-sample-value': 1.0}})
-        print res
-    """
-        
-        
+
 class TestRootModel(unittest.TestCase):
     
     @staticmethod
@@ -328,8 +353,9 @@ mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
 sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
 model = unittest.TestLoader().loadTestsFromTestCase(TestModel)
-#alltests = unittest.TestSuite([bayes])
-alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite, model])
+pu = unittest.TestLoader().loadTestsFromTestCase(TestPriorUncertainty)
+#alltests = unittest.TestSuite([pu])
+alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite, model, pu])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)
@@ -339,3 +365,4 @@ res = unittest.TextTestRunner(verbosity=2).run(alltests)
 #res = unittest.TextTestRunner(stream = f, descriptions = False, verbosity=0).run(alltests)
 
 print "Failures=%d" % len(res.failures + res.errors)
+

@@ -53,8 +53,9 @@ def get_bootstrapped_model(model, options = None, verbose = False):
     
 def make_data(model, input, n, signal_process_groups = None, nuisance_prior_toys = None, options = None, seed = None):
     """
-    Make toys data and save it to a file. This is useful to run different statistical models on the exact same data or for completely
-    decoupling the model used for toys from the model used for statistical inference.
+    Make (toy) data according to the 'input' parameter and save the resulting toy data histograms 
+    to a file. This toy data can then be used as 'input' to another method. So this method
+    allows to run a statistical method on an ensemble produced in a completely different way.
     
     Returns a dictionary with the signal process group id as key and the
     path to the .db file in which the toy data has been saved as value. This path
@@ -68,6 +69,43 @@ def make_data(model, input, n, signal_process_groups = None, nuisance_prior_toys
              producers = [PDWriter()], nuisance_prior_toys = nuisance_prior_toys, seed = seed)
         r.run_theta(options)
         result[spid] = r.get_db_fname()
+    return result
+
+def prior_uncertainty(model, input = 'toys:0.0', n = 1000, signal_process_groups = None, nuisance_prior_toys = None, options = None, seed = None):
+    """
+    Make an ensemble of toy data (similar to :meth:`make_data`), and return the mean and standard deviation
+    of the prediction both in each bin and for the total number of events. The two parameters controlling how
+    toys are performed are ``input`` and ``nuisance_prior_toys``, and this will define how to interpret the uncertainty.
+    For the default values, the result includes both the statistical and the systematic uncertainties.
+    
+    Returns a nested dictionary with the following keys
+       * ``spid``, the signal process id
+       * ``obsid``, the name of the channel
+       * either "ntot" or "hist". For "ntot" the value is a two-tuple ``(mean, sigma)``. For "hist", the value is a :class:`Histogram` with uncertainties.
+
+    Note that quadratically adding the uncertainties of all bins in the histogram
+    is not the same as the total uncertainty reported in "ntot", as the quadratic sum neglects correlations across bins which are included
+    in "ntot", but not reported in "hist".
+    """
+    if signal_process_groups is None: signal_process_groups = model.signal_process_groups
+    if options is None: options = Options()
+    result = {}
+    for spid, signal_processes in signal_process_groups.iteritems():
+        pdw = PDWriter()
+        r = Run(model, signal_processes, signal_prior = 'flat', input = input, n = n,
+             producers = [pdw], nuisance_prior_toys = nuisance_prior_toys, seed = seed)
+        r.run_theta(options)
+        columns = []
+        observables = list(model.observables)
+        for obsid in observables:
+             columns.append('pdw__n_events_%s' % obsid)
+             columns.append('pdw__data_%s' % obsid)
+        res = r.get_products(columns)
+        result[spid] = {}
+        for i, obsid in enumerate(observables):
+            result[spid][obsid] = {}
+            result[spid][obsid]['ntot'] = get_mean_width(res['pdw__n_events_%s' % obsid])
+            result[spid][obsid]['hist'] = get_mean_width_hist(map(histogram_from_dbblob, res['pdw__data_%s' % obsid]))
     return result
 
 

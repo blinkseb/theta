@@ -5,6 +5,7 @@ import Model
 from plotutil import *
 import Report
 import numpy.linalg
+import numpy
 
 inf = float("inf")
 cl_1sigma = 0.68268949213708585
@@ -92,14 +93,31 @@ def transform_name_to_theta(name):
     if result[0] >= '0' and result[0] <= '9' or result[0]=='-': result = 'tn_' + result
     return result
 
-# get mean and rms estimate from list l:
+# get mean and rms estimate from list of floats l:
 def get_mean_width(l):
-   n = len(l) * 1.0
+   n = len(l)
    assert n > 0
-   mean = sum(l) / n
+   mean = sum(l) * 1.0/ n
    if n == 1: width = float('inf')
    else: width = math.sqrt(sum([(x - mean)**2 for x in l]) / (n-1))
    return mean, width
+
+
+# get per-bin means and widths from list of Histograms l, as Histogram:
+def get_mean_width_hist(l):
+   n = len(l)
+   assert(n > 0)
+   xmin, xmax = l[0].get_xmin(), l[0].get_xmax()
+   s = numpy.array(l[0].get_values())
+   s2 = s**2
+   for h in l[1:]:
+      vals = numpy.array(h.get_values())
+      s += vals
+      s2 += vals**2
+   mean = s / float(n)
+   width = numpy.sqrt(n / float(n-1) * (s2/float(n) - mean**2))
+   return Model.Histogram(xmin, xmax, mean, width)
+
 
 # get truncated mean / width similar to MarkovChainMC method from combine:
 def get_trunc_mean_width(l):
