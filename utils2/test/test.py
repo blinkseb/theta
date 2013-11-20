@@ -207,12 +207,16 @@ class TestModel(unittest.TestCase):
         model.rebin('obs', 2)
         mle(model, 'toys-asimov:1.0', 1)
 
-class TestPriorUncertainty(unittest.TestCase):
-    def test_pu(self):
-        model = test_model.multichannel_counting([0., 0.], backgrounds = [1000., 2000.], b_uncertainty1 = [0.1, 0.1])
-        res = prior_uncertainty(model)
-        mean0, unc0 = res['s']['obs0']['ntot']
-        mean1, unc1 = res['s']['obs1']['ntot']
+class TestGetData(unittest.TestCase):
+
+    def setUp(self):
+        self.model = test_model.multichannel_counting([0., 0.], backgrounds = [1000., 2000.], b_uncertainty1 = [0.1, 0.1])
+
+    def test_gd(self):
+        res = make_data(self.model, 'toys:0.0', 1000, retval = 'data')
+        # get info about total yields:
+        mean0, unc0 = get_mean_width([h.get_value_sum() for h in res['s']['obs0']])
+        mean1, unc1 = get_mean_width([h.get_value_sum() for h in res['s']['obs1']])
         self.assertTrue((mean0 - 1000.) < 20.)
         self.assertTrue((mean1 - 2000.) < 40.)
         # the uncertainty should be about sqrt(1000) + 10% (quadratically added) for
@@ -222,22 +226,43 @@ class TestPriorUncertainty(unittest.TestCase):
         self.assertLess(abs(1 - unc0 / unc0_expected), 0.1)
         self.assertLess(abs(1 - unc1 / unc1_expected), 0.1)
 
-        hist0 = res['s']['obs0']['hist']
-        hist1 = res['s']['obs1']['hist']
+        # this is how one would get the per-bin uncertainties from the histogrm list:
+        hist0 = get_mean_width_hist(res['s']['obs0'])
+        hist1 = get_mean_width_hist(res['s']['obs1'])
         self.assertAlmostEqual(hist0.get_values()[0], mean0, 2)
         self.assertAlmostEqual(hist0.get_uncertainties()[0], unc0, 2)
         self.assertAlmostEqual(hist1.get_values()[0], mean1, 2)
         self.assertAlmostEqual(hist1.get_uncertainties()[0], unc1, 2)
 
+    def test_no_poisson(self):
         # now the prior uncertainty *without* statistical uncertainties, but including systematic ones.
         # Note that 'toys-asimov' as default does not vary systematics, so we have to switch that on again by explicitly setting nuisance_prior_toys ...
-        res = prior_uncertainty(model, input = 'toys-asimov:0.0', nuisance_prior_toys = model.distribution)
-        mean0, unc0 = res['s']['obs0']['ntot']
-        mean1, unc1 = res['s']['obs1']['ntot']
+        res = make_data(self.model, input = 'toys-asimov:0.0', n = 1000, nuisance_prior_toys = self.model.distribution, retval = 'data')
+        mean0, unc0 = get_mean_width([h.get_value_sum() for h in res['s']['obs0']])
+        mean1, unc1 = get_mean_width([h.get_value_sum() for h in res['s']['obs1']])
         unc0_expected = 100.
         unc1_expected = 200.
         self.assertLess(abs(1 - unc0 / unc0_expected), 0.1)
         self.assertLess(abs(1 - unc1 / unc1_expected), 0.1)
+
+
+    def test_asymmetric_uncertainty(self):
+        # test the procedure for a very asymmetric uncertainty on the background -- like here: -1% / +10% systematic uncertainty
+        b0 = 10000.
+        m = test_model.simple_counting(s = 0.0, b = b0)
+        m.add_asymmetric_lognormal_uncertainty('b_unc', 0.01, 0.1, 'b')
+        # only use systematic uncertainties, see no_poisson:
+        res = make_data(m, input = 'toys-asimov:0.0', n = 1000, nuisance_prior_toys = m.distribution, retval = 'data')
+        # use the get_asymmetric_errors routine to calculate the uncertainty on the background.
+        # note that we plugin in the "best estimate" for the background here (instead of using the mean
+        # value in the toys) in order to compute the errors:
+        mean, error_minus, error_plus = get_asymmetric_errors([h.get_value_sum() for h in res['s']['obs']], b0)
+        print error_minus, error_plus
+        # error_minus should be about 100, error_plus about 1000:
+        error_plus_expected = b0 * (math.exp(0.1) - 1.0)
+        error_minus_expected = b0 * (math.exp(0.01) - 1.0)
+        self.assertLess(abs(error_minus / error_minus_expected - 1.), 0.1)
+        self.assertLess(abs(error_plus / error_plus_expected - 1.), 0.15)
         
 
 class TestRootModel(unittest.TestCase):
@@ -353,9 +378,9 @@ mcmc = unittest.TestLoader().loadTestsFromTestCase(MCMCHighdimtest)
 cls = unittest.TestLoader().loadTestsFromTestCase(TestCls)
 sqlite = unittest.TestLoader().loadTestsFromTestCase(TestSqlite)
 model = unittest.TestLoader().loadTestsFromTestCase(TestModel)
-pu = unittest.TestLoader().loadTestsFromTestCase(TestPriorUncertainty)
-#alltests = unittest.TestSuite([pu])
-alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite, model, pu])
+gd = unittest.TestLoader().loadTestsFromTestCase(TestGetData)
+#alltests = unittest.TestSuite([gd])
+alltests = unittest.TestSuite([mletests, suite2, suite3, bayes, cls, sqlite, model, gd])
 
 # verbose version:
 res = unittest.TextTestRunner(verbosity=2).run(alltests)

@@ -77,9 +77,10 @@ def multichannel_counting(signals, n_obs = None, backgrounds = None, b_uncertain
 
 
 # returns a model in one bin with the given background. b_plus and b_minus are the background yields at +1sigma and -1sigma
-def simple_counting_shape(s, n_obs, b=0.0, b_plus=0.0, b_minus=0.0):
+def simple_counting_shape(s, n_obs = None, b=0.0, b_plus=0.0, b_minus=0.0):
     model = Model()
-    model.set_data_histogram('obs', Histogram(0.0, 1.0, [float(n_obs)]))
+    if n_obs is not None:
+        model.set_data_histogram('obs', Histogram(0.0, 1.0, [float(n_obs)]))
     hf_s = HistogramFunction()
     hf_s.set_nominal_histo(Histogram(0.0, 1.0, [float(s)]))
     model.set_histogram_function('obs', 's', hf_s)

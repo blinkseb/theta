@@ -65,12 +65,9 @@ def findmax_h(h):
     xs = map(lambda r: 0.5 * (r[0] + r[1]), zip(x_borders[:-1], x_borders[1:]))
     return findmax_xy(xs, h.get_values())
 
-
-
 class Copyable:
     def copy(self):
         return copy.deepcopy(self)
-
 
 # count how often predicate evaluates to true on iterable
 def count(pred, iterable):
@@ -101,6 +98,30 @@ def get_mean_width(l):
    if n == 1: width = float('inf')
    else: width = math.sqrt(sum([(x - mean)**2 for x in l]) / (n-1))
    return mean, width
+
+
+
+# get asymmetric errors for the list of floats l. If mean is given,
+# use that mean as ``mu`` (see below) otherwise use the mean of l as ``mu``.
+#
+# The result is a three-tuple (mu, error_minus, error_plus) where
+# error_minus is defined as the square root of the "one-sided" variance:
+#   1 / N_-   sqrt( sum_i  (l_i - mu)**2  )
+# where N_- is the number of entries in l with a value < mu, and i only runs over those values.
+#
+# Accordingly, error_plus is the square root of the "plus" variance,
+# calculated from those values in the sample which are > mu.
+def get_asymmetric_errors(l, mean = None):
+    n = len(l)
+    if mean is None:
+        mu = sum(l) * 1.0 / n
+    else:
+        mu = float(mean)
+    l_plus = [x for x in l if x > mu]
+    l_minus = [x for x in l if x <= mu]
+    error_plus = math.sqrt(sum([(x-mu)**2 for x in l_plus]) * 1.0 / len(l_plus))
+    error_minus = math.sqrt(sum([(x-mu)**2 for x in l_minus]) * 1.0 / len(l_minus))
+    return (mu, error_minus, error_plus)
 
 
 # get per-bin means and widths from list of Histograms l, as Histogram:
