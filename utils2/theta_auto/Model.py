@@ -51,7 +51,7 @@ class Model(utils.Copyable):
         # as signal. This is defined in signal_process_groups. It is a dictionary from the signal process group is to
         # the list of signal processes to consider.
         self.signal_process_groups = {}
-        # observable_to_pred is a dictionary from (str observable) --> dictionary (str process)
+        # observable_to_pred is a nested dictionary (str observable) --> (str process)
         #  --> | 'histogram'            --> HistogramFunction instance
         #      | 'coefficient-function' --> Function instance
         self.observable_to_pred = {}
@@ -65,7 +65,32 @@ class Model(utils.Copyable):
         self.additional_nll_term = None
         self.bb_uncertainties = False
         self.rvobs_distribution = Distribution()
+
+
+    def filter_processes(self, filter_function):
+        """
+        Filter the process list: keep exactly those processes for which filter_function(p) returns True. The method
+        will also clean up the observable list by removing observables without any process.
+        """
+        all_to_delete = set() # process list
+        observables = list(self.observable_to_pred.keys())
+        for o in observables:
+            to_delete = set()
+            for p in self.observable_to_pred[o]:
+                keep = filter_function(p)
+                if keep: continue
+                to_delete.add(p)
+                all_to_delete.add(p)
+            for p in to_delete: del self.observable_to_pred[o][p]
+            # delete observable o, if empty:
+            if len(self.observable_to_pred[o]) == 0:
+                del self.observable_to_pred[o]
+                del self.observables[o]
+                if o in self.data_histos: del self.data_histos[o]
+        self.processes = self.processes.difference(all_to_delete)
+        self.signal_processes = self.signal_processes.difference(all_to_delete)
     
+
     def reset_binning(self, obs, xmin, xmax, nbins):
         assert obs in self.observables
         self.observables[obs] = (xmin, xmax, nbins)

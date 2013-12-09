@@ -6,6 +6,12 @@ from root import *
 
 _debug = False
 
+
+inf = float("inf")
+# default nuisance parameter ranges for shape / rate uncertainties:
+default_shape_range = [-inf, inf] # combine uses: [-4.0, 4.0]
+default_rate_range = [-inf, inf]  # combine uses: [-7.0, 7.0]
+
 def is_int(s):
     try:
         int(s)
@@ -381,14 +387,13 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
                 if not filter_channel(channels_for_table[icol]): continue
                 obsname = transform_name_to_theta(channels_for_table[icol])
                 procname = transform_name_to_theta(processes_for_table[icol])
-                #print cmds[0], k, obsname, procname, values[icol], val
                 # add the same parameter (+the factor in the table) as coefficient:
                 model.get_coeff(obsname, procname).add_factor('id', parameter = uncertainty)
                 n_affected += 1
                 n_exp = model.get_histogram_function(obsname, procname).get_nominal_histo()[2][0]
-                #print n_exp
-                if abs(n_exp - val*k)/max(n_exp, val*k) > 0.03:
-                    raise RuntimeError, "gmN uncertainty %s for process %s is inconsistent: the rate expectation should match k*theta but N_exp=%f, k*theta=%f!" % (cmds[0], procname, n_exp, val*k)
+                if max(n_exp, val*k) != 0:
+                     if abs(n_exp - val*k)/max(n_exp, val*k) > 0.03:
+                            raise RuntimeError, "gmN uncertainty %s for process %s is inconsistent: the rate expectation should match k*theta but N_exp=%f, k*theta=%f!" % (cmds[0], procname, n_exp, val*k)
             if n_affected > 0:
                 k = float(cmds[2])
                 hf = HistogramFunction()
@@ -415,10 +420,9 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
                 obsname = transform_name_to_theta(channels_for_table[icol])
                 procname = transform_name_to_theta(processes_for_table[icol])
                 n_affected += 1
-                #print cmds[0], obsname, procname, lambda_minus, lambda_plus
                 model.get_coeff(obsname, procname).add_factor('exp', parameter = uncertainty, lambda_minus = lambda_minus, lambda_plus = lambda_plus)
             if n_affected > 0:
-                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (-7.0, 7.0))
+                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = default_rate_range)
         elif cmds[1] == 'gmM':
             values = cmds[2:]
             values_f = set([float(s) for s in values if float(s)!=0.0])
@@ -445,7 +449,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
                 n_affected += 1
                 add_entry(shape_systematics, channels_for_table[icol], processes_for_table[icol], cmds[0], factor)
             if n_affected > 0:
-                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = (-4.0, 4.0))
+                model.distribution.set_distribution(uncertainty, 'gauss', mean = 0.0, width = 1.0, range = default_shape_range)
         else: raise RuntimeError, "Line %d: unknown uncertainty type %s" % (lines[0][1], cmds[1])
     # add shape systematics:
     if '*' in shape_observables: shape_observables = set(channel_labels)
