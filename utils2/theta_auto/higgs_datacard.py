@@ -211,7 +211,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             hf.set_syst_histos(u, histo_plus, histo_minus, uncs[u])
  
 
-def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = lambda unc: True, include_mc_uncertainties = False, variables = {}, rmorph_method = 'renormalize-lognormal'):
+def build_model(fname, filter_cp = lambda chan, p: True, filter_uncertainty = lambda unc: True, include_mc_uncertainties = False, variables = {}, rmorph_method = 'renormalize-lognormal'):
     """
     Build a Model from a text-based datacard as used in LHC Higgs analyses
 
@@ -227,7 +227,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     Parameters:
     
     * ``fname`` is the filename of the datacard to process
-    * ``filter_channel`` is a function which, for each channel name (as given in the model configuration file), returns ``True`` if this channel should be kept and ``False`` otherwise. The default is to keep all channels.
+    * ``filter_cp`` is a function which, for a given pair of a channel name and process name (as given in the model configuration file), returns ``True`` if this channel/process should be kept and ``False`` otherwise. The default is to keep all channel/process combinations.
     * ``filter_uncertainty`` is a filter function for the uncertainties. The default is to keep all uncertainties
     * ``include_mc_uncertainties`` if ``True`` use the histogram uncertainties of shapes given in root files for Barlow-Beeston light treatment of MC stat. uncertainties
     * ``variables`` is a dictionary for replacing strings in the datacards. For example, use ``variables = {'MASS': '125'}`` to replace each appearance of '$MASS' in the datacard with '125'. Both key and value should be strings.
@@ -289,7 +289,6 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     if imax=='*': imax = len(observed_int)
     assert len(observed_int) == imax, "Line %d: Number of processes from 'imax' and number of bins given in 'observed' mismatch: imax=%d, given in observed: %d" % (lines[0][1], imax, len(observed))
     for i in range(len(channel_labels)):
-        if not filter_channel(channel_labels[i][1:]): continue
         theta_obs = transform_name_to_theta(channel_labels[i])
         model.set_data_histogram(theta_obs, Histogram(0.0, 1.0, [observed_flt[i]]))
     lines = lines[1:]
@@ -326,6 +325,10 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
         process_ids_for_table = [int(s) for s in processes2]
         processes_for_table = processes1
     
+    # build a list of columns to keep ( = not filtered by filter_cp):
+    column_indices = []
+    for i in range(n_cols):
+        if filter_cp(channels_for_table[i], processes_for_table[i]): column_indices.append(i)
 
     # check process label / id consistency:
     p_l2i = {}
@@ -345,8 +348,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     assert cmds[0]=='rate', "Line %d: Expected 'rate' statement after the two 'process' statements" % lines[0][1]
     if n_cols != len(cmds)-1:
         raise RuntimeError, "Line %d: 'rate' statement does specify the wrong number of elements" % lines[0][1]
-    for i in range(n_cols):
-        if not filter_channel(channels_for_table[i]): continue
+    for i in column_indices:
         theta_obs, theta_proc = transform_name_to_theta(channels_for_table[i]), transform_name_to_theta(processes_for_table[i])
         n_exp = float(cmds[i+1])
         #print o,p,n_exp
@@ -380,11 +382,10 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
             values = cmds[3:]
             n_affected = 0
             k = float(cmds[2])
-            for icol in range(n_cols):
+            for icol in column_indices:
                 if values[icol]=='-': continue
                 val = float(values[icol])
                 if val==0.0: continue
-                if not filter_channel(channels_for_table[icol]): continue
                 obsname = transform_name_to_theta(channels_for_table[icol])
                 procname = transform_name_to_theta(processes_for_table[icol])
                 # add the same parameter (+the factor in the table) as coefficient:
@@ -399,17 +400,16 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
                 hf = HistogramFunction()
                 hf.set_nominal_histo(Histogram(0.0, 1.0, [k]))
                 obs_sb = '%s_sideband' % uncertainty
-                model.set_histogram_function(obs_sb, 'proc_sb', hf)
+                model.set_histogram_function(obs_sb, 'proc_%s_sideband' % uncertainty, hf)
                 model.set_data_histogram(obs_sb, Histogram(0.0, 1.0, [k]))
-                model.get_coeff(obs_sb, 'proc_sb').add_factor('id', parameter = uncertainty)
+                model.get_coeff(obs_sb, 'proc_%s_sideband' % uncertainty).add_factor('id', parameter = uncertainty)
                 # the maximum likelihood estimate for the delta parameter is 1.0
                 model.distribution.set_distribution(uncertainty, 'gauss', mean = 1.0, width = float("inf"), range = (0.0, float("inf")))
         elif cmds[1] == 'lnN':
             n_affected = 0
             values = cmds[2:]
-            for icol in range(n_cols):
+            for icol in column_indices:
                 if values[icol]=='-': continue
-                if not filter_channel(channels_for_table[icol]): continue
                 if '/' in values[icol]:
                     p = values[icol].find('/')
                     lambda_minus = -math.log(float(values[icol][0:p]))
@@ -429,8 +429,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
             if len(values_f)>1: raise RunetimeError, "gmM does not support different uncertainties"
             if len(values_f)==0: continue
             n_affected = 0
-            for icol in range(n_cols):
-                if not filter_channel(channels_for_table[icol]): continue
+            for icol in column_indices:
                 obsname = transform_name_to_theta(channels_for_table[icol])
                 procname = transform_name_to_theta(processes_for_table[icol])
                 model.get_coeff(obsname, procname).add_factor('id', parameter = uncertainty)
@@ -440,8 +439,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
         elif cmds[1] in 'shape':
             factors = cmds[2:]
             n_affected = 0
-            for icol in range(n_cols):
-                if not filter_channel(channels_for_table[icol]): continue
+            for icol in column_indices:
                 if factors[icol] == '-' or float(factors[icol]) == 0.0: continue
                 factor = float(factors[icol])
                 obsname = transform_name_to_theta(channels_for_table[icol])
@@ -457,7 +455,7 @@ def build_model(fname, filter_channel = lambda chan: True, filter_uncertainty = 
     searchpaths = ['.', os.path.dirname(fname)]
     if _debug: print "adding shapes now ..."
     # loop over processes and observables:
-    for icol in range(n_cols):
+    for icol in column_indices:
         obs = channels_for_table[icol]
         if _debug: print "adding shape for channel '%s'" % obs
         if obs not in shape_observables: continue

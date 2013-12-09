@@ -19,8 +19,9 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
     * ``seed``: the random seed for the MCMC
     * ``run_theta``: if true, run theta locally. Otherwise, return the :class:`theta_auto.theta_interface.Run` objects
     * ``hint_method`` controls the start point of the Markov-Chain in ``beta_signal``. If ``None``, the start value is chosen according to ``signal_prior`` (the
-      default "flat" means to use ``beta_signal=1.0``). The only other currently supported option is "asimov-ll" which uses the profile likelihood limit for asimov data as a starting point.
-      Note that 'asimov-ll' can only be used with flat signal priors.
+      default "flat" means to use ``beta_signal=1.0``). Other options are:
+       * "asimov-ll": This uses the profile likelihood limit for asimov data as a starting point.
+       * "zero" which uses ``beta_signal=0.0`` as start point. This is usually a good choice for limits.
     
     The return value depends on ``run_theta``: if ``True``, the return value is a dictionary::
     
@@ -40,6 +41,7 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
+    debug = options.getboolean('global', 'debug')
     colnames = ['quant__quant%05d' % int(q*10000 + 0.5) for q in quantiles] + ['quant__accrate']
     result = {}
     for spid, signal_processes in signal_process_groups.iteritems():
@@ -49,6 +51,11 @@ def bayesian_quantiles(model, input, n, quantiles = [0.95], signal_process_group
             hint = res[spid][0.9][0][1]
             if ':' in signal_prior: my_signal_prior = '%s:%.3g' % (signal_prior, hint)
             else: my_signal_prior = 'flat:[0,inf]:%.3g' % hint
+            if debug:
+                print "Hint for beta_signal according to profile likelihood method: %.3f; using signal_prior='%s'" % (hint, my_signal_prior)
+        elif hint_method == 'zero':
+            if ':' in signal_prior: my_signal_prior = '%s:0.0' % signal_prior
+            else: my_signal_prior = 'flat:[0,inf]:0.0'
         else:
             my_signal_prior = signal_prior
         p = QuantilesProducer(model, signal_processes, nuisance_constraint, my_signal_prior, parameter = parameter, quantiles = quantiles, iterations = iterations, seed = seed)
@@ -104,6 +111,8 @@ def bayesian_limits(model, what = 'all', input_expected = 'toys:0', **options):
     
      * there should be "n_toy", "n_data"  instead of "n";  "n" will be ignored
      * "input" will be ignored
+    
+    Also note that the "hint_method" parameter of bayesian_quantiles is set to "zero", unless this is explicitly overridden by the passed options.
      
     The parameter ``input_expected`` is used to calculate the expected limit bands. The default of "toys:0" calculates
     the expected limits in case there is actually no signal. You can set this to a path of a toy data .db file to calculate the expected limit
@@ -123,6 +132,7 @@ def bayesian_limits(model, what = 'all', input_expected = 'toys:0', **options):
     n_data = options.get('n_data', 10)
     if 'n_toy' in options: del options['n_toy']
     if 'n_data' in options: del options['n_data']
+    if 'hint_method' not in options: options['hint_method'] = 'zero'
     plot_expected, plot_observed = None, None
     if what in ('expected', 'all'):
         expected_limits = bayesian_quantiles(model, input = input_expected, n = n_toy, **options)

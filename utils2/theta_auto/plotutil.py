@@ -383,6 +383,7 @@ def plot(histos, xlabel, ylabel, outname = None, logy = False, logx = False, ax_
                                 y_new.append(y)
                                 ye_new.append(ye)
                         x_centers, ys, yerrors = x_new, y_new, ye_new
+                        if len(x_centers) == 0: continue # do not plot empty list at all
                     ax.plot(x_centers, ys, marker = histo.marker, markersize=histo.markersize, ls='None', mew = 0.0, mfc = histo.color)
                     ax.errorbar(x_centers, ys, yerrors, ecolor = histo.color, capsize = histo.capsize, lw = histo.lw, fmt = None)
                     if not legend_added:

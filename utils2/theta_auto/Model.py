@@ -149,6 +149,7 @@ class Model(utils.Copyable):
         Rename a nuisance parameter in the model. On general, this affects coefficiencts, histogram functions, and the prior parameter distribution
         in ``self.distrbution``.
         """
+
         self.distribution.rename_parameter(current_name, new_name)
         for o in self.observable_to_pred:
             for p in self.observable_to_pred[o]:
@@ -275,7 +276,7 @@ class Model(utils.Copyable):
                     n_eff = s**2 / unc**2
                     # the average MC event weight; this is used as minimum uncertainty ...
                     w = s / n_eff
-                    print o, p, n_eff, w
+                    #print o, p, n_eff, w
                     uncs = h.get_uncertainties()
                     new_uncs = [max(u, w) for u in uncs]
                     hf.set_nominal_histo(Histogram(h.get_xmin(), h.get_xmax(), h.get_values(), new_uncs, h.get_name()))
