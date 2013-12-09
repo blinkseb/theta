@@ -67,7 +67,9 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
             }
         }
         if(k > k_max){
-            throw Exception("could not find upper value for interval");
+            stringstream ss;
+            ss << "Could not find upper value for interval after " << k_max << " iterations (min at: " << value_at_minimum << "; initial step: " << initial_step << "; current step: " << step << ")";
+            throw Exception(ss.str());
         }
         
         //lower value: same story, just other way round:
@@ -96,7 +98,9 @@ void deltanll_intervals::produce(const theta::Data & data, const theta::Model & 
             }
         }
         if(k > k_max){
-            throw Exception("could not find lower value for interval");
+            stringstream ss;
+            ss << "Could not find lower value for interval after " << k_max << " iterations (min at: " << value_at_minimum << "; initial step: " << initial_step << "; current step: " << step << ")";
+            throw Exception(ss.str());
         }
     }
 }

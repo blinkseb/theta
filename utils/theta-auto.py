@@ -202,11 +202,19 @@ def main():
     scriptname = 'analysis.py'
     tmpdir, profile = False, False
     wd = None
+    quiet = False
     for iarg, arg in enumerate(sys.argv[1:]):
         if '.py' in arg: scriptname = arg
         if arg=='--tmpdir': tmpdir = True
+        if arg=='--quiet': quiet = True
         if arg=='--profile': profile = True
         if arg=='--workdir': wd = sys.argv[iarg+2]
+    if not quiet:
+        print "*** WARNING ***"
+        print "*** You are using an obsolete version of theta-auto (utils/theta-auto.py)."
+        print "*** This version is no longer actively developed and only kept for backward compatibility. It will be removed in a future release."
+        print "*** Please use instead version 2 (utils2/theta-auto.py)"
+        print "*** (To get rid of this warning, call theta-auto with the '--quiet' option)"
     if tmpdir:
         config.workdir = tempfile.mkdtemp()
     else:

@@ -396,15 +396,17 @@ def build_model(fname, filter_cp = lambda chan, p: True, filter_uncertainty = la
                      if abs(n_exp - val*k)/max(n_exp, val*k) > 0.03:
                             raise RuntimeError, "gmN uncertainty %s for process %s is inconsistent: the rate expectation should match k*theta but N_exp=%f, k*theta=%f!" % (cmds[0], procname, n_exp, val*k)
             if n_affected > 0:
-                k = float(cmds[2])
+                n_obs_sb = float(cmds[2]) # the number of observed events in the sideband
+                n_model_sb = n_obs_sb     # the number of events in the model template in the sideband. This is pretty arbitrary, as a scale factor is used to fit this anyway.
+                if n_model_sb == 0.0: n_model_sb = 1.0
                 hf = HistogramFunction()
-                hf.set_nominal_histo(Histogram(0.0, 1.0, [k]))
+                hf.set_nominal_histo(Histogram(0.0, 1.0, [n_model_sb]))
                 obs_sb = '%s_sideband' % uncertainty
                 model.set_histogram_function(obs_sb, 'proc_%s_sideband' % uncertainty, hf)
-                model.set_data_histogram(obs_sb, Histogram(0.0, 1.0, [k]))
+                model.set_data_histogram(obs_sb, Histogram(0.0, 1.0, [n_obs_sb]))
                 model.get_coeff(obs_sb, 'proc_%s_sideband' % uncertainty).add_factor('id', parameter = uncertainty)
-                # the maximum likelihood estimate for the delta parameter is 1.0
-                model.distribution.set_distribution(uncertainty, 'gauss', mean = 1.0, width = float("inf"), range = (0.0, float("inf")))
+                # as mean, use the value at the observation such that toys reproduce this value ...
+                model.distribution.set_distribution(uncertainty, 'gauss', mean = n_obs_sb / n_model_sb, width = float("inf"), range = (0.0, float("inf")))
         elif cmds[1] == 'lnN':
             n_affected = 0
             values = cmds[2:]

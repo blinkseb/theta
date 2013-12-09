@@ -213,14 +213,23 @@ double find_limit(double width, const FT & f, double xtol_rel){
     theta_assert(cls_low > 0.0);
     double cls_high = f(beta_high);
     theta_assert(isfinite(cls_high));
+    int n_iterations = 0;
+    double scale = 1.0;
     while(cls_high >= 0.0){
         if(cls_high > 0){
             beta_low = beta_high;
             cls_low = cls_high;
         }
-        beta_high += width;
+        beta_high += width * scale;
+        scale *= 1.05;
         cls_high = f(beta_high);
         theta_assert(isfinite(cls_high));
+        ++n_iterations;
+        if(n_iterations > 100){
+            stringstream ss;
+            ss << "Could not find the CLs limit: CLs value depends too little on parameter or initial width was too small; width=" << width << "; latest tested interval: " << beta_low << " -- " << beta_high << " (f = cls - target_cls: " << cls_low << " -- " << cls_high << ")";
+            throw invalid_argument(ss.str());
+        }
     }
     return brent(f, beta_low, beta_high, xtol_rel * width, cls_low, cls_high, 1e-5);
 }
