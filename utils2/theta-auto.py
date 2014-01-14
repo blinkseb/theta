@@ -2,6 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import os, os.path, datetime, re, sys, copy, traceback, shutil, hashlib, tempfile
+
+
+# For sites with a missing dateutil installation, use this workaround:
+import imp
+sys.modules['dateutil'] = imp.new_module('dateutil')
+sys.modules['dateutil.rrule'] = imp.new_module('dateutil.rrule')
+m = sys.modules['dateutil.rrule']
+m.rrule, m.MO, m.TU, m.WE, m.TH, m.FR, m.SA, m.SU, m.YEARLY, m.MONTHLY, m.WEEKLY, m.DAILY, m.HOURLY, m.MINUTELY, m.SECONDLY = [None]*15
+sys.modules['dateutil.relativedelta'] = imp.new_module('dateutil.relativedelta')
+sys.modules['dateutil.relativedelta'].relativedelta = None
+sys.modules['dateutil.parser'] = imp.new_module('dateutil.parser')
+
 from theta_auto import *
 
 def clean_workdir():
