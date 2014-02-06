@@ -22,6 +22,7 @@ def get_x_to_sp(spgids, **options):
     for sp in spgids:
         if 'spid_to_xvalue' in options and sp in options['spid_to_xvalue']: x = options['spid_to_xvalue'][sp]
         else: x = extract_number(sp)
+        if x in x_to_sp: x = None
         if x is None:
             warning("cannot extract x-value for signal process id '%s', using %d" % (sp, next_x))
             x = next_x

@@ -866,7 +866,7 @@ class HistogramFunction:
         histrb_minus = minus_histo[0], minus_histo[1], len(minus_histo[2])
         assert histrb_plus == histrb_minus, "histogram range / binning inconsistent between plus / minus histo"
         if self.histrb is None: self.histrb = histrb_plus
-        assert histrb_plus == self.histrb, "histogram range / binning inconsistent!"
+        assert histrb_plus == self.histrb, "histogram range / binning inconsistent for syst=%s" % par_name
         self.syst_histos[par_name] = (plus_histo, minus_histo)
     
     def scale(self, factor):

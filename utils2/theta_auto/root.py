@@ -216,7 +216,11 @@ def build_model_from_rootfile(filenames, histogram_filter = lambda s: True, root
                 if ('%s__%s__%s__minus' % (o, p, u)) in histos: n_syst += 1
                 if n_syst == 0: continue
                 if n_syst != 2: raise RuntimeError, "only one direction given for (observable, process, uncertainty) = (%s, %s, %s)" % (o, p, u)
-                hf.set_syst_histos('%s' % u, histos['%s__%s__%s__plus' % (o, p, u)], histos['%s__%s__%s__minus' % (o, p, u)])
+                try:
+                   hf.set_syst_histos('%s' % u, histos['%s__%s__%s__plus' % (o, p, u)], histos['%s__%s__%s__minus' % (o, p, u)])
+                except Exception, e:
+                   print "Exception while setting syst histos for channel %s, process %s" % (o, p)
+                   raise e
             result.set_histogram_function(o, p, hf)
     for u in uncertainties:
         result.distribution.set_distribution('%s' % u, 'gauss', mean = 0.0, width = 1.0, range = (-float("inf"), float("inf")))
