@@ -227,12 +227,13 @@ class Model(utils.Copyable):
     
     #important: always call set_histogram_function first, then get_coeff!
     def set_histogram_function(self, obsname, procname, histo):
-        xmin, xmax, nbins = histo.nominal_histo[0], histo.nominal_histo[1], len(histo.nominal_histo[2])
+        xmin, xmax, nbins = histo.get_xmin_xmax_nbins()
         if obsname not in self.observables:
             self.observables[obsname] = xmin, xmax, nbins
             self.observable_to_pred[obsname] = {}
         xmin2, xmax2, nbins2 = self.observables[obsname]
-        assert (xmin, xmax, nbins) == (xmin2, xmax2, nbins2), "detected inconsistent binning setting histogram for (obs, proc) = (%s, %s)" % (obsname, procname)
+        assert (xmin, xmax, nbins) == (xmin2, xmax2, nbins2), "detected inconsistent binning setting histogram for (obs, proc) = (%s, %s): new binning: %s, old binning: %s" % (obsname, procname,
+           (xmin, xmax, nbins), (xmin2, xmax2, nbins2))
         self.processes.add(procname)
         if procname not in self.observable_to_pred[obsname]: self.observable_to_pred[obsname][procname] = {}
         self.observable_to_pred[obsname][procname]['histogram'] = histo
@@ -760,6 +761,48 @@ class Histogram(object, utils.Copyable):
         return it(self)
 
 
+class ExponentialHistogramFunction:
+    def __init__(self, lambda0, c, parameter, normalize_to, binborders):
+        self.lambda0 = lambda0
+        self.c = c
+        self.parameter = parameter
+        self.normalize_to = normalize_to
+        self.binborders = binborders
+
+    def rebin(self):
+        raise RuntimeError, "rebinning not supported for ExponentialHistogramFunction"
+        
+    def remove_parameter(self, par):
+        raise RuntimeError, "removing a parameter not supported for ExponentialHistogramFunction"
+    
+    def evaluate(self, parameters):
+        p = parameters[self.parameter]
+        lmbda = self.lambda0 + p * self.c
+        nbins = len(self.binborders) - 1
+        values = []
+        s = 0.0
+        for i in range(nbins):
+            bincontent = abs(math.exp(lmbda * self.binborders[i+1]) - math.exp(lmbda * self.binborders[i]))
+            values.append(bincontent)
+            s += bincontent
+        return Histogram(self.binborders[0], self.binborders[-1], values, x_low = self.binborders[:-1]).scale(self.normalize_to / s)
+            
+    
+    def rename_parameter(self, par_old, par_new):
+        if self.parameter==par_old: self.parameter = par_new
+        
+    def get_cfg(self):
+        result = {'type': 'exponential_hf', 'parameter' : self.parameter, 'lambda0' : self.lambda0, 'c' : self.c, 'normalize_to': self.normalize_to, 'binborders' : self.binborders }
+        return result
+        
+    def get_parameters(self):
+        return set([self.parameter])
+        
+    def get_xmin_xmax_nbins(self):
+        return self.binborders[0], self.binborders[-1], len(self.binborders)-1
+        
+        
+
 
 # for morphing histos:
 class HistogramFunction:
@@ -781,7 +824,8 @@ class HistogramFunction:
         self.normalize_to_nominal = False
         self.syst_histos = {} # map par_name -> (plus histo, minus_histo)
         self.histrb = None # xmin, xmax nbins
-        
+    
+    def get_xmin_xmax_nbins(self): return self.histrb
     def get_nominal_histo(self): return self.nominal_histo
     def get_plus_histo(self, par): return self.syst_histos[par][0]
     def get_minus_histo(self, par): return self.syst_histos[par][1]

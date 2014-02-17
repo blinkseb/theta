@@ -109,8 +109,9 @@ def bayesian_limits(model, what = 'all', input_expected = 'toys:0', **options):
  
     Further ``options`` are passed through to :func:`bayesian_quantiles` with the special case that
     
-     * there should be "n_toy", "n_data"  instead of "n";  "n" will be ignored
-     * "input" will be ignored
+     * there should be ``n_toy``, ``n_data``  instead of "n";  "n" will be ignored
+     * ``input`` will be ignored
+     * ``run_theta = False`` is not supported vias this method; use ``bayesian_quantiles`` directly in this case
     
     Also note that the "hint_method" parameter of bayesian_quantiles is set to "zero", unless this is explicitly overridden by the passed options.
      

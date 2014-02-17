@@ -140,6 +140,7 @@ def asymptotic_cls_limits(model, use_data = True, signal_process_groups = None, 
     """
     if signal_process_groups is None: signal_process_groups = model.signal_process_groups
     if options is None: options = Options()
+    use_data = use_data and model.has_data()
     if bootstrap_model and use_data:
         model = frequentist.get_bootstrapped_model(model, options = options)
     else:

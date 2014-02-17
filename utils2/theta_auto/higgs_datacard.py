@@ -209,7 +209,57 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
             hf.normalize_to_nominal = True
         else:
             hf.set_syst_histos(u, histo_plus, histo_minus, uncs[u])
- 
+
+            
+class ParametricShapeBuilder:
+    def __init__(self, model):
+        self.model = model
+        self.obs, self.proc =  None, None
+    
+    # c = None mean c = lambda0
+    # free = True means to give the prior an infinite width
+    def exponential(self, parameter, lambda0, lambda0_delta, binning = None, binborders = None):
+        free = False
+        if lambda0_delta == inf:
+            free = True
+            lambda0_delta = 1.0
+        if parameter in self.model.distribution.get_parameters():
+            # double-check that the parameter prior is set to the value we need:
+            pars = self.model.get_distribution_parameters(parameter)
+            assert pars['mean'] != 0.0, "incompatible distribution for parameter %s: exponential needs mean=0.0" % paramater
+            if free:
+                assert pars['width'] == inf, "incompatible distribution for parameter %s: exponential with infinite lambda0_delta requires width=inf" % paramater
+            else:
+                assert pars['width'] == 1.0, "incompatible distribution for parameter %s: exponential with finite lambda0_delta requires width=1.0" % paramater
+        else:
+            self.model.distribution.set_distribution(parameter, 'gauss', mean = 0.0, width = inf if free else 1.0, range = [-inf, inf])
+        hf_old = self.model.get_histogram_function(self.obs, self.proc)
+        norm = hf_old.get_nominal_histo().get_value_sum()
+        if _debug: print "exponential: found old norm = ", norm
+        # find out binning:
+        if binning is not None and binborders is not None:
+            raise RuntimeError, "both binning and binborders specifies, please specify only one of those!"
+        if binning is not None:
+            xmin, xmax, nbins = binning
+            dx = (xmax - xmin) / nbins
+            binborders = [xmin + dx * i for i in range(nbins+1)]
+        elif binborders is None:
+            xmin, xmax, nbins = self.model.observables[self.obs]
+            print "NOTE: pshape exponential: assuming equidistant binning with (xmin, xmax, nbins) = (%.2f, %.2f, %d)" % (xmin, xmax, nbins)
+            dx = (xmax - xmin) / nbins
+            binborders = [xmin + dx * i for i in range(nbins+1)]
+        # check that binborders make sense:
+        for i in range(1, len(binborders)):
+            assert binborders[i-1] < binborders[i], "binborders must increase monotonically!"
+        hf = ExponentialHistogramFunction(lambda0, lambda0_delta, parameter, norm, binborders)
+        self.model.set_histogram_function(self.obs, self.proc, hf)
+        
+        
+    def apply_(self, theta_obs, theta_proc, command):
+        if _debug: print "PSB: apply_ %s, %s, %s" % (theta_obs, theta_proc, command)
+        self.obs = theta_obs
+        self.proc = theta_proc
+        exec('self.' + command)
 
 def build_model(fname, filter_cp = lambda chan, p: True, filter_uncertainty = lambda unc: True, include_mc_uncertainties = False, variables = {}, rmorph_method = 'renormalize-lognormal'):
     """
@@ -269,6 +319,14 @@ def build_model(fname, filter_cp = lambda chan, p: True, filter_uncertainty = la
         shape_lines.append(cmds[1:]) # (process, channel, file, histogram, histogram_with_systematics)
         obs = cmds[2]
         shape_observables.add(obs)
+        lines =lines[1:]
+        cmds = get_cmds(lines[0])
+        
+    pshape_lines = []
+    while cmds[0].lower() == 'pshape':
+        assert len(cmds) >= 4 # pshape channel proc command
+        pshape_lines.append([cmds[1], cmds[2], ' '.join(cmds[3:])]) # (process, channel, command)
+        if _debug: print "Line %d: found pshape line %s" % (lines[0][1], str(pshape_lines[-1]))
         lines =lines[1:]
         cmds = get_cmds(lines[0])
 
@@ -456,6 +514,7 @@ def build_model(fname, filter_cp = lambda chan, p: True, filter_uncertainty = la
     data_done = set()
     searchpaths = ['.', os.path.dirname(fname)]
     if _debug: print "adding shapes now ..."
+    psb = ParametricShapeBuilder(model)
     # loop over processes and observables:
     for icol in column_indices:
         obs = channels_for_table[icol]
@@ -476,13 +535,21 @@ def build_model(fname, filter_cp = lambda chan, p: True, filter_uncertainty = la
                 if l[0]!='*' and l[0]!=proc: continue
                 uncs = {}
                 if obs in shape_systematics: uncs = shape_systematics[obs].get(proc, {})
-                if _debug: print "adding shapes for channel %s, process %s, trying file %s, line %s" % (obs, proc, l[2], ' '.join(l))
+                if _debug: print "   adding shapes for channel %s, process %s, trying file %s, line %s" % (obs, proc, l[2], ' '.join(l))
                 add_shapes(model, obs, proc, uncs, l[2], l[3], l[4], include_mc_uncertainties, searchpaths = searchpaths, variables = variables, rhandling = rmorph_method)
                 found_matching_shapeline = True
                 break
             except NotFoundException: pass # ignore the case that some histo has not been found for now; raise a RuntimeError later if no line matched
+        if found_matching_shapeline: continue
+        # now that nothing is found, also try the pshapelines
+        for l in pshape_lines:
+            if l[0] != proc or l[1] != obs: continue
+            print "Trying to apply pshape line %s" % str(l)
+            theta_obs, theta_proc = transform_name_to_theta(obs), transform_name_to_theta(proc)
+            psb.apply_(theta_obs, theta_proc, l[2])
+            found_matching_shapeline = True
         if not found_matching_shapeline:
-            raise RuntimeError, "Did not find all the (nominal / systematics) histogram for channel '%s', process '%s'" % (obs, proc)
+            raise RuntimeError, "Did not find all the (nominal / systematics) histograms for channel '%s', process '%s'" % (obs, proc)
     model.set_signal_processes([transform_name_to_theta(proc) for proc in signal_processes])
     if include_mc_uncertainties: model.bb_uncertainties = True
     return model
