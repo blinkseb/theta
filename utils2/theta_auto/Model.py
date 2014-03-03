@@ -785,6 +785,7 @@ class ExponentialHistogramFunction:
             bincontent = abs(math.exp(lmbda * self.binborders[i+1]) - math.exp(lmbda * self.binborders[i]))
             values.append(bincontent)
             s += bincontent
+        if s==0.0: s = 1.0
         return Histogram(self.binborders[0], self.binborders[-1], values, x_low = self.binborders[:-1]).scale(self.normalize_to / s)
             
     

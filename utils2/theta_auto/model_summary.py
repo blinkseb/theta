@@ -57,7 +57,8 @@ def model_summary(model, create_plots = True, all_nominal_templates = False, sha
     print >> f, "</ul>"
     f.close()
     
-    #rate table
+    # rate table
+    default_parameters = model.distribution.get_means()
     rate_table = table()
     rate_table.add_column('process', 'process / observable')
     o_bkg_sum = {}
@@ -74,10 +75,11 @@ def model_summary(model, create_plots = True, all_nominal_templates = False, sha
            if hf is None:
                rate_table.set_column_multiformat(o, '---')
                continue
-           s = sum(hf.get_nominal_histo()[2])
-           error = 0
-           uncertainties = hf.get_nominal_histo().get_uncertainties()
+           hf0 = hf.evaluate(default_parameters)
+           s = hf0.get_value_sum()
+           uncertainties = hf0.get_uncertainties()
            if uncertainties is not None: error = math.sqrt(sum([x**2 for x in uncertainties]))
+           else: error = 0.0
            o_bkg_sum[o] += s
            o_bkg_err2sum[o] += error**2
            if error > 0:  rate_table.set_column_multiformat(o, (s, error), html = '%.5g +/- %.5g' % (s, error), tex = '$%.5g \\pm %.5g$' % (s, error))
@@ -145,13 +147,18 @@ def model_summary(model, create_plots = True, all_nominal_templates = False, sha
             hf = model.get_histogram_function(o,p)
             if hf is None: continue
             coeff = model.get_coeff(o,p)
-            histo_nominal_integral = sum(hf.get_nominal_histo()[2])
+            histo_nominal_integral = hf.evaluate(default_parameters).get_value_sum()
             if histo_nominal_integral == 0.0: histo_nominal_integral = float("nan")
             for par in parameters:
                 splus, sminus = None, None
-                if par in hf.syst_histos:
-                    if hf.normalize_to_nominal: splus, sminus = 0, 0
-                    else: splus, sminus = map(lambda h: sum(h[2]) / histo_nominal_integral - 1.0, hf.syst_histos[par])
+                if par in hf.get_parameters():
+                    parameters_iplus = dict(default_parameters)
+                    parameters_iplus[par] += model.distribution.get_distribution(par)['width']
+                    parameters_iminus = dict(default_parameters)
+                    parameters_iminus[par] -= model.distribution.get_distribution(par)['width']
+                    # set splus and sminus to relative change in rate:
+                    splus = hf.evaluate(parameters_iplus).get_value_sum() / histo_nominal_integral - 1.0
+                    sminus = hf.evaluate(parameters_iminus).get_value_sum() / histo_nominal_integral - 1.0
                 rplus, rminus = 0.0, 0.0
                 if par in coeff.factors:
                     if type(coeff.factors[par])==dict and coeff.factors[par]['type'] == 'exp_function':
@@ -238,7 +245,6 @@ def model_summary_nuisance(dist, fname):
     print >> f, t.html()
     f.close()
     
-"""
 # creates plots at certain parameter values
 def model_plots_at(model, par_values, signal_stacked = False):
     plotdir = os.path.join(config.workdir, 'plots')
@@ -306,7 +312,6 @@ def model_plots_at(model, par_values, signal_stacked = False):
         plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack%s.png' % (o, h)), xmin=xmin, xmax=xmax)
         text += "<p>Observable '%s':<br /><img src=\"plots/%s_stack%s.png\" /></p>" % (o, o, h)
     config.report.new_section('Model Plots at parameter values', text)
-"""    
     
 
 # creates plots and model_plots.thtml
@@ -334,6 +339,7 @@ def model_plots(model, all_nominal_templates = False, shape_templates = False, p
             i_bkg_col = (i_bkg_col + 1) % len(background_colors)
         print >> f, '<li><span style="background: %s;">&nbsp;&nbsp;&nbsp;</span> %s</li>' % (color, p)
     print >>f, '</ul>'
+    default_parameters = model.distribution.get_means()
     for o in observables:
         background_pds = []
         signal_pds = []
@@ -343,9 +349,10 @@ def model_plots(model, all_nominal_templates = False, shape_templates = False, p
             hf = model.get_histogram_function(o, p)
             if hf is None: continue
             pd = plotutil.plotdata()
-            pd.histo_triple(hf.get_nominal_histo())
-            xmin, xmax, data = hf.get_nominal_histo()
-            binwidth = (xmax - xmin) / len(data)
+            h0 = hf.evaluate(default_parameters)
+            pd.set_histogram(h0)
+            xmin, xmax, data = h0
+            #binwidth = (xmax - xmin) / len(data)
             if p in model.signal_processes:
                 pd.color = signal_colors[i_signal_col]
                 i_signal_col = (i_signal_col + 1) % len(signal_colors)
@@ -367,7 +374,7 @@ def model_plots(model, all_nominal_templates = False, shape_templates = False, p
         plotutil.make_stack(background_pds)
         plots = background_pds + signal_pds
         if data_pd is not None: plots.append(data_pd)
-        plotutil.plot(plots, o, '$N / %.4g$' % binwidth, os.path.join(plotdir, '%s_stack.png' % o), xmin=xmin, xmax=xmax, **plotargs)
+        plotutil.plot(plots, o, '$N$', os.path.join(plotdir, '%s_stack.png' % o), xmin=xmin, xmax=xmax, **plotargs)
         print >> f, "<p>Observable '%s':<br /><img src=\"plots/%s_stack.png\" /></p>" % (o, o)
        
     if all_nominal_templates:

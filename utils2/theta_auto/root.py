@@ -78,7 +78,18 @@ def _flatten_nested_dict(d, result, current_key = ''):
             else: new_current_key = current_key + '__' + k
             result[new_current_key] = d[k]
 
-def write_histograms_to_rootfile(histograms, rootfilename):
+
+# in the dictionary d, lists are converted to dictionaries
+def _lists_to_dict(d):
+    for k in d:
+        if type(d[k])==list:
+            l = d[k]
+            d[k] = dict([('%d' % i, l[i]) for i in range(len(l))])
+        elif type(d[k])==dict:
+            _lists_to_dict(d[k])
+
+
+def write_histograms_to_rootfile(histograms_, rootfilename):
     """
     Parameters:
     
@@ -91,11 +102,13 @@ def write_histograms_to_rootfile(histograms, rootfilename):
     will be ``channel1__proc1``.
     """
     outfile = ROOT.TFile(rootfilename, "recreate")
+    histograms = copy.deepcopy(histograms_)
     flattened = {}
+    _lists_to_dict(histograms)
     _flatten_nested_dict(histograms, flattened)
     for name in flattened:
         h = flattened[name]
-        if not isinstance(h, Histogram): raise RuntimeError, "a non-Histogram value encountered in histograms parameter (%s); this is not allowed." % str(h)
+        if not isinstance(h, Histogram): raise RuntimeError, "a non-Histogram value encountered in histograms parameter (name: %s; value: %s); this is not allowed." % (name, str(h))
         root_h = ROOT.TH1D(name, name, h.get_nbins(), h.get_xmin(), h.get_xmax())
         h_values = h.get_values()
         for i in range(h.get_nbins()):
