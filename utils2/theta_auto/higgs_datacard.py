@@ -160,7 +160,7 @@ def add_shapes(model, obs, proc, uncs, filename, hname, hname_with_systematics, 
     # check that histogram in rootfile matches definition in datacard (allow deviations up to 1% / 1e-4 absolute):
     nominal_is_zero = False
     if old_nominal_histogram.get_value_sum() > 0.0 or nominal_histogram.get_value_sum() > 0.0:
-        if utils.reldiff(old_nominal_histogram.get_value_sum(), nominal_histogram.get_value_sum()) > 0.01 and abs(old_nominal_histogram.get_value_sum() - nominal_histogram.get_value_sum()) > 1e-4:
+        if old_nominal_histogram.get_value_sum()  != -1.0 and utils.reldiff(old_nominal_histogram.get_value_sum(), nominal_histogram.get_value_sum()) > 0.01 and abs(old_nominal_histogram.get_value_sum() - nominal_histogram.get_value_sum()) > 1e-4:
             raise InconsistentDataException("add_shapes: histogram normalisation given in datacard and from root file differ by more than 1%% "
                          "(and absolute difference is > 1e-4) for channel %s, process %s (histogram name '%s')" % (obs, proc, hname))
     else:

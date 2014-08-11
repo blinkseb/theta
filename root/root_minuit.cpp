@@ -144,6 +144,9 @@ MinimizationResult root_minuit::minimize(const theta::Function & f, const theta:
     bool have_errors = min->ProvidesError();
     if(have_errors) errors = min->Errors();
     for(ParIds::const_iterator it=parameters.begin(); it!=parameters.end(); ++it, ++ivar){
+        if(!std::isfinite(x[ivar])){
+             throw MinimizationException("minuit: minimum is at non-finite point");
+        }
         result.values.set(*it, x[ivar]);
         if(have_errors){
             result.errors_plus.set(*it, errors[ivar]);
