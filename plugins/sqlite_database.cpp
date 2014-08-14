@@ -96,13 +96,15 @@ void sqlite_database::endTransaction() {
 
 void sqlite_database::exec(const string & query) {
     char * err = 0;
+    if(db==0){
+        throw DatabaseException("called sqlite_database::exec although database is closed");
+    }
     sqlite3_exec(db, query.c_str(), 0, 0, &err);
     if (err != 0) {
         stringstream ss;
         ss << "sqlite_database::exec(\"" << query << "\") returned error: " << err;
         sqlite3_free(err);
-        //database errors should not happen at all. If they do, we cannot use the log table, so write the error
-        // to stderr, so the user knows what has happened:
+        //database errors should not happen at all. So throw an exception which usually propagates all the way to main.
         throw DatabaseException(ss.str());
     }
 }
@@ -201,7 +203,15 @@ void sqlite_database::sqlite_table::create_table(){
 //create the table if it is empty to ensure that all tables have been created
 // even if there are no entries
 sqlite_database::sqlite_table::~sqlite_table(){
-    if(not table_created) create_table();
+    // we do not want exceptions to be generated in the destructor, so
+    // silently ignore an error here because an error here only means that an error already happened
+    // somewhere else. If not, all we loose is an empty table anyway ...
+    try {
+        if(not table_created){
+            create_table();
+        }
+    }
+    catch(...){}
 }
 
 
