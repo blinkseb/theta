@@ -1,0 +1,28 @@
+
+# /
+/doc
+
+# /bin/
+/bin/.bin
+/bin/theta
+
+# /libconfig/
+/libconfig/.bin
+
+# /liblbfgs/
+/liblbfgs/.bin
+
+# /llvm/
+/llvm/.bin
+
+# /plugins/
+/plugins/.bin
+
+# /root/
+/root/.bin
+
+# /src/
+/src/.bin
+
+# /test/
+/test/.bin
