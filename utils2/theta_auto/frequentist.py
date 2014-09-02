@@ -268,7 +268,7 @@ def pvalue(model, input, n, signal_process_groups = None, nuisance_constraint = 
 
 
 def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 100, n = 10000, input_expected = 'toys:1.0', n_expected = 1000,
-   nuisance_constraint = None, nuisance_prior_toys_bkg = None, options = None, verbose = True, ts_method = deltanll):
+   nuisance_constraint = None, nuisance_prior_toys_bkg = None, options = None, verbose = True, ts_method = deltanll, json_file = None):
     """
     Determine p-value / "N sigma" from tail distribution of background-only test statistic.
 
@@ -297,21 +297,36 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
     if spid is None: spid = model.signal_process_groups.keys()[0]
     signal_process_groups = {spid : model.signal_process_groups[spid]}
     if options is None: options = Options()
+
+    save = json_file is not None
+    if save:
+        import json
+        j = {}
     
     res = ts_method(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint,
                    input = input_expected, n = n_expected, options = options)[spid]
     ts_name = res.keys()[0]
     ts_sorted = res[ts_name]
+    if save:
+        j["expected_deltall_ratios"] = ts_sorted
     ts_sorted.sort()
-    expected = (ts_sorted[int(0.5 * len(ts_sorted))], ts_sorted[int(0.16 * len(ts_sorted))], ts_sorted[int(0.84 * len(ts_sorted))])
+    expected = (ts_sorted[int(0.5 * len(ts_sorted))], ts_sorted[int(0.16 * len(ts_sorted))], ts_sorted[int(0.84 * len(ts_sorted))], ts_sorted[int(0.025 * len(ts_sorted))], ts_sorted[int(0.975 * len(ts_sorted))])
     del ts_sorted
+    if save:
+        j["expected_median"] = expected[0]
+        j["expected_sigma_low"] = expected[1]
+        j["expected_sigma_up"] = expected[2]
+        j["expected_2sigma_low"] = expected[3]
+        j["expected_2sigma_up"] = expected[4]
     
     if use_data:
         res = ts_method(model, signal_process_groups = signal_process_groups, nuisance_constraint = nuisance_constraint, input = 'data', n = 1, options = options)[spid]
-        observed = res[ts_name][0]       
+        observed = res[ts_name][0]
+        if save:
+            j["observed_deltall_ratios"] = res[ts_name]
     
-    # (median [n, n0], -1sigma [n, n0], +1sigma [n, n0])
-    expected_nn0 = ([0,0], [0,0], [0,0])
+    # (median [n, n0], -1sigma [n, n0], +1sigma [n, n0], -2sigma [n, n0], +2sigma [n, n0])
+    expected_nn0 = ([0,0], [0,0], [0,0],[0,0],[0,0])
     # [n, n0] for observed p-value
     observed_nn0 = [0,0]
     observed_significance = None
@@ -320,10 +335,12 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
         ts_bkgonly = ts_method(model, 'toys:0.0', signal_process_groups = signal_process_groups, n = n, nuisance_constraint = nuisance_constraint,
              nuisance_prior_toys = nuisance_prior_toys_bkg, seed = seed, options = options)
         ts_bkgonly = ts_bkgonly[spid][ts_name]
+        if save:
+            j["expected_toy_%d" % seed] = ts_bkgonly
         max_Z_error = 0.0
-        expected_Z = [[0,0],[0,0],[0,0]]
+        expected_Z = [[0,0],[0,0],[0,0],[0,0],[0,0]]
         Z, Z_error = None, None
-        for i in range(3):
+        for i in range(5):
             expected_nn0[i][1] += len(ts_bkgonly)
             expected_nn0[i][0] += count(lambda c: c >= expected[i], ts_bkgonly)
             expected_Z[i] = get_Z(*expected_nn0[i])
@@ -341,8 +358,12 @@ def discovery(model, spid = None, use_data = True, Z_error_max = 0.05, maxit = 1
         if verbose:
             print "after %d iterations" % seed
             if use_data: print "    observed_significance = %.3f +- %.3f%s" % (Z, Z_error, obs_info)
-            print "    expected significance (median, lower 1sigma, upper 1sigma): %.3f +-%.3f%s (%.3f--%.3f)" % (expected_Z[0][0], expected_Z[0][1], exp_info, expected_Z[1][0], expected_Z[2][0])
+            print "    expected significance (median, lower 1sigma, upper 1sigma, lower 2sigma, upper 2sigma): %.3f +-%.3f%s (%.3f--%.3f ; %.3f--%.3f)" % (expected_Z[0][0], expected_Z[0][1], exp_info, expected_Z[1][0], expected_Z[2][0], expected_Z[3][0], expected_Z[4][0])
         if max_Z_error < Z_error_max:
             print "current max error on Z is %.3f, which is smaller than the provided threshold Z_error_max=%.3f; stopping iteration." % (max_Z_error, Z_error_max)
             break
+
+    if save:
+        with open(json_file, 'w') as f:
+            json.dump(j, f)
     return tuple(expected_Z + [(Z, Z_error)])
