@@ -287,7 +287,7 @@ class Model(utils.Copyable):
                     for h in histos:
                         s = sum(h[2])
                         nbins = len(h[2])
-                        h[2][:] = array.array('d', [max(epsilon * s / nbins, y) for y in h[2]])
+                        h[2][:] = array.array('d', [max(epsilon * s / nbins, y) if y >= 0 else min(epsilon * s / nbins, y) for y in h[2]])
 
     def scale_predictions(self, factor, procname = '*', obsname = '*'):
         """
@@ -879,8 +879,6 @@ class HistogramFunction:
                     diff = hdiff.scale(0.5 * delta)
                     diff = diff.add(delta**2 - 0.5 * abs(delta)**3, hsum)
                     result = result.add(1.0, diff.strip_uncertainties())
-            for i in range(len(result[2])):
-                result[2][i] = max(0.0, result[2][i])
             if self.normalize_to_nominal: result = result.scale(self.nominal_histo.get_value_sum() / result.get_value_sum())
             return result
         raise RuntimeError, "unknown typ '%s'" % self.typ
