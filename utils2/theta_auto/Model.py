@@ -51,6 +51,11 @@ class Model(utils.Copyable):
         # as signal. This is defined in signal_process_groups. It is a dictionary from the signal process group is to
         # the list of signal processes to consider.
         self.signal_process_groups = {}
+        # in addition to the signal_processes, we need to define if processes are linear or quadratic in beta_signal.
+        # This link is defined in signal_process_groups values which are dictionnaries of process name, links to beta_signal ("linear" or "squared")
+        # These dictionnaries are stored in beta_signal_relations
+        self.beta_signal_relations = {}
+        self.signal_processes = set() # the subset of processes considered signal
         # observable_to_pred is a nested dictionary (str observable) --> (str process)
         #  --> | 'histogram'            --> HistogramFunction instance
         #      | 'coefficient-function' --> Function instance
@@ -351,7 +356,13 @@ class Model(utils.Copyable):
             for p in groups[spid]: assert type(p)==str and p in self.processes, "unknown process '%s'" % p
         self.signal_processes = set()
         for spid in groups:
-            self.signal_processes.update(groups[spid])
+            processes_set = set()
+            if type(groups[spid]) is dict:
+                for p, rel in groups[spid].items():
+                    processes_set.add(p)
+                    self.beta_signal_relations[p] = rel
+            else : processes_set = groups[spid]
+            self.signal_processes.update(processes_set)
         self.signal_process_groups = copy.deepcopy(groups)
 
     
@@ -445,8 +456,16 @@ class Model(utils.Copyable):
                 if proc in self.signal_processes and proc not in signal_processes: continue
                 cf = self.observable_to_pred[o][proc]['coefficient-function']
                 if proc in signal_processes:
-                    cf = cf.copy()
-                    cf.add_factor('id', parameter = 'beta_signal')
+                    if len(self.beta_signal_relations) > 0:
+                        if self.beta_signal_relations[proc] == "linear":
+                            cf = cf.copy()
+                            cf.add_factor('id', parameter = 'beta_signal')
+                        elif self.beta_signal_relations[proc] == "squared":
+                            cf = cf.copy()
+                            cf.add_factor('id', parameter = '@beta_signal_squared')
+                    else:
+                        cf = cf.copy()
+                        cf.add_factor('id', parameter = 'beta_signal')
                 result[o][proc] = {'histogram': self.observable_to_pred[o][proc]['histogram'].get_cfg(), 'coefficient-function': cf.get_cfg()}
         parameters = self.get_parameters(signal_processes)
         if 'beta_signal' in parameters:            

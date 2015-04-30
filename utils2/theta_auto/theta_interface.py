@@ -786,6 +786,8 @@ class MainBase(ModuleBase, DbResult):
     def common_main_cfg(self, model, signal_processes, options):
         plugins = self.get_required_plugins(options)
         result = {'options': {'plugin_files': ['$THETA_DIR/lib/'+s for s in sorted(list(plugins))]}}
+        if len(model.beta_signal_relations) > 0 and "squared" in model.beta_signal_relations.values() :
+            result['beta_signal_squared'] = {'type': 'multiply', 'factors': ['beta_signal', 'beta_signal']}
         result['parameters'] = sorted(list(model.get_parameters(signal_processes)))
         rvobservables = sorted(list(model.rvobs_distribution.get_parameters()))
         if len(rvobservables) > 0:
